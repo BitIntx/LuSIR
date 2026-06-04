@@ -23,7 +23,15 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "src"))
 
 from sr_diffusion.datasets import ManifestImageDataset
-from sr_diffusion.losses.reconstruction import charbonnier_loss, laplacian_loss, sobel_edge_loss
+from sr_diffusion.losses.reconstruction import (
+    charbonnier_loss,
+    laplacian_loss,
+    laplacian_detail_gate_anchor_loss,
+    laplacian_residual_magnitude_loss,
+    lowpass_anchor_loss,
+    sobel_edge_loss,
+    sobel_residual_magnitude_loss,
+)
 from sr_diffusion.models import AutoencoderKL, ConditionalUNet, LRToLatentPredictor, NoiseScheduler
 from sr_diffusion.utils import (
     autocast_context,
@@ -562,6 +570,12 @@ def main() -> None:
     decoded_loss_weight = float(loss_cfg.get("decoded_weight", 0.0))
     edge_loss_weight = float(loss_cfg.get("edge_weight", 0.0))
     highpass_loss_weight = float(loss_cfg.get("highpass_weight", 0.0))
+    residual_edge_magnitude_loss_weight = float(loss_cfg.get("residual_edge_magnitude_weight", 0.0))
+    residual_highpass_magnitude_loss_weight = float(loss_cfg.get("residual_highpass_magnitude_weight", 0.0))
+    lowpass_anchor_loss_weight = float(loss_cfg.get("lowpass_anchor_weight", 0.0))
+    detail_gate_anchor_loss_weight = float(loss_cfg.get("detail_gate_anchor_weight", 0.0))
+    lowpass_anchor_kernel_size = int(loss_cfg.get("lowpass_anchor_kernel_size", 9))
+    detail_gate_threshold = float(loss_cfg.get("detail_gate_threshold", 0.035))
     charbonnier_eps = float(loss_cfg.get("charbonnier_eps", 1e-3))
     best_metric = str(eval_cfg.get("best_metric", "eval/noise_mse"))
     best_mode = str(eval_cfg.get("best_mode", "min"))
@@ -626,6 +640,10 @@ def main() -> None:
                         or decoded_loss_weight > 0.0
                         or edge_loss_weight > 0.0
                         or highpass_loss_weight > 0.0
+                        or residual_edge_magnitude_loss_weight > 0.0
+                        or residual_highpass_magnitude_loss_weight > 0.0
+                        or lowpass_anchor_loss_weight > 0.0
+                        or detail_gate_anchor_loss_weight > 0.0
                     )
                     if needs_predicted_x0:
                         predicted_x0 = scheduler.predict_x0_from_noise(noisy, timesteps, predicted_noise)
@@ -636,7 +654,15 @@ def main() -> None:
                     else:
                         x0_loss = torch.zeros((), device=device, dtype=noise_loss.dtype)
                     if (
-                        (decoded_loss_weight > 0.0 or edge_loss_weight > 0.0 or highpass_loss_weight > 0.0)
+                        (
+                            decoded_loss_weight > 0.0
+                            or edge_loss_weight > 0.0
+                            or highpass_loss_weight > 0.0
+                            or residual_edge_magnitude_loss_weight > 0.0
+                            or residual_highpass_magnitude_loss_weight > 0.0
+                            or lowpass_anchor_loss_weight > 0.0
+                            or detail_gate_anchor_loss_weight > 0.0
+                        )
                         and predicted_x0 is not None
                     ):
                         decoded = vae.decode(predicted_x0)
@@ -644,16 +670,75 @@ def main() -> None:
                         decoded_loss = charbonnier_loss(decoded, target_image, eps=charbonnier_eps)
                         edge_loss = sobel_edge_loss(decoded, target_image, eps=charbonnier_eps)
                         highpass_loss = laplacian_loss(decoded, target_image, eps=charbonnier_eps)
+                        if (
+                            residual_edge_magnitude_loss_weight > 0.0
+                            or residual_highpass_magnitude_loss_weight > 0.0
+                            or lowpass_anchor_loss_weight > 0.0
+                            or detail_gate_anchor_loss_weight > 0.0
+                        ):
+                            with torch.no_grad():
+                                condition_decoded = vae.decode(condition.detach())
+                        else:
+                            condition_decoded = None
+                        if residual_edge_magnitude_loss_weight > 0.0 or residual_highpass_magnitude_loss_weight > 0.0:
+                            if condition_decoded is None:
+                                raise RuntimeError("condition_decoded is required for residual magnitude losses")
+                            residual_edge_magnitude_loss = sobel_residual_magnitude_loss(
+                                decoded,
+                                target_image,
+                                condition_decoded,
+                                eps=charbonnier_eps,
+                            )
+                            residual_highpass_magnitude_loss = laplacian_residual_magnitude_loss(
+                                decoded,
+                                target_image,
+                                condition_decoded,
+                                eps=charbonnier_eps,
+                            )
+                        else:
+                            residual_edge_magnitude_loss = torch.zeros((), device=device, dtype=noise_loss.dtype)
+                            residual_highpass_magnitude_loss = torch.zeros((), device=device, dtype=noise_loss.dtype)
+                        if lowpass_anchor_loss_weight > 0.0:
+                            if condition_decoded is None:
+                                raise RuntimeError("condition_decoded is required for lowpass anchor loss")
+                            lowpass_anchor = lowpass_anchor_loss(
+                                decoded,
+                                condition_decoded,
+                                kernel_size=lowpass_anchor_kernel_size,
+                                eps=charbonnier_eps,
+                            )
+                        else:
+                            lowpass_anchor = torch.zeros((), device=device, dtype=noise_loss.dtype)
+                        if detail_gate_anchor_loss_weight > 0.0:
+                            if condition_decoded is None:
+                                raise RuntimeError("condition_decoded is required for detail gate anchor loss")
+                            detail_gate_anchor = laplacian_detail_gate_anchor_loss(
+                                decoded,
+                                target_image,
+                                condition_decoded,
+                                threshold=detail_gate_threshold,
+                                eps=charbonnier_eps,
+                            )
+                        else:
+                            detail_gate_anchor = torch.zeros((), device=device, dtype=noise_loss.dtype)
                     else:
                         decoded_loss = torch.zeros((), device=device, dtype=noise_loss.dtype)
                         edge_loss = torch.zeros((), device=device, dtype=noise_loss.dtype)
                         highpass_loss = torch.zeros((), device=device, dtype=noise_loss.dtype)
+                        residual_edge_magnitude_loss = torch.zeros((), device=device, dtype=noise_loss.dtype)
+                        residual_highpass_magnitude_loss = torch.zeros((), device=device, dtype=noise_loss.dtype)
+                        lowpass_anchor = torch.zeros((), device=device, dtype=noise_loss.dtype)
+                        detail_gate_anchor = torch.zeros((), device=device, dtype=noise_loss.dtype)
                     loss = (
                         noise_loss_weight * noise_loss
                         + x0_loss_weight * x0_loss
                         + decoded_loss_weight * decoded_loss
                         + edge_loss_weight * edge_loss
                         + highpass_loss_weight * highpass_loss
+                        + residual_edge_magnitude_loss_weight * residual_edge_magnitude_loss
+                        + residual_highpass_magnitude_loss_weight * residual_highpass_magnitude_loss
+                        + lowpass_anchor_loss_weight * lowpass_anchor
+                        + detail_gate_anchor_loss_weight * detail_gate_anchor
                     )
                     scaled_loss = loss / grad_accum_steps
 
@@ -674,6 +759,10 @@ def main() -> None:
                     f"decoded={float(decoded_loss.detach().cpu()):.5f} "
                     f"edge={float(edge_loss.detach().cpu()):.5f} "
                     f"highpass={float(highpass_loss.detach().cpu()):.5f} "
+                    f"res_edge_mag={float(residual_edge_magnitude_loss.detach().cpu()):.5f} "
+                    f"res_high_mag={float(residual_highpass_magnitude_loss.detach().cpu()):.5f} "
+                    f"low_anchor={float(lowpass_anchor.detach().cpu()):.5f} "
+                    f"detail_gate={float(detail_gate_anchor.detach().cpu()):.5f} "
                     f"steps_per_sec={interval_steps / elapsed:.2f}"
                 )
                 wandb_log(
@@ -685,6 +774,10 @@ def main() -> None:
                         "train/decoded_charbonnier": float(decoded_loss.detach().cpu()),
                         "train/edge_sobel": float(edge_loss.detach().cpu()),
                         "train/highpass_laplacian": float(highpass_loss.detach().cpu()),
+                        "train/residual_edge_magnitude": float(residual_edge_magnitude_loss.detach().cpu()),
+                        "train/residual_highpass_magnitude": float(residual_highpass_magnitude_loss.detach().cpu()),
+                        "train/lowpass_anchor": float(lowpass_anchor.detach().cpu()),
+                        "train/detail_gate_anchor": float(detail_gate_anchor.detach().cpu()),
                         "train/lr": optimizer.param_groups[0]["lr"],
                         "system/steps_per_sec": interval_steps / elapsed,
                     },

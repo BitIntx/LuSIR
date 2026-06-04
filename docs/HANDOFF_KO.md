@@ -3,6 +3,8 @@
 이 문서는 원문 채팅 로그가 아니라, 현재 대화에서 결정하고 실행한 내용을
 다른 VM의 Codex/작업자가 바로 이어받을 수 있게 정리한 공개용 요약입니다.
 
+최신 실패/부분 성공/다음 가설 기록은 `docs/TRIAL_AND_ERROR_KO.md`에 누적합니다.
+
 ## 목표
 
 직접 학습하는 x4 vision-only latent diffusion super-resolution 모델.

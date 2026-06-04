@@ -1,0 +1,111 @@
+project:
+  name: diffusion_photo100k_xl_stage4_condition_v3_rolesplit_mild_b8_probe
+  output_dir: /home/jwheojjang/scratch/sr-diffusion/runs/diffusion_photo100k_xl_stage4_condition_v3_rolesplit_mild_b8_probe
+
+logging:
+  wandb:
+    enabled: true
+    project: sr-diffusion
+    name: diffusion_photo100k_xl_stage4_condition_v3_rolesplit_mild_b8_probe
+    mode: online
+    dir: /home/jwheojjang/scratch/sr-diffusion/wandb
+    tags: [stage4, diffusion, condition-start, photo100k, mild, xl, unet-470m, b8-accum4, role-split, lowpass-anchor]
+    watch: false
+  samples:
+    enabled: true
+    split: val
+    fallback_split: train
+    count: 4
+    indices: [0, 1, 2, 3]
+    init: condition
+
+seed: 1337
+
+autoencoder:
+  config: configs/autoencoder_photo10k.yaml
+  checkpoint: /home/jwheojjang/scratch/sr-diffusion/runs/autoencoder_photo10k_b16_eval_online/checkpoints/best_eval_recon.pt
+
+condition_encoder:
+  config: configs/latent_pretrain_photo100k_v3_noise_xl.yaml
+  checkpoint: /home/jwheojjang/scratch/sr-diffusion/runs/latent_pretrain_photo100k_v3_noise_xl_b64/checkpoints/step_0072000.pt
+  trainable: false
+
+data:
+  manifest: /home/jwheojjang/scratch/sr-diffusion/data/manifest_photo100k.csv
+  split: train
+  hr_size: 512
+  scale: 4
+  degradation_preset: mild
+  domains:
+    photo: 0
+    anime: 1
+  num_workers: 4
+
+model:
+  type: conditional_unet
+  latent_channels: 16
+  condition_channels: 16
+  out_channels: 16
+  base_channels: 128
+  channel_multipliers: [1, 2, 4, 8]
+  num_res_blocks: 6
+  norm_groups: 32
+  num_heads: 8
+  attention_resolutions: [32, 16]
+  base_resolution: 128
+  num_domains: 2
+
+diffusion:
+  num_train_timesteps: 1000
+  beta_schedule: linear
+  beta_start: 0.0001
+  beta_end: 0.02
+  sample_timestep: 25
+  train_min_timestep: 5
+  train_max_timestep: 75
+  train_init: condition
+
+sampling:
+  init: condition
+  start_timestep: 25
+  steps: 32
+
+loss:
+  noise_weight: 0.002
+  x0_weight: 0.01
+  decoded_weight: 0.0
+  edge_weight: 0.25
+  highpass_weight: 0.75
+  residual_edge_magnitude_weight: 0.25
+  residual_highpass_magnitude_weight: 1.0
+  lowpass_anchor_weight: 2.0
+  lowpass_anchor_kernel_size: 15
+  detail_gate_anchor_weight: 0.5
+  detail_gate_threshold: 0.035
+  charbonnier_eps: 0.001
+
+train:
+  device: auto
+  dtype: bf16
+  batch_size: 8
+  max_steps: 8000
+  lr: 0.000003
+  weight_decay: 0.0
+  grad_accum_steps: 4
+  log_every: 25
+  save_every: 2000
+  sample_every: 500
+
+eval:
+  enabled: true
+  split: val
+  limit: 100
+  batch_size: 8
+  num_workers: 4
+  every: 500
+  run_at_start: true
+  timestep: 25
+  init: condition
+  best_metric: eval/decoded_mse
+  best_mode: min
+  best_checkpoint: best_eval_condition_decoded.pt
