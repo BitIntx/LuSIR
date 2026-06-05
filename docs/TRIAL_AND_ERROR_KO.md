@@ -159,15 +159,15 @@ sampled val100 결과, 같은 `photo_v2` 기준:
 - 실제 optimizer update: `2000`
 - save every: `2000` micro steps
 
-현재 상태:
+학습 결과:
 
 - W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/lrb6nco9>
-- PID on current VM: `76933`
-- 시작 직후 정상:
-  - GPU util: `99-100%`
-  - VRAM: 약 `45.2/46.1GB`
-  - speed: 약 `0.86-0.87 micro-step/s`
-  - step 1 decoded proxy PSNR: `23.18`
+- 정상 종료: `finished step=8000`
+- micro steps: `8000`
+- 실제 optimizer update: `2000`
+- best one-step decoded eval: step `7500`
+- one-step decoded PSNR: `23.1841 -> 23.2515`
+- GPU 병목 없음: L40S에서 약 `0.86-0.87 micro-step/s`, VRAM 약 `45.2/46.1GB`
 
 초기 로그 예:
 
@@ -178,24 +178,41 @@ low_anchor=0.00533 detail_gate=0.02187 steps_per_sec=0.39
 eval step=1 noise_mse=42.67671 decoded_psnr=23.18
 ```
 
-평가 계획:
+sampled val100 결과, 같은 `mild` 기준:
 
-1. 학습 완료 후 best/latest checkpoint를 `mild` val100에서 sampled eval.
-2. 우선 `start_timestep=25`, `init=condition`, `steps=32`.
-3. 반드시 Stage2 condition-only `mild` 결과와 비교:
-   - condition baseline: `25.0449 dB`
-   - bicubic baseline: `24.4778 dB`
-4. condition보다 평균 PSNR이 낮거나 condition을 이긴 샘플이 적으면 role split이 아직 부족한 것으로 판단.
-5. 숫자와 별개로 comparison grid에서 fake texture가 줄었는지 확인.
+| 모델 | start timestep | SR/condition PSNR | bicubic PSNR | bicubic 대비 | condition 대비 | condition 이긴 샘플 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Stage2 condition-only | n/a | 25.0449 | 24.4778 | +0.5672 | n/a | n/a |
+| Stage4 role-split best | 25 | 24.5747 | 24.4778 | +0.0969 | -0.4702 | 3/100 |
+| Stage4 role-split best | 10 | 24.9185 | 24.4778 | +0.4408 | -0.1264 | 3/100 |
+| Stage4 role-split best | 5 | 24.9935 | 24.4778 | +0.5158 | -0.0514 | 6/100 |
+| Stage4 role-split best | 1 | 25.0335 | 24.4778 | +0.5557 | -0.0114 | 10/100 |
+
+시각 관찰:
+
+- t25는 아직 condition을 꽤 손상한다. 특히 fine texture/edge가 좋은 샘플에서 blur나
+  fake texture가 섞인다.
+- t10/t5로 낮추면 손상이 줄어들지만, 새 GT detail을 안정적으로 추가하는 느낌은 약하다.
+- t1은 눈으로도 거의 Stage2 condition-only와 같다. 평균 PSNR도 condition-only에
+  거의 붙지만, condition을 이긴 샘플은 `10/100`뿐이다.
+
+결론:
+
+- role-split loss는 "덜 망가뜨리는 방향"으로는 효과가 있다.
+- 그러나 full x0/image를 예측하는 Stage4 구조에서는 diffusion을 충분히 태울수록
+  condition을 덮어쓰는 문제가 남는다.
+- t1에서만 condition과 비슷하다는 것은 diffusion이 유용한 SR detail을 추가했다기보다
+  거의 condition을 통과시킨다는 뜻에 가깝다.
+- 따라서 추가 loss weight 튜닝만으로 해결될 가능성은 낮아졌다.
 
 ## 현재 판단
 
 - Stage1 VAE는 건드리지 않는다.
 - Stage3로 되돌아가지 않는다.
 - Stage2는 강한 base 역할을 이미 하고 있으므로 즉시 재학습하지 않는다.
-- 우선순위는 Stage4의 역할 제한:
-  - condition 저주파/구조 보존
-  - 필요한 위치에서만 detail residual 허용
-  - t25 이하의 작은 refinement
-- role-split probe도 실패하면 다음은 architecture/parameterization 변경을 검토한다.
-  예: U-Net이 full x0를 예측하지 않고 bounded residual 또는 gated residual만 예측하게 만들기.
+- Stage4 loss만 바꾸는 실험은 두 번 모두 condition-only를 넘지 못했다.
+  - residual-detail photo_v2: highpass/detail을 넣으면 거칠어지고 condition을 손상.
+  - role-split mild: 보존은 좋아졌지만 SR detail 추가는 거의 없음.
+- 다음 우선순위는 Stage4 architecture/parameterization 변경이다.
+  예: U-Net이 full x0를 직접 예측하지 않고, condition 위의 bounded residual 또는
+  gated residual만 예측하게 만들기.

@@ -5,6 +5,22 @@
 
 최신 실패/부분 성공/다음 가설 기록은 `docs/TRIAL_AND_ERROR_KO.md`에 누적합니다.
 
+## 2026-06-05 최신 실험 요약
+
+- `diffusion_photo100k_xl_stage4_condition_v3_rolesplit_mild_b8_probe` 학습 완료.
+- W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/lrb6nco9>
+- 완료 step: `8000` micro steps = `2000` optimizer updates (`grad_accum_steps=4`)
+- best checkpoint: step `7500`, `best_eval_condition_decoded.pt`
+- `mild` val100 sampled eval 결과:
+  - Stage2 condition-only: `25.0449` PSNR, bicubic `24.4778`, delta `+0.5672`
+  - Stage4 role-split t25: `24.5747` PSNR, condition 대비 `-0.4702`, wins `3/100`
+  - Stage4 role-split t10: `24.9185` PSNR, condition 대비 `-0.1264`, wins `3/100`
+  - Stage4 role-split t5: `24.9935` PSNR, condition 대비 `-0.0514`, wins `6/100`
+  - Stage4 role-split t1: `25.0335` PSNR, condition 대비 `-0.0114`, wins `10/100`
+- 결론: role-split loss는 condition 손상을 줄였지만, Stage2 condition-only를 넘는
+  유용한 SR detail을 안정적으로 추가하지 못했다. 다음은 loss weight 튜닝보다
+  bounded/gated residual 방식의 Stage4 parameterization 변경을 검토한다.
+
 ## 목표
 
 직접 학습하는 x4 vision-only latent diffusion super-resolution 모델.
