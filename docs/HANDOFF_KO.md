@@ -32,6 +32,22 @@ configs/diffusion_photo100k_xl_stage4_condition_v3_gated_residual_mild_b8_probe.
 forward/backward까지 통과했다. 자세한 가설과 평가 기준은
 `docs/TRIAL_AND_ERROR_KO.md`의 "실험 3" 섹션을 본다.
 
+실험 3 중간 결과:
+
+- W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/edfko8e8>
+- step `2000`에서 중단하고 sampled eval 완료.
+- one-step decoded PSNR은 step `500` 이후 `23.47-23.48`로 보합.
+- best one-step checkpoint: step `1000`
+- sampled 기준 최고는 step `2000`, t25:
+  - SR `25.0445`
+  - bicubic `24.4778`
+  - condition-only `25.0449`
+  - condition 대비 `-0.0004 dB`
+  - condition 이긴 샘플 `34/100`
+- 결론: gated residual은 role-split보다 condition 보존을 크게 개선했지만,
+  평균으로 condition-only를 넘지는 못했다. 다음은 더 오래 학습보다 residual/gate에
+  필요한 위치와 크기를 더 직접적으로 지도하는 방향을 검토한다.
+
 ## 목표
 
 직접 학습하는 x4 vision-only latent diffusion super-resolution 모델.

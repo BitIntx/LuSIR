@@ -257,10 +257,61 @@ sampled val100 결과, 같은 `mild` 기준:
   - batch 8 forward/backward 성공
   - max allocated: 약 `39.9GB`
 
-평가 계획:
+학습 결과:
 
-1. 학습 완료 후 best checkpoint를 `mild` val100에서 sampled eval.
-2. 우선 `start_timestep=25`, `init=condition`, `steps=32`.
-3. t25가 condition-only를 못 넘으면 t10/t5/t1도 확인해 보존/개입 곡선을 본다.
-4. 성공 기준은 평균 PSNR이 condition-only `25.0449`를 넘고, condition을 이긴 샘플 수가
-   role-split t1의 `10/100`보다 유의하게 늘어나는 것이다.
+- W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/edfko8e8>
+- step `2000`에서 중단.
+  - 원래 config는 `8000` micro steps였지만 one-step decoded proxy가 step `500` 이후
+    보합이라 step `2000` checkpoint를 확보한 뒤 sampled eval을 먼저 보기로 했다.
+- best one-step decoded eval: step `1000`
+- one-step decoded PSNR:
+  - step 1: `22.86`
+  - step 500: `23.47`
+  - step 1000: `23.48`
+  - step 1500: `23.47`
+  - step 2000: `23.47`
+- GPU 병목 없음:
+  - L40S VRAM 약 `44.7/46.1GB`
+  - train util `96-100%`
+  - steady speed 약 `0.79 micro-step/s`
+  - thermal slowdown 없음, SW power cap만 active
+
+sampled val100 결과, 같은 `mild` 기준:
+
+| 모델 | checkpoint | start timestep | SR/condition PSNR | bicubic PSNR | bicubic 대비 | condition 대비 | condition 이긴 샘플 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Stage2 condition-only | n/a | n/a | 25.0449 | 24.4778 | +0.5672 | n/a | n/a |
+| Stage4 role-split best | 25 | 25 | 24.5747 | 24.4778 | +0.0969 | -0.4702 | 3/100 |
+| Stage4 role-split best | 5 | 5 | 24.9935 | 24.4778 | +0.5158 | -0.0514 | 6/100 |
+| Stage4 role-split best | 1 | 1 | 25.0335 | 24.4778 | +0.5557 | -0.0114 | 10/100 |
+| Stage4 gated residual | 1000 | 25 | 25.0415 | 24.4778 | +0.5637 | -0.0035 | 25/100 |
+| Stage4 gated residual | 1000 | 10 | 25.0415 | 24.4778 | +0.5637 | -0.0034 | 25/100 |
+| Stage4 gated residual | 1000 | 5 | 25.0416 | 24.4778 | +0.5638 | -0.0034 | 25/100 |
+| Stage4 gated residual | 1000 | 1 | 25.0418 | 24.4778 | +0.5640 | -0.0032 | 25/100 |
+| Stage4 gated residual | 2000 | 25 | 25.0445 | 24.4778 | +0.5667 | -0.0004 | 34/100 |
+| Stage4 gated residual | 2000 | 10 | 25.0444 | 24.4778 | +0.5666 | -0.0006 | 32/100 |
+| Stage4 gated residual | 2000 | 5 | 25.0444 | 24.4778 | +0.5667 | -0.0005 | 31/100 |
+| Stage4 gated residual | 2000 | 1 | 25.0443 | 24.4778 | +0.5665 | -0.0007 | 32/100 |
+
+시각 관찰:
+
+- role-split t25에서 보였던 over-editing/condition 손상은 크게 줄었다.
+- t25/t10/t5/t1 결과가 거의 같아서 sampler가 강하게 새 detail을 만들기보다
+  condition 주변의 작은 residual만 적용하는 상태로 보인다.
+- grid는 Stage2 condition-only와 매우 비슷하다.
+
+결론:
+
+- gated residual parameterization은 성공한 부분이 있다.
+  - full x0 덮어쓰기 문제를 크게 줄였다.
+  - t25에서도 condition-only와 거의 동률까지 보존한다.
+  - condition을 이긴 샘플 수가 role-split t1 `10/100`에서 gated step2000 t25 `34/100`으로 늘었다.
+- 하지만 목표 기준에서는 아직 실패/부분 성공이다.
+  - 평균 PSNR은 condition-only를 넘지 못했다.
+  - 새 GT detail을 안정적으로 추가했다기보다 condition output을 거의 보존하는 쪽이다.
+- 다음 방향은 단순히 더 오래 학습하는 것이 아니라, residual이 어디서/얼마나 필요한지
+  더 직접적으로 알려주는 신호가 필요하다.
+  예:
+  - residual/gate supervised loss를 latent 또는 decoded domain에 명시적으로 추가.
+  - Stage2가 uncertainty/detail-need map을 같이 예측하게 해서 Stage4 gate 조건으로 사용.
+  - residual branch를 diffusion 전체가 아니라 deterministic residual refiner로 먼저 검증.
