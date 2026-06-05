@@ -106,7 +106,7 @@ XL Stage 2 candidate comparison:
   latest step 80000:           decoded_psnr 21.5062
 ```
 
-The first Stage 4 XL condition-start run is now complete. It uses the 469.6M
+The first Stage 4 XL condition-start run is complete. It uses the 469.6M
 U-Net path, the Stage 2 XL step 72000 condition encoder, partial initialization
 from Stage 4 v2, and edge/highpass decoded losses for stronger restoration.
 
@@ -124,6 +124,27 @@ This is better than the previous v3-noise XL condition-only path and beats the
 bicubic baseline on the current v3 validation setup, but it is still an active
 research checkpoint: noise/color cleanup improved, while fine texture recovery
 remains softer than the ground truth.
+
+Follow-up ablations showed that loss-only Stage 4 changes were not enough to
+turn the diffusion U-Net into a reliable detail refiner. A role-split
+lowpass-anchor probe preserved structure better but still damaged the Stage 2
+condition output at larger start timesteps. A newer `gated_residual_x0`
+parameterization constrains the U-Net to predict a bounded residual on top of
+the Stage 2 condition latent instead of freely predicting full x0. This greatly
+reduced condition damage but still did not beat the Stage 2 condition-only
+baseline on average:
+
+```text
+Stage 2 XL condition-only mild val100: 25.0449 PSNR
+Stage 4 role-split mild t25:          24.5747 PSNR, condition wins 3/100
+Stage 4 gated residual step2000 t25:  25.0445 PSNR, condition wins 34/100
+W&B gated residual probe:             https://wandb.ai/jwheo/sr-diffusion/runs/edfko8e8
+```
+
+The current research conclusion is that Stage 4 must receive a more direct
+signal for where residual detail is needed. Simply continuing the same
+diffusion loss is less promising than supervising the residual/gate path or
+adding a condition uncertainty/detail-need signal.
 
 For VM migration and continuation context, read:
 
@@ -159,6 +180,8 @@ Implemented:
   shift/banding experiments.
 - `photo_v3_noise_mix` degradation and XL configs for 500M-class
   denoise/sharpening experiments.
+- condition-only validation tooling for isolating Stage 2 from diffusion.
+- gated residual x0 diffusion parameterization for bounded Stage 4 refinement.
 - Partial checkpoint initialization for widened/deepened Stage 2 and diffusion
   models via `--partial-init`.
 - Multi-GPU diffusion training through PyTorch DDP, with single-GPU fallback
@@ -471,8 +494,11 @@ Upload only selected checkpoints/configs/metrics, not raw datasets. See
 The public Hugging Face prototype can be downloaded and run from a fresh clone.
 The default inference config still points at the smaller 10k Stage 4
 condition-start checkpoint for faster setup. The Colab notebook now also lets
-you select the larger photo100k Stage 4 checkpoints, including the latest XL
-edge-loss Stage 4 checkpoint for denoise/sharpening review.
+you select the larger photo100k Stage 4 checkpoints, including the public XL
+edge-loss Stage 4 checkpoint for denoise/sharpening review. The newer gated
+residual probe is documented as an experiment, but its checkpoint has not been
+promoted as a public artifact because it still matches rather than beats the
+Stage 2 condition-only baseline.
 
 For a click-to-run demo, open the Colab notebook:
 
@@ -702,6 +728,18 @@ torchrun --standalone --nproc_per_node=2 train_diffusion.py \
   --partial-init
 ```
 
+The gated residual x0 probe constrains the diffusion U-Net to predict a bounded
+residual and gate on top of the Stage 2 condition latent. It was initialized
+from the role-split mild probe, then stopped at step 2000 after sampled
+validation reached condition-only parity:
+
+```bash
+python train_diffusion.py \
+  --config configs/diffusion_photo100k_xl_stage4_condition_v3_gated_residual_mild_b8_probe.yaml \
+  --init-checkpoint /home/jwheojjang/scratch/sr-diffusion/runs/diffusion_photo100k_xl_stage4_condition_v3_rolesplit_mild_b8_probe/checkpoints/best_eval_condition_decoded.pt \
+  --partial-init
+```
+
 Recommended Stage 3 tmux launch:
 
 ```bash
@@ -881,9 +919,14 @@ Stage 4: perceptual / GAN fine-tune
   sharpness while hurting fidelity.
 - The first XL Stage 4 edge-loss run is complete. It improves the current v3
   sampled validation result over bicubic by +0.7195 dB, but outputs are still
-  softer than GT on fine textures. The next cheap ablation is sampled eval with
-  lower `--start-timestep 25` on the same checkpoint before committing to a
-  longer continuation run.
+  softer than GT on fine textures.
+- Later role-split and gated residual probes show that Stage 4 must be
+  structurally constrained. Gated residual x0 prediction nearly matches the
+  Stage 2 condition-only mild baseline at t25 (`25.0445` vs `25.0449` PSNR)
+  and improves condition win count to `34/100`, but it still does not beat the
+  deterministic condition path on average.
+- The next high-signal direction is not simply longer Stage 4 training. Add a
+  more direct residual/gate target or condition uncertainty/detail-need signal.
 
 Run the Stage 4-lite low-timestep fine-tune:
 

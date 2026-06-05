@@ -1,6 +1,6 @@
 # Vision-Only Latent Diffusion Super-Resolution without T2I Pretraining
 
-Snapshot: Stage 4 XL edge-loss training complete.
+Snapshot: Stage 4 XL gated-residual probe complete.
 
 ## Objective
 
@@ -24,8 +24,10 @@ denoised latent -> VAE decoder -> SR output
 
 The current large photo split has 103,450 training images and 100 fixed
 validation images. LR inputs are generated on the fly from HR crops. The latest
-XL work uses `photo_v3_noise_mix`, a stronger denoise-focused degradation
-curriculum with mixed mild/v2/v3 noise cases.
+XL edge-loss work uses `photo_v3_noise_mix`, a stronger denoise-focused
+degradation curriculum with mixed mild/v2/v3 noise cases. The latest
+residual-refinement probes also evaluate a mild val100 setting to isolate
+whether Stage 4 adds detail beyond the Stage 2 condition-only output.
 
 ## Completed Baselines
 
@@ -109,6 +111,79 @@ current v3 validation setup and better aligned with the desired denoise/color
 cleanup behavior than the Stage 2 condition-only path. It is still not a final
 restoration model: outputs remain softer than GT on fine textures.
 
+## Stage 4 XL Role-Split and Gated-Residual Probes
+
+Follow-up probes tested whether Stage 4 could act as a bounded detail refiner
+instead of freely overwriting the deterministic Stage 2 condition latent.
+
+The role-split mild probe added a lowpass anchor and separated low/high-frequency
+decoded losses:
+
+```text
+config: configs/diffusion_photo100k_xl_stage4_condition_v3_rolesplit_mild_b8_probe.yaml
+run: diffusion_photo100k_xl_stage4_condition_v3_rolesplit_mild_b8_probe
+W&B: https://wandb.ai/jwheo/sr-diffusion/runs/lrb6nco9
+finished step: 8000 micro-steps, 2000 optimizer updates
+best one-step checkpoint: step 7500, decoded PSNR 23.2515
+```
+
+Sampled mild val100 showed that role-split losses reduced some over-editing at
+very low start timesteps, but the diffusion path still damaged the Stage 2
+condition output on average:
+
+| Model | Start timestep | Mean SR PSNR | vs condition-only | Wins vs condition |
+| --- | ---: | ---: | ---: | ---: |
+| Stage 2 XL condition-only | n/a | `25.0449` | n/a | n/a |
+| Stage 4 role-split | 25 | `24.5747` | `-0.4702` | `3/100` |
+| Stage 4 role-split | 10 | `24.9185` | `-0.1264` | `3/100` |
+| Stage 4 role-split | 5 | `24.9935` | `-0.0514` | `6/100` |
+| Stage 4 role-split | 1 | `25.0335` | `-0.0114` | `10/100` |
+
+The next probe changed the diffusion prediction parameterization to
+`gated_residual_x0`. Instead of predicting the full denoised latent, the U-Net
+predicts a bounded residual and gate on top of the condition latent:
+
+```text
+x0_hat = condition + residual_scale * tanh(residual_logits) * sigmoid(gate_logits + gate_bias)
+residual_scale: 1.25
+gate_bias: 0.0
+out_channels: 32
+```
+
+The probe was initialized from the role-split best checkpoint with partial
+initialization and stopped at step 2000 after the sampled validation result
+reached condition-only parity:
+
+```text
+config: configs/diffusion_photo100k_xl_stage4_condition_v3_gated_residual_mild_b8_probe.yaml
+run: diffusion_photo100k_xl_stage4_condition_v3_gated_residual_mild_b8_probe
+W&B: https://wandb.ai/jwheo/sr-diffusion/runs/edfko8e8
+best one-step checkpoint: step 1000
+final checkpoint: step 2000
+```
+
+Sampled mild val100:
+
+| Model | Checkpoint | Start timestep | Mean SR PSNR | vs condition-only | Wins vs condition |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Stage 2 XL condition-only | n/a | n/a | `25.0449` | n/a | n/a |
+| Stage 4 gated residual | 1000 | 25 | `25.0415` | `-0.0035` | `25/100` |
+| Stage 4 gated residual | 1000 | 10 | `25.0415` | `-0.0034` | `25/100` |
+| Stage 4 gated residual | 1000 | 5 | `25.0416` | `-0.0034` | `25/100` |
+| Stage 4 gated residual | 1000 | 1 | `25.0418` | `-0.0032` | `25/100` |
+| Stage 4 gated residual | 2000 | 25 | `25.0445` | `-0.0004` | `34/100` |
+| Stage 4 gated residual | 2000 | 10 | `25.0444` | `-0.0006` | `32/100` |
+| Stage 4 gated residual | 2000 | 5 | `25.0444` | `-0.0005` | `31/100` |
+| Stage 4 gated residual | 2000 | 1 | `25.0443` | `-0.0007` | `32/100` |
+
+This is a partial success. The gated residual parameterization almost eliminated
+the condition damage seen in previous Stage 4 probes and increased the number of
+samples beating condition-only from `10/100` at role-split t1 to `34/100` at
+gated-residual step2000 t25. However, the mean result still does not beat the
+Stage 2 condition-only baseline. The current interpretation is that Stage 4 has
+learned a safe near-identity residual path, not a reliable missing-detail
+generator.
+
 ## Systems Notes
 
 Diffusion training now supports PyTorch DDP when launched with `torchrun`.
@@ -119,6 +194,10 @@ reported about `199.5 GB/s`, so multi-GPU communication was not the bottleneck.
 The completed Stage 4 XL edge run trained at about `0.78 step/s` in ordinary
 train sections. A 5000-step run is roughly 1.8 hours of pure training, plus
 eval/checkpoint overhead.
+
+On the tested 2x L40S environment, the gated-residual probe ran with high GPU
+utilization, about `0.79` micro-step/s, and roughly `44.7 / 46.1 GiB` allocated
+per GPU. No GPU bottleneck or NCCL communication issue was observed.
 
 ## Public Artifacts
 
@@ -133,9 +212,15 @@ configs/diffusion_photo100k_xl_stage4_condition_v3_edge_b16.yaml
 
 ## Next Work
 
-The highest-signal next ablation is to sample the same Stage 4 XL checkpoint
-with a lower start timestep, especially `25`, to see whether the model preserves
-more high-frequency detail while retaining the denoise benefit. If that helps,
-continue from the current checkpoint with a slightly lower decoded loss weight
-or a more balanced edge/highpass setup. If it hurts, continue improving the
-condition encoder and degradation curriculum before increasing Stage 4 runtime.
+The highest-signal next direction is not a longer continuation of the same
+Stage 4 loss. Gated residual x0 prediction shows that structural constraints can
+protect the Stage 2 condition output, but the model still needs a more direct
+signal for where residual detail should be added. Candidate next steps are:
+
+- train a deterministic bounded residual refiner first, then distill or warm
+  start the diffusion residual path from it;
+- add direct residual/gate supervision based on condition-vs-target error;
+- add a condition uncertainty or detail-need map so Stage 4 edits only locations
+  where the Stage 2 condition encoder is likely missing recoverable detail;
+- revisit the Stage 2 degradation curriculum if the condition encoder remains
+  the dominant quality ceiling.

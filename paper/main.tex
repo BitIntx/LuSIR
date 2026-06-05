@@ -8,7 +8,7 @@
 
 \title{Vision-Only Latent Diffusion Super-Resolution without T2I Pretraining}
 \author{sr-diffusion contributors}
-\date{Completed-experiment snapshot through Stage 4 XL edge-loss training}
+\date{Completed-experiment snapshot through Stage 4 XL gated-residual probing}
 
 \begin{document}
 \maketitle
@@ -18,12 +18,16 @@ This report summarizes a work-in-progress x4 super-resolution system trained
 directly in vision space, without importing a pretrained text-to-image diffusion
 backbone. The completed pipeline consists of a factor-4 VAE, deterministic
 LR-to-HR-latent pretraining, conditional latent diffusion, and
-condition-start fine-tuning on a 103k-image photo split. The latest completed
+condition-start fine-tuning on a 103k-image photo split. The latest public
 XL-stage result uses a 500M-class full inference path: a wider Stage 2
 condition encoder trained with a stronger degradation curriculum and a deeper
 469.6M-parameter diffusion U-Net fine-tuned with decoded edge/highpass losses.
 On the current \texttt{photo\_v3\_noise\_mix} sampled validation setup, the
 Stage 4 XL edge-loss checkpoint improves over bicubic by +0.7195 dB PSNR.
+Subsequent role-split and gated-residual probes show that bounded residual
+parameterization can nearly preserve the Stage 2 condition output on mild
+validation, reaching 25.0445 PSNR versus 25.0449 for condition-only, but it
+still does not provide a net average gain.
 \end{abstract}
 
 \section{Objective}
@@ -84,6 +88,8 @@ The repository currently includes:
   \item conditional latent diffusion with timestep and domain conditioning,
   \item DDIM/img2img sampling for validation,
   \item condition-start Stage 4 fine-tuning,
+  \item condition-only validation tooling for isolating Stage 2 from diffusion,
+  \item gated-residual \(\hat{x}_0\) prediction for bounded Stage 4 refinement,
   \item bf16 CUDA/ROCm training paths,
   \item W\&B logging, fixed validation samples, checkpoint evaluation, and
         recovery scripts for VM migration,
@@ -96,9 +102,11 @@ The repository currently includes:
 The large-scale photo runs use a 103,450-image training split and a fixed
 100-image validation split. HR crops are 512px and LR inputs are 128px. The
 original photo degradation was extended with stronger blur, noise, compression,
-ringing, color shift, and banding variants. The latest XL condition encoder uses
+ringing, color shift, and banding variants. The latest XL edge-loss work uses
 the \texttt{photo\_v3\_noise\_mix} degradation preset to emphasize
-denoise/sharpening behavior.
+denoise/sharpening behavior. Follow-up residual-refinement probes also evaluate
+a mild val100 setting to isolate whether Stage 4 adds detail beyond the Stage 2
+condition-only output.
 
 \begin{table}[H]
 \centering
@@ -112,7 +120,7 @@ Train split & 103,450 images \\
 Validation split & 100 fixed images \\
 VAE latent & 128px, 16 channels \\
 Primary dtype & bf16 \\
-Latest completed XL degradation & \texttt{photo\_v3\_noise\_mix} \\
+Primary XL degradation & \texttt{photo\_v3\_noise\_mix} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -121,9 +129,8 @@ Latest completed XL degradation & \texttt{photo\_v3\_noise\_mix} \\
 
 \subsection{Stage 1 VAE}
 
-The selected Stage 1 VAE checkpoint is
-\texttt{autoencoder\_photo10k\_b16\_eval\_online/checkpoints/best\_eval\_recon.pt}.
-It was selected at the 50k-step checkpoint with:
+The selected Stage 1 VAE checkpoint is the best reconstruction artifact from the
+Stage 1 photo10k run. It was selected at the 50k-step checkpoint with:
 
 \begin{table}[H]
 \centering
@@ -149,11 +156,11 @@ conditional diffusion, and condition-start fine-tuning.
 \toprule
 Stage & Run & Finished step & Selected result \\
 \midrule
-Stage 2 & \texttt{latent\_pretrain\_photo100k\_b64} & 30k &
+Stage 2 & photo100k b64 latent pretrain & 30k &
 best latent loss 0.21230 \\
-Stage 3 & \texttt{diffusion\_photo100k\_b32} & 60k &
+Stage 3 & photo100k b32 diffusion & 60k &
 decoded PSNR 24.56 diagnostic \\
-Stage 4 & \texttt{diffusion\_photo100k\_b32\_stage4\_condition} & 5k &
+Stage 4 & photo100k condition-start & 5k &
 sampled val100 PSNR 25.4072 \\
 \bottomrule
 \end{tabular}
@@ -275,8 +282,98 @@ Mean PSNR delta & +0.7195 \\
 Qualitatively, the XL Stage 4 checkpoint reduces noise and color contamination
 relative to the degraded LR/bicubic path. It is not yet a final restoration
 model: outputs remain visibly softer than the ground truth on fine textures.
-The next low-cost ablation is to resample the same checkpoint with a lower start
-timestep, such as 25, to test whether less denoising preserves more detail.
+
+\subsection{Stage 4 XL Role-Split and Gated-Residual Probes}
+
+Follow-up probes tested whether Stage 4 could act as a bounded detail refiner
+instead of freely overwriting the deterministic Stage 2 condition latent. The
+role-split mild probe added a lowpass anchor and separated low/high-frequency
+decoded losses.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{ll}
+\toprule
+Item & Value \\
+\midrule
+Config & role-split mild b8 probe \\
+W\&B run & \url{https://wandb.ai/jwheo/sr-diffusion/runs/lrb6nco9} \\
+Finished step & 8000 micro-steps, 2000 optimizer updates \\
+Best one-step checkpoint & step 7500, decoded PSNR 23.2515 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Sampled mild val100 showed that role-split losses reduced some over-editing at
+very low start timesteps, but the diffusion path still damaged the Stage 2
+condition output on average:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lrrr}
+\toprule
+Model & Start timestep & Mean SR PSNR & vs condition \\
+\midrule
+Stage 2 condition-only & n/a & 25.0449 & n/a \\
+Stage 4 role-split & 25 & 24.5747 & -0.4702 \\
+Stage 4 role-split & 10 & 24.9185 & -0.1264 \\
+Stage 4 role-split & 5 & 24.9935 & -0.0514 \\
+Stage 4 role-split & 1 & 25.0335 & -0.0114 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The next probe changed the diffusion prediction type to
+\texttt{gated\_residual\_x0}. Instead of predicting the full denoised latent,
+the U-Net predicts a bounded residual and gate on top of the condition latent:
+\[
+\hat{x}_0 = c + s \tanh(r) \sigma(g + b),
+\]
+where \(c\) is the Stage 2 condition latent, \(r\) is the residual head, \(g\)
+is the gate head, \(s=1.25\), and \(b=0.0\). The probe was initialized from the
+role-split best checkpoint with partial initialization and stopped at step 2000
+after sampled validation reached condition-only parity.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{ll}
+\toprule
+Item & Value \\
+\midrule
+Config & gated-residual mild b8 probe \\
+W\&B run & \url{https://wandb.ai/jwheo/sr-diffusion/runs/edfko8e8} \\
+Best one-step checkpoint & step 1000 \\
+Final checkpoint & step 2000 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lrrrr}
+\toprule
+Model & Checkpoint & Start timestep & Mean SR PSNR & Wins vs condition \\
+\midrule
+Stage 2 condition-only & n/a & n/a & 25.0449 & n/a \\
+Stage 4 gated residual & 1000 & 25 & 25.0415 & 25/100 \\
+Stage 4 gated residual & 1000 & 10 & 25.0415 & 25/100 \\
+Stage 4 gated residual & 1000 & 5 & 25.0416 & 25/100 \\
+Stage 4 gated residual & 1000 & 1 & 25.0418 & 25/100 \\
+Stage 4 gated residual & 2000 & 25 & 25.0445 & 34/100 \\
+Stage 4 gated residual & 2000 & 10 & 25.0444 & 32/100 \\
+Stage 4 gated residual & 2000 & 5 & 25.0444 & 31/100 \\
+Stage 4 gated residual & 2000 & 1 & 25.0443 & 32/100 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+This is a partial success. Gated residual prediction almost eliminated the
+condition damage seen in previous Stage 4 probes and increased the number of
+samples beating condition-only from 10/100 at role-split \(t=1\) to 34/100 at
+gated-residual step 2000 with \(t=25\). However, the mean result still does not
+beat the Stage 2 condition-only baseline. The current interpretation is that
+Stage 4 has learned a safe near-identity residual path, not a reliable
+missing-detail generator.
 
 \section{Limitations}
 
@@ -285,7 +382,9 @@ published method. The large-scale completed results are photo-domain only, while
 anime/illustration domain conditioning remains implemented but not yet validated
 at the same scale. The reported sampled PSNR values are useful for internal
 checkpoint comparison, but they are not a full benchmark suite against external
-SR methods.
+SR methods. The highest-signal next direction is to add a direct residual/gate
+target or condition uncertainty/detail-need signal before investing in longer
+Stage 4 continuations.
 
 \begin{thebibliography}{9}
 \bibitem{rombach2022latent}
