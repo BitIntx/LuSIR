@@ -315,3 +315,154 @@ sampled val100 결과, 같은 `mild` 기준:
   - residual/gate supervised loss를 latent 또는 decoded domain에 명시적으로 추가.
   - Stage2가 uncertainty/detail-need map을 같이 예측하게 해서 Stage4 gate 조건으로 사용.
   - residual branch를 diffusion 전체가 아니라 deterministic residual refiner로 먼저 검증.
+
+## 실험 4: Stage2 residual/oracle diagnostic
+
+목표:
+
+- Stage2 condition-only가 실제로 무엇을 놓치는지 분해한다.
+- 저주파/구조가 문제인지, 고주파/detail residual이 문제인지 확인한다.
+- Stage4 diffusion을 더 돌리기 전에 residual refiner가 풀어야 할 target을 분명히 한다.
+
+추가된 스크립트:
+
+- `diagnose_stage2_residuals.py`
+
+실행:
+
+```bash
+python diagnose_stage2_residuals.py \
+  --config configs/diffusion_photo100k_xl_stage4_condition_v3_gated_residual_mild_b8_probe.yaml \
+  --output-dir /home/jwheojjang/scratch/sr-diffusion/runs/diagnose_stage2_xl_residuals_mild_val100 \
+  --split val \
+  --limit 100 \
+  --batch-size 8 \
+  --num-workers 4 \
+  --sample-count 8
+```
+
+주요 결과, `mild` val100:
+
+| 항목 | 값 |
+| --- | ---: |
+| bicubic PSNR | 24.4778 |
+| condition decoded PSNR | 25.0543 |
+| oracle full residual decoded PSNR | 41.8207 |
+| oracle full vs condition | +16.7664 |
+| oracle highpass decoded PSNR | 35.0872 |
+| oracle highpass vs condition | +10.0329 |
+| oracle lowpass decoded PSNR | 25.0814 |
+| oracle lowpass vs condition | +0.0270 |
+| residual highpass energy ratio | 0.8988 |
+| residual lowpass energy ratio | 0.0758 |
+| `abs(residual_gt) > 1.25` fraction | 0.0098 |
+
+시각 관찰:
+
+- Stage2 condition은 구조/색/저주파는 이미 꽤 잘 맞춘다.
+- GT와의 차이는 대부분 branch, fur, water, building edge 같은 고주파 detail이다.
+- highpass oracle은 texture/detail을 크게 회복하지만, lowpass oracle은 거의 차이가 없다.
+
+결론:
+
+- Stage1/VAE나 Stage2 전체를 처음부터 의심할 상황은 아니다.
+- Stage4가 full x0를 다시 그리는 방식은 target과 맞지 않는다.
+- 다음 실험은 "condition 위에 필요한 고주파 residual을 제한적으로 더하는가"만 먼저
+  deterministic하게 검증하는 것이 맞다.
+
+## 실험 5: deterministic bounded residual refiner probe
+
+목표:
+
+- diffusion sampler를 빼고, frozen Stage1 VAE + frozen Stage2 condition encoder 위에서
+  작은 residual refiner가 condition-only를 넘을 수 있는지 확인한다.
+- gated residual Stage4에서 보였던 near-identity 문제를 direct residual/gate supervision으로
+  풀 수 있는지 본다.
+- 성공하면 이후 Stage4 diffusion residual path의 teacher/warm-start 후보로 쓴다.
+
+추가된 스크립트/config:
+
+- `train_residual_refiner.py`
+- `configs/residual_refiner_stage2_xl_mild_probe.yaml`
+- `configs/residual_refiner_stage2_xl_mild_open_gate_probe.yaml`
+
+구조:
+
+```text
+input: condition latent + normalized LR
+output: condition + residual_scale * tanh(residual_logits) * sigmoid(gate_logits + gate_bias)
+loss: latent L1 + residual L1 + highpass L1 + gate L1
+```
+
+Sparse-gate probe:
+
+- run dir:
+  `/home/jwheojjang/scratch/sr-diffusion/runs/residual_refiner_stage2_xl_mild_probe`
+- best checkpoint:
+  `checkpoints/best_eval_refined.pt`
+- best step: `500`
+- step `1000`까지 확인 후 step `500`이 가장 좋아서 중단.
+
+| step | global PSNR delta | mean PSNR delta | wins vs condition | gate mean |
+| ---: | ---: | ---: | ---: | ---: |
+| 0 | +0.0000 | +0.0000 | 0/100 | 0.5000 |
+| 250 | +0.0333 | n/a | 77/100 | 0.3612 |
+| 500 | +0.0455 | +0.0729 | 86/100 | 0.2147 |
+| 750 | +0.0312 | n/a | 76/100 | 0.1685 |
+| 1000 | +0.0364 | n/a | 76/100 | 0.1488 |
+
+Best sparse-gate eval:
+
+```text
+condition_mean_psnr:              25.0449
+refined_mean_psnr:                25.1178
+refined_vs_condition_mean_psnr:   +0.0729
+wins_vs_condition:                86/100
+global_condition_decoded_psnr:    23.4794
+global_refined_decoded_psnr:      23.5249
+global_delta:                     +0.0455
+gate_mean:                        0.2147
+```
+
+Open-gate ablation:
+
+- run dir:
+  `/home/jwheojjang/scratch/sr-diffusion/runs/residual_refiner_stage2_xl_mild_open_gate_probe`
+- `gate_bias: 2.0`, `gate_l1_weight: 0`, `highpass_weight: 2`
+- step `500`에서 sparse-gate보다 나빠서 중단.
+
+```text
+condition_mean_psnr:              25.0449
+refined_mean_psnr:                25.0972
+refined_vs_condition_mean_psnr:   +0.0523
+wins_vs_condition:                73/100
+global_delta:                     +0.0337
+gate_mean:                        0.8680
+```
+
+시각 관찰:
+
+- sparse-gate refined output은 condition과 매우 가깝고, 작은 detail/edge 쪽만 보정한다.
+- 큰 artifact나 과한 fake texture는 보이지 않는다.
+- open-gate는 gate가 크게 열리지만 평균/승률 모두 sparse-gate보다 낮다.
+
+결론:
+
+- residual detail은 학습 가능하다. `+0.0729 dB`, `86/100` wins는 작은 probe치고
+  의미 있는 진전이다.
+- 그러나 "gate를 더 열고 residual을 더 많이 더하면 된다"는 가설은 약해졌다.
+- 다음 Stage4는 decoded weight를 무작정 키우는 continuation보다, deterministic residual
+  refiner를 teacher/warm-start로 쓰거나 Stage4 U-Net에 residual/gate target을 직접 주는
+  방향이 더 타당하다.
+
+HF 보존:
+
+```text
+checkpoints/residual_refiner_stage2_xl_mild_best_eval_refined.pt
+metrics/diagnose_stage2_xl_residuals_mild_val100_summary.json
+metrics/residual_refiner_stage2_xl_mild_probe_early_stop_summary.json
+metrics/residual_refiner_stage2_xl_mild_open_gate_probe_early_stop_summary.json
+samples/diagnose_stage2_xl_residuals_mild_val100_grid.png
+samples/residual_refiner_stage2_xl_mild_probe_step500_grid.png
+samples/residual_refiner_stage2_xl_mild_open_gate_probe_step500_grid.png
+```

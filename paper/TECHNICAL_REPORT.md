@@ -1,6 +1,6 @@
 # Vision-Only Latent Diffusion Super-Resolution without T2I Pretraining
 
-Snapshot: Stage 4 XL gated-residual probe complete.
+Snapshot: Stage 2 residual diagnostic and deterministic residual refiner probe complete.
 
 ## Objective
 
@@ -184,6 +184,48 @@ Stage 2 condition-only baseline. The current interpretation is that Stage 4 has
 learned a safe near-identity residual path, not a reliable missing-detail
 generator.
 
+## Stage 2 Residual Diagnostic and Deterministic Refiner
+
+A direct residual/oracle diagnostic was run to separate the Stage 2
+condition-only error into lowpass and highpass components on mild val100:
+
+| Metric | Value |
+| --- | ---: |
+| Bicubic PSNR | `24.4778` |
+| Condition decoded PSNR | `25.0543` |
+| Oracle full residual PSNR | `41.8207` |
+| Oracle full vs condition | `+16.7664` |
+| Oracle highpass PSNR | `35.0872` |
+| Oracle highpass vs condition | `+10.0329` |
+| Oracle lowpass PSNR | `25.0814` |
+| Oracle lowpass vs condition | `+0.0270` |
+| Residual highpass energy ratio | `0.8988` |
+| Residual lowpass energy ratio | `0.0758` |
+
+This indicates that the Stage 2 condition encoder already preserves most
+structure and low-frequency color, while the remaining recoverable error is
+dominated by high-frequency detail.
+
+The follow-up deterministic bounded residual refiner freezes the Stage 1 VAE
+and Stage 2 condition encoder, then predicts only:
+
+```text
+condition + residual_scale * tanh(residual_logits) * sigmoid(gate_logits + gate_bias)
+```
+
+The sparse-gate probe reached its best validation result at step 500:
+
+| Model | Mean PSNR | vs condition | Wins vs condition | Gate mean |
+| --- | ---: | ---: | ---: | ---: |
+| Stage 2 condition-only | `25.0449` | n/a | n/a | n/a |
+| Sparse-gate residual refiner | `25.1178` | `+0.0729` | `86/100` | `0.2147` |
+| Open-gate residual refiner | `25.0972` | `+0.0523` | `73/100` | `0.8680` |
+
+The sparse-gate result is a small but real gain and is qualitatively close to
+the condition output, without the destructive edits seen in previous diffusion
+Stage 4 probes. The open-gate ablation was worse despite a much larger mean
+gate value, so the next step should not simply force larger residual edits.
+
 ## Systems Notes
 
 Diffusion training now supports PyTorch DDP when launched with `torchrun`.
@@ -205,20 +247,26 @@ The latest public artifacts are stored in `jwheo/sr-diffusion` on Hugging Face:
 
 ```text
 checkpoints/stage4_photo100k_xl_edge_b16_best_eval_condition_decoded.pt
+checkpoints/residual_refiner_stage2_xl_mild_best_eval_refined.pt
 metrics/stage4_photo100k_xl_edge_b16_val100_t50_32step_summary.json
+metrics/diagnose_stage2_xl_residuals_mild_val100_summary.json
+metrics/residual_refiner_stage2_xl_mild_probe_early_stop_summary.json
 samples/stage4_photo100k_xl_edge_b16_val100_t50_32step_grid_lr_bicubic_sr_gt.png
+samples/diagnose_stage2_xl_residuals_mild_val100_grid.png
+samples/residual_refiner_stage2_xl_mild_probe_step500_grid.png
 configs/diffusion_photo100k_xl_stage4_condition_v3_edge_b16.yaml
+configs/residual_refiner_stage2_xl_mild_probe.yaml
 ```
 
 ## Next Work
 
 The highest-signal next direction is not a longer continuation of the same
 Stage 4 loss. Gated residual x0 prediction shows that structural constraints can
-protect the Stage 2 condition output, but the model still needs a more direct
-signal for where residual detail should be added. Candidate next steps are:
+protect the Stage 2 condition output, and the deterministic refiner shows that
+small supervised residual gains are learnable. Candidate next steps are:
 
-- train a deterministic bounded residual refiner first, then distill or warm
-  start the diffusion residual path from it;
+- distill or warm start the diffusion residual path from the deterministic
+  sparse-gate refiner;
 - add direct residual/gate supervision based on condition-vs-target error;
 - add a condition uncertainty or detail-need map so Stage 4 edits only locations
   where the Stage 2 condition encoder is likely missing recoverable detail;

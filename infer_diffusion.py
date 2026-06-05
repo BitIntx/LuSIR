@@ -99,7 +99,7 @@ def inference_module_dtype(device: torch.device, dtype_name: str | None) -> torc
     return cuda_autocast_dtype(dtype_name)
 
 
-def load_autoencoder(config: dict, device: torch.device, dtype_name: str | None) -> AutoencoderKL:
+def load_autoencoder(config: dict, device: torch.device, dtype_name: str | None = None) -> AutoencoderKL:
     auto_cfg = config["autoencoder"]
     vae_config = load_config(resolve_path(config, auto_cfg["config"]))
     vae = AutoencoderKL.from_config(vae_config["model"])
@@ -114,7 +114,7 @@ def load_autoencoder(config: dict, device: torch.device, dtype_name: str | None)
     return vae
 
 
-def load_condition_encoder(config: dict, device: torch.device, dtype_name: str | None) -> LRToLatentPredictor:
+def load_condition_encoder(config: dict, device: torch.device, dtype_name: str | None = None) -> LRToLatentPredictor:
     cond_cfg = config["condition_encoder"]
     cond_config = load_config(resolve_path(config, cond_cfg["config"]))
     encoder = LRToLatentPredictor.from_config(cond_config["model"])
@@ -133,7 +133,7 @@ def load_unet(
     config: dict,
     checkpoint_path: Path,
     device: torch.device,
-    dtype_name: str | None,
+    dtype_name: str | None = None,
 ) -> tuple[ConditionalUNet, int]:
     model = ConditionalUNet.from_config(config["model"])
     checkpoint = torch.load(checkpoint_path, map_location="cpu")

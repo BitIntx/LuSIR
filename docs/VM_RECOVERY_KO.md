@@ -44,6 +44,12 @@ Stage2 XL 후보 checkpoint까지 받아서 새 VM에서 비교하려면:
 python scripts/download_hf_checkpoints.py --preset photo100k_xl_candidates
 ```
 
+최신 Stage4 XL edge artifact와 residual diagnostic/refiner probe까지 받으려면:
+
+```bash
+python scripts/download_hf_checkpoints.py --preset residual_refiner_stage2_xl_mild
+```
+
 다운로드 위치:
 
 ```text
@@ -57,6 +63,9 @@ metrics/
 
 `--preset photo100k_xl_candidates`는 Stage2 XL 후보 checkpoint 3개까지
 포함하므로 더 크다.
+
+`--preset residual_refiner_stage2_xl_mild`는 XL edge checkpoint, residual
+refiner checkpoint, diagnostic metrics, sample grids를 포함한다.
 
 ## 4. 추론만 해보기
 

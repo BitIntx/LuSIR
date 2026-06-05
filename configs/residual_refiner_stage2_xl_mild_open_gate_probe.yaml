@@ -1,0 +1,66 @@
+project:
+  name: residual_refiner_stage2_xl_mild_open_gate_probe
+  output_dir: /home/jwheojjang/scratch/sr-diffusion/runs/residual_refiner_stage2_xl_mild_open_gate_probe
+
+seed: 1337
+
+autoencoder:
+  config: configs/autoencoder_photo10k.yaml
+  checkpoint: /home/jwheojjang/scratch/sr-diffusion/runs/autoencoder_photo10k_b16_eval_online/checkpoints/best_eval_recon.pt
+
+condition_encoder:
+  config: configs/latent_pretrain_photo100k_v3_noise_xl.yaml
+  checkpoint: /home/jwheojjang/scratch/sr-diffusion/runs/latent_pretrain_photo100k_v3_noise_xl_b64/checkpoints/step_0072000.pt
+  trainable: false
+
+data:
+  manifest: /home/jwheojjang/scratch/sr-diffusion/data/manifest_photo100k.csv
+  split: train
+  hr_size: 512
+  scale: 4
+  degradation_preset: mild
+  domains:
+    photo: 0
+    anime: 1
+  num_workers: 4
+
+model:
+  latent_channels: 16
+  lr_channels: 3
+  hidden_channels: 128
+  num_blocks: 8
+  norm_groups: 32
+  num_domains: 2
+  residual_scale: 1.25
+  gate_bias: 2.0
+
+loss:
+  latent_weight: 1.0
+  residual_weight: 0.25
+  highpass_weight: 2.0
+  gate_l1_weight: 0.0
+  highpass_kernel: 15
+  charbonnier_eps: 0.001
+
+train:
+  device: auto
+  dtype: bf16
+  batch_size: 32
+  max_steps: 1000
+  lr: 0.0001
+  weight_decay: 0.0
+  grad_accum_steps: 1
+  log_every: 25
+  save_every: 500
+
+eval:
+  enabled: true
+  split: val
+  limit: 100
+  batch_size: 8
+  num_workers: 4
+  every: 250
+  run_at_start: true
+  best_metric: eval/refined_decoded_psnr
+  best_mode: max
+  sample_count: 8

@@ -1,0 +1,570 @@
+from __future__ import annotations
+
+import argparse
+import json
+import math
+import os
+import sys
+import time
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+from PIL import Image, ImageDraw, ImageFont
+from torch import nn
+from torch.utils.data import DataLoader, Subset
+
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT / "src"))
+
+from sr_diffusion.datasets import ManifestImageDataset
+from sr_diffusion.models import AutoencoderKL, LRToLatentPredictor
+from sr_diffusion.utils import autocast_context, get_device, load_config, save_config, seed_everything, seed_worker
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Train a deterministic bounded residual refiner on top of Stage 2.")
+    parser.add_argument("--config", type=Path, required=True)
+    parser.add_argument("--limit-steps", type=int, default=None)
+    parser.add_argument("--resume", type=Path, default=None)
+    parser.add_argument("--eval-only-checkpoint", type=Path, default=None)
+    return parser.parse_args()
+
+
+def normalize_image(x: torch.Tensor) -> torch.Tensor:
+    return x.mul(2.0).sub(1.0)
+
+
+def denormalize(x: torch.Tensor) -> torch.Tensor:
+    return ((x + 1.0) * 0.5).clamp(0.0, 1.0)
+
+
+def psnr_from_mse(mse: float, peak: float = 1.0) -> float:
+    return 20.0 * float(np.log10(peak)) - 10.0 * float(np.log10(max(mse, 1e-12)))
+
+
+def charbonnier(prediction: torch.Tensor, target: torch.Tensor, eps: float) -> torch.Tensor:
+    return torch.sqrt((prediction.float() - target.float()).pow(2) + float(eps) ** 2).mean()
+
+
+def lowpass(x: torch.Tensor, kernel_size: int) -> torch.Tensor:
+    kernel_size = int(kernel_size)
+    if kernel_size <= 1:
+        return x
+    if kernel_size % 2 == 0:
+        raise ValueError(f"highpass kernel must be odd, got {kernel_size}")
+    return F.avg_pool2d(x, kernel_size=kernel_size, stride=1, padding=kernel_size // 2)
+
+
+def highpass(x: torch.Tensor, kernel_size: int) -> torch.Tensor:
+    return x - lowpass(x, kernel_size)
+
+
+def clean_config(config: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in config.items() if not key.startswith("_")}
+
+
+def make_dataset(config: dict[str, Any], split: str, seed: int, deterministic: bool | None = None) -> ManifestImageDataset:
+    data_config = config["data"]
+    return ManifestImageDataset(
+        manifest_path=data_config["manifest"],
+        split=split,
+        hr_size=data_config.get("hr_size", 512),
+        scale=data_config.get("scale", 4),
+        domains=data_config.get("domains", {"photo": 0, "anime": 1}),
+        degradation_preset=data_config.get("degradation_preset", "mild"),
+        seed=seed,
+        deterministic=deterministic,
+    )
+
+
+def make_eval_loader(config: dict[str, Any], seed: int, device: torch.device) -> DataLoader:
+    eval_config = config.get("eval", {})
+    split = str(eval_config.get("split", "val"))
+    dataset = make_dataset(config, split=split, seed=seed, deterministic=True)
+    limit = int(eval_config.get("limit", 100))
+    if limit > 0 and limit < len(dataset):
+        dataset = Subset(dataset, list(range(limit)))
+    return DataLoader(
+        dataset,
+        batch_size=int(eval_config.get("batch_size", 8)),
+        shuffle=False,
+        num_workers=int(eval_config.get("num_workers", 4)),
+        pin_memory=device.type == "cuda",
+        drop_last=False,
+    )
+
+
+def load_autoencoder(config: dict[str, Any], device: torch.device) -> AutoencoderKL:
+    auto_cfg = config["autoencoder"]
+    vae_config = load_config(auto_cfg["config"])
+    vae = AutoencoderKL.from_config(vae_config["model"])
+    checkpoint = torch.load(auto_cfg["checkpoint"], map_location="cpu")
+    vae.load_state_dict(checkpoint["model"])
+    vae.to(device)
+    vae.eval()
+    for parameter in vae.parameters():
+        parameter.requires_grad_(False)
+    print(f"loaded_autoencoder={auto_cfg['checkpoint']} step={checkpoint.get('step', 'unknown')}")
+    return vae
+
+
+def load_condition_encoder(config: dict[str, Any], device: torch.device) -> LRToLatentPredictor:
+    cond_cfg = config["condition_encoder"]
+    cond_config = load_config(cond_cfg["config"])
+    encoder = LRToLatentPredictor.from_config(cond_config["model"])
+    checkpoint = torch.load(cond_cfg["checkpoint"], map_location="cpu")
+    encoder.load_state_dict(checkpoint["model"])
+    encoder.to(device)
+    encoder.eval()
+    for parameter in encoder.parameters():
+        parameter.requires_grad_(False)
+    print(f"loaded_condition_encoder={cond_cfg['checkpoint']} step={checkpoint.get('step', 'unknown')}")
+    return encoder
+
+
+def _norm(channels: int, groups: int) -> nn.GroupNorm:
+    return nn.GroupNorm(num_groups=max(1, math.gcd(channels, groups)), num_channels=channels)
+
+
+class ResidualBlock(nn.Module):
+    def __init__(self, channels: int, groups: int = 32) -> None:
+        super().__init__()
+        self.norm1 = _norm(channels, groups)
+        self.conv1 = nn.Conv2d(channels, channels, kernel_size=3, padding=1)
+        self.norm2 = _norm(channels, groups)
+        self.conv2 = nn.Conv2d(channels, channels, kernel_size=3, padding=1)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        residual = x
+        x = self.conv1(F.silu(self.norm1(x)))
+        x = self.conv2(F.silu(self.norm2(x)))
+        return x + residual
+
+
+class BoundedResidualRefiner(nn.Module):
+    def __init__(
+        self,
+        latent_channels: int = 16,
+        lr_channels: int = 3,
+        hidden_channels: int = 128,
+        num_blocks: int = 8,
+        norm_groups: int = 32,
+        num_domains: int = 2,
+        residual_scale: float = 1.25,
+        gate_bias: float = 0.0,
+    ) -> None:
+        super().__init__()
+        self.latent_channels = int(latent_channels)
+        self.residual_scale = float(residual_scale)
+        self.gate_bias = float(gate_bias)
+        self.input = nn.Conv2d(self.latent_channels + int(lr_channels), hidden_channels, kernel_size=3, padding=1)
+        self.domain_embedding = nn.Embedding(num_domains, hidden_channels)
+        self.blocks = nn.Sequential(*[ResidualBlock(hidden_channels, groups=norm_groups) for _ in range(num_blocks)])
+        self.output_norm = _norm(hidden_channels, norm_groups)
+        self.output = nn.Conv2d(hidden_channels, self.latent_channels * 2, kernel_size=3, padding=1)
+        nn.init.zeros_(self.output.weight)
+        nn.init.zeros_(self.output.bias)
+
+    @classmethod
+    def from_config(cls, config: dict[str, Any]) -> "BoundedResidualRefiner":
+        return cls(
+            latent_channels=config.get("latent_channels", 16),
+            lr_channels=config.get("lr_channels", 3),
+            hidden_channels=config.get("hidden_channels", 128),
+            num_blocks=config.get("num_blocks", 8),
+            norm_groups=config.get("norm_groups", 32),
+            num_domains=config.get("num_domains", 2),
+            residual_scale=config.get("residual_scale", 1.25),
+            gate_bias=config.get("gate_bias", 0.0),
+        )
+
+    def forward(
+        self,
+        condition: torch.Tensor,
+        lr_input: torch.Tensor,
+        domain_id: torch.Tensor | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        x = torch.cat([condition, lr_input.to(dtype=condition.dtype)], dim=1)
+        x = self.input(x)
+        if domain_id is not None:
+            x = x + self.domain_embedding(domain_id).unsqueeze(-1).unsqueeze(-1)
+        x = self.blocks(x)
+        output = self.output(F.silu(self.output_norm(x)))
+        residual_logits, gate_logits = torch.chunk(output, 2, dim=1)
+        gate = torch.sigmoid(gate_logits + self.gate_bias)
+        residual = self.residual_scale * torch.tanh(residual_logits) * gate
+        refined = condition + residual
+        return refined, residual, gate
+
+
+def save_checkpoint(
+    path: Path,
+    model: nn.Module,
+    optimizer: torch.optim.Optimizer,
+    step: int,
+    config: dict[str, Any],
+    metrics: dict[str, float] | None = None,
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(
+        {
+            "step": step,
+            "model": model.state_dict(),
+            "optimizer": optimizer.state_dict(),
+            "config": clean_config(config),
+            "metrics": metrics or {},
+        },
+        path,
+    )
+
+
+def load_checkpoint(path: Path, model: nn.Module, optimizer: torch.optim.Optimizer, device: torch.device) -> int:
+    checkpoint = torch.load(path, map_location=device)
+    model.load_state_dict(checkpoint["model"])
+    optimizer.load_state_dict(checkpoint["optimizer"])
+    return int(checkpoint.get("step", 0))
+
+
+def tensor_to_pil(image: torch.Tensor) -> Image.Image:
+    image = image.detach().float().cpu().clamp(0.0, 1.0)
+    array = image.permute(1, 2, 0).numpy()
+    return Image.fromarray(np.round(array * 255.0).astype(np.uint8), mode="RGB")
+
+
+def add_label(image: Image.Image, label: str) -> Image.Image:
+    font = ImageFont.load_default()
+    label_height = 18
+    canvas = Image.new("RGB", (image.width, image.height + label_height), "white")
+    canvas.paste(image.convert("RGB"), (0, label_height))
+    draw = ImageDraw.Draw(canvas)
+    draw.text((4, 3), label, fill="black", font=font)
+    return canvas
+
+
+def make_grid(rows: list[list[tuple[str, Image.Image]]], output_path: Path, gap: int = 6) -> None:
+    if not rows:
+        return
+    labeled_rows = [[add_label(image, label) for label, image in row] for row in rows]
+    cell_width = max(image.width for row in labeled_rows for image in row)
+    cell_height = max(image.height for row in labeled_rows for image in row)
+    columns = max(len(row) for row in labeled_rows)
+    width = columns * cell_width + (columns + 1) * gap
+    height = len(labeled_rows) * cell_height + (len(labeled_rows) + 1) * gap
+    sheet = Image.new("RGB", (width, height), "white")
+    for row_index, row in enumerate(labeled_rows):
+        y = gap + row_index * (cell_height + gap)
+        for column_index, image in enumerate(row):
+            x = gap + column_index * (cell_width + gap)
+            sheet.paste(image.convert("RGB"), (x, y))
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    sheet.save(output_path)
+
+
+@torch.no_grad()
+def evaluate(
+    model: BoundedResidualRefiner,
+    vae: AutoencoderKL,
+    condition_encoder: LRToLatentPredictor,
+    dataloader: DataLoader,
+    device: torch.device,
+    dtype_name: str,
+    output_dir: Path | None = None,
+    sample_count: int = 0,
+) -> dict[str, float]:
+    was_training = model.training
+    model.eval()
+    totals = {
+        "condition_decoded_mse": 0.0,
+        "refined_decoded_mse": 0.0,
+        "bicubic_mse": 0.0,
+        "oracle_full_decoded_mse": 0.0,
+        "latent_mse": 0.0,
+        "residual_l1": 0.0,
+        "gate_mean": 0.0,
+        "wins_vs_condition": 0.0,
+        "condition_psnr": 0.0,
+        "refined_psnr": 0.0,
+        "bicubic_psnr": 0.0,
+        "oracle_full_psnr": 0.0,
+    }
+    count = 0
+    grid_rows: list[list[tuple[str, Image.Image]]] = []
+    for batch in dataloader:
+        hr = batch["hr"].to(device, non_blocking=True)
+        lr = batch["lr"].to(device, non_blocking=True)
+        domain_id = batch["domain_id"].to(device, non_blocking=True)
+        target = normalize_image(hr)
+        lr_input = normalize_image(lr)
+        batch_size = int(hr.shape[0])
+        with autocast_context(device, dtype_name):
+            target_latent, _ = vae.encode(target)
+            condition = condition_encoder(lr_input, domain_id)
+            refined, residual, gate = model(condition, lr_input, domain_id)
+            decoded_condition = denormalize(vae.decode(condition)).float()
+            decoded_refined = denormalize(vae.decode(refined)).float()
+            decoded_oracle = denormalize(vae.decode(target_latent)).float()
+        bicubic = F.interpolate(lr.float(), size=hr.shape[-2:], mode="bicubic", align_corners=False).clamp(0.0, 1.0)
+        condition_mse_per = (decoded_condition - hr).float().pow(2).flatten(1).mean(dim=1)
+        refined_mse_per = (decoded_refined - hr).float().pow(2).flatten(1).mean(dim=1)
+        bicubic_mse_per = (bicubic - hr).float().pow(2).flatten(1).mean(dim=1)
+        oracle_mse_per = (decoded_oracle - hr).float().pow(2).flatten(1).mean(dim=1)
+        totals["condition_decoded_mse"] += float(condition_mse_per.sum().cpu())
+        totals["refined_decoded_mse"] += float(refined_mse_per.sum().cpu())
+        totals["bicubic_mse"] += float(bicubic_mse_per.sum().cpu())
+        totals["oracle_full_decoded_mse"] += float(oracle_mse_per.sum().cpu())
+        totals["condition_psnr"] += float((-10.0 * torch.log10(condition_mse_per.clamp_min(1e-12))).sum().cpu())
+        totals["refined_psnr"] += float((-10.0 * torch.log10(refined_mse_per.clamp_min(1e-12))).sum().cpu())
+        totals["bicubic_psnr"] += float((-10.0 * torch.log10(bicubic_mse_per.clamp_min(1e-12))).sum().cpu())
+        totals["oracle_full_psnr"] += float((-10.0 * torch.log10(oracle_mse_per.clamp_min(1e-12))).sum().cpu())
+        totals["latent_mse"] += float(F.mse_loss(refined.float(), target_latent.float(), reduction="sum").cpu()) / float(
+            refined.shape[1] * refined.shape[2] * refined.shape[3]
+        )
+        totals["residual_l1"] += float(residual.detach().float().abs().mean().cpu()) * batch_size
+        totals["gate_mean"] += float(gate.detach().float().mean().cpu()) * batch_size
+        totals["wins_vs_condition"] += float((refined_mse_per < condition_mse_per).float().sum().cpu())
+        if output_dir is not None and len(grid_rows) < sample_count:
+            lr_nearest = F.interpolate(lr.float(), size=hr.shape[-2:], mode="nearest").clamp(0.0, 1.0)
+            for item_idx in range(batch_size):
+                if len(grid_rows) >= sample_count:
+                    break
+                grid_rows.append(
+                    [
+                        ("LR", tensor_to_pil(lr_nearest[item_idx])),
+                        ("bicubic", tensor_to_pil(bicubic[item_idx])),
+                        ("condition", tensor_to_pil(decoded_condition[item_idx])),
+                        ("refined", tensor_to_pil(decoded_refined[item_idx])),
+                        ("oracle", tensor_to_pil(decoded_oracle[item_idx])),
+                        ("GT", tensor_to_pil(hr[item_idx])),
+                    ]
+                )
+        count += batch_size
+    count = max(1, count)
+    metrics = {
+        "eval/condition_decoded_mse": totals["condition_decoded_mse"] / count,
+        "eval/refined_decoded_mse": totals["refined_decoded_mse"] / count,
+        "eval/bicubic_mse": totals["bicubic_mse"] / count,
+        "eval/oracle_full_decoded_mse": totals["oracle_full_decoded_mse"] / count,
+        "eval/latent_mse": totals["latent_mse"] / count,
+        "eval/residual_l1": totals["residual_l1"] / count,
+        "eval/gate_mean": totals["gate_mean"] / count,
+        "eval/wins_vs_condition": totals["wins_vs_condition"],
+        "eval/num_images": float(count),
+        "eval/condition_mean_psnr": totals["condition_psnr"] / count,
+        "eval/refined_mean_psnr": totals["refined_psnr"] / count,
+        "eval/bicubic_mean_psnr": totals["bicubic_psnr"] / count,
+        "eval/oracle_full_mean_psnr": totals["oracle_full_psnr"] / count,
+    }
+    metrics["eval/condition_decoded_psnr"] = psnr_from_mse(metrics["eval/condition_decoded_mse"])
+    metrics["eval/refined_decoded_psnr"] = psnr_from_mse(metrics["eval/refined_decoded_mse"])
+    metrics["eval/bicubic_psnr"] = psnr_from_mse(metrics["eval/bicubic_mse"])
+    metrics["eval/oracle_full_decoded_psnr"] = psnr_from_mse(metrics["eval/oracle_full_decoded_mse"])
+    metrics["eval/refined_vs_condition_psnr"] = (
+        metrics["eval/refined_decoded_psnr"] - metrics["eval/condition_decoded_psnr"]
+    )
+    metrics["eval/refined_vs_condition_mean_psnr"] = (
+        metrics["eval/refined_mean_psnr"] - metrics["eval/condition_mean_psnr"]
+    )
+    if output_dir is not None and grid_rows:
+        make_grid(grid_rows, output_dir / "eval_grid_lr_bicubic_condition_refined_oracle_gt.png")
+    if was_training:
+        model.train()
+    return metrics
+
+
+def main() -> None:
+    args = parse_args()
+    config = load_config(args.config)
+    seed = int(config.get("seed", 1337))
+    seed_everything(seed)
+    device = get_device(str(config.get("train", {}).get("device", "auto")))
+    dtype_name = str(config.get("train", {}).get("dtype", "bf16"))
+    output_dir = Path(config["project"]["output_dir"])
+    checkpoints_dir = output_dir / "checkpoints"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    checkpoints_dir.mkdir(parents=True, exist_ok=True)
+    save_config(clean_config(config), output_dir / "config.yaml")
+
+    vae = load_autoencoder(config, device)
+    condition_encoder = load_condition_encoder(config, device)
+    model = BoundedResidualRefiner.from_config(config["model"]).to(device)
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=float(config["train"].get("lr", 1e-4)),
+        weight_decay=float(config["train"].get("weight_decay", 0.0)),
+    )
+    start_step = 0
+    if args.resume is not None:
+        start_step = load_checkpoint(args.resume, model, optimizer, device)
+        print(f"resumed={args.resume} step={start_step}")
+
+    train_dataset = make_dataset(config, split=str(config["data"].get("split", "train")), seed=seed, deterministic=False)
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=int(config["train"].get("batch_size", 32)),
+        shuffle=True,
+        num_workers=int(config["data"].get("num_workers", 6)),
+        pin_memory=device.type == "cuda",
+        drop_last=True,
+        worker_init_fn=seed_worker,
+    )
+    eval_loader = make_eval_loader(config, seed=seed, device=device)
+
+    loss_cfg = config.get("loss", {})
+    train_cfg = config.get("train", {})
+    max_steps = int(args.limit_steps or train_cfg.get("max_steps", 2000))
+    grad_accum_steps = int(train_cfg.get("grad_accum_steps", 1))
+    log_every = int(train_cfg.get("log_every", 25))
+    save_every = int(train_cfg.get("save_every", 500))
+    eval_cfg = config.get("eval", {})
+    eval_every = int(eval_cfg.get("every", 250))
+    sample_count = int(eval_cfg.get("sample_count", 8))
+    eps = float(loss_cfg.get("charbonnier_eps", 1e-3))
+    highpass_kernel = int(loss_cfg.get("highpass_kernel", 15))
+
+    best_metric = -float("inf")
+    best_metrics: dict[str, float] | None = None
+    summary_path = output_dir / "summary.json"
+    metrics_log_path = output_dir / "metrics.jsonl"
+
+    def run_eval(step: int) -> dict[str, float]:
+        eval_dir = output_dir / f"eval_step_{step:06d}"
+        metrics = evaluate(
+            model=model,
+            vae=vae,
+            condition_encoder=condition_encoder,
+            dataloader=eval_loader,
+            device=device,
+            dtype_name=dtype_name,
+            output_dir=eval_dir,
+            sample_count=sample_count,
+        )
+        print(
+            f"eval step={step} refined_psnr={metrics['eval/refined_decoded_psnr']:.4f} "
+            f"condition_psnr={metrics['eval/condition_decoded_psnr']:.4f} "
+            f"delta={metrics['eval/refined_vs_condition_psnr']:+.4f} "
+            f"mean_delta={metrics['eval/refined_vs_condition_mean_psnr']:+.4f} "
+            f"wins={metrics['eval/wins_vs_condition']:.0f}/{metrics['eval/num_images']:.0f}"
+        )
+        with metrics_log_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps({"step": step, **metrics}, sort_keys=True) + "\n")
+        return metrics
+
+    if args.eval_only_checkpoint is not None:
+        checkpoint_step = load_checkpoint(args.eval_only_checkpoint, model, optimizer, device)
+        metrics = run_eval(checkpoint_step)
+        summary = {
+            "config": str(args.config),
+            "checkpoint": str(args.eval_only_checkpoint),
+            "checkpoint_step": checkpoint_step,
+            "metrics": metrics,
+        }
+        (output_dir / f"eval_only_step_{checkpoint_step:06d}_summary.json").write_text(
+            json.dumps(summary, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        print(json.dumps(summary, indent=2, sort_keys=True))
+        return
+
+    if bool(eval_cfg.get("run_at_start", True)) and start_step == 0:
+        metrics = run_eval(0)
+        best_metric = float(metrics["eval/refined_decoded_psnr"])
+        best_metrics = metrics
+        save_checkpoint(checkpoints_dir / "best_eval_refined.pt", model, optimizer, 0, config, metrics)
+
+    step = start_step
+    model.train()
+    optimizer.zero_grad(set_to_none=True)
+    train_iter = iter(train_loader)
+    last_log_time = time.time()
+    while step < max_steps:
+        try:
+            batch = next(train_iter)
+        except StopIteration:
+            train_iter = iter(train_loader)
+            batch = next(train_iter)
+
+        hr = batch["hr"].to(device, non_blocking=True)
+        lr = batch["lr"].to(device, non_blocking=True)
+        domain_id = batch["domain_id"].to(device, non_blocking=True)
+        target = normalize_image(hr)
+        lr_input = normalize_image(lr)
+        with torch.no_grad(), autocast_context(device, dtype_name):
+            target_latent, _ = vae.encode(target)
+            condition = condition_encoder(lr_input, domain_id)
+
+        with autocast_context(device, dtype_name):
+            refined, predicted_residual, gate = model(condition.detach(), lr_input, domain_id)
+        target_residual = target_latent.detach() - condition.detach()
+        latent_loss = charbonnier(refined, target_latent.detach(), eps)
+        residual_loss = charbonnier(predicted_residual, target_residual, eps)
+        highpass_loss = charbonnier(
+            highpass(predicted_residual, highpass_kernel),
+            highpass(target_residual, highpass_kernel),
+            eps,
+        )
+        gate_loss = gate.float().abs().mean()
+        loss = (
+            float(loss_cfg.get("latent_weight", 1.0)) * latent_loss
+            + float(loss_cfg.get("residual_weight", 0.5)) * residual_loss
+            + float(loss_cfg.get("highpass_weight", 1.0)) * highpass_loss
+            + float(loss_cfg.get("gate_l1_weight", 0.001)) * gate_loss
+        )
+        (loss / grad_accum_steps).backward()
+
+        if (step + 1) % grad_accum_steps == 0:
+            optimizer.step()
+            optimizer.zero_grad(set_to_none=True)
+        step += 1
+
+        if step % log_every == 0 or step == 1:
+            elapsed = max(time.time() - last_log_time, 1e-6)
+            last_log_time = time.time()
+            print(
+                f"step={step} loss={float(loss.detach().cpu()):.5f} "
+                f"latent={float(latent_loss.detach().cpu()):.5f} "
+                f"residual={float(residual_loss.detach().cpu()):.5f} "
+                f"highpass={float(highpass_loss.detach().cpu()):.5f} "
+                f"gate={float(gate_loss.detach().cpu()):.5f} "
+                f"steps_per_s={log_every / elapsed:.3f}",
+                flush=True,
+            )
+
+        if step % save_every == 0:
+            save_checkpoint(checkpoints_dir / f"step_{step:07d}.pt", model, optimizer, step, config)
+            save_checkpoint(checkpoints_dir / "latest.pt", model, optimizer, step, config)
+
+        if eval_every > 0 and step % eval_every == 0:
+            metrics = run_eval(step)
+            metric_value = float(metrics["eval/refined_decoded_psnr"])
+            if metric_value > best_metric:
+                best_metric = metric_value
+                best_metrics = metrics
+                save_checkpoint(checkpoints_dir / "best_eval_refined.pt", model, optimizer, step, config, metrics)
+            model.train()
+
+    final_metrics = run_eval(step)
+    save_checkpoint(checkpoints_dir / "latest.pt", model, optimizer, step, config, final_metrics)
+    if float(final_metrics["eval/refined_decoded_psnr"]) > best_metric:
+        best_metric = float(final_metrics["eval/refined_decoded_psnr"])
+        best_metrics = final_metrics
+        save_checkpoint(checkpoints_dir / "best_eval_refined.pt", model, optimizer, step, config, final_metrics)
+
+    summary = {
+        "config": str(args.config),
+        "output_dir": str(output_dir),
+        "finished_step": step,
+        "best_refined_decoded_psnr": best_metric,
+        "best_metrics": best_metrics,
+        "final_metrics": final_metrics,
+        "checkpoint_latest": str(checkpoints_dir / "latest.pt"),
+        "checkpoint_best": str(checkpoints_dir / "best_eval_refined.pt"),
+    }
+    summary_path.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print(json.dumps(summary, indent=2, sort_keys=True))
+
+
+if __name__ == "__main__":
+    main()

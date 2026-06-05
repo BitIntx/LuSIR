@@ -8,7 +8,7 @@
 
 \title{Vision-Only Latent Diffusion Super-Resolution without T2I Pretraining}
 \author{sr-diffusion contributors}
-\date{Completed-experiment snapshot through Stage 4 XL gated-residual probing}
+\date{Completed-experiment snapshot through Stage 2 residual refiner probing}
 
 \begin{document}
 \maketitle
@@ -27,7 +27,10 @@ Stage 4 XL edge-loss checkpoint improves over bicubic by +0.7195 dB PSNR.
 Subsequent role-split and gated-residual probes show that bounded residual
 parameterization can nearly preserve the Stage 2 condition output on mild
 validation, reaching 25.0445 PSNR versus 25.0449 for condition-only, but it
-still does not provide a net average gain.
+still does not provide a net average gain. A direct residual diagnostic then
+showed that the recoverable gap is dominated by high-frequency residuals, and a
+small deterministic sparse-gate residual refiner improved mild val100 mean PSNR
+from 25.0449 to 25.1178 with 86/100 wins over condition-only.
 \end{abstract}
 
 \section{Objective}
@@ -90,6 +93,10 @@ The repository currently includes:
   \item condition-start Stage 4 fine-tuning,
   \item condition-only validation tooling for isolating Stage 2 from diffusion,
   \item gated-residual \(\hat{x}_0\) prediction for bounded Stage 4 refinement,
+  \item Stage 2 residual oracle diagnostics for low/high-frequency error
+        isolation,
+  \item a deterministic bounded residual refiner with sparse/open gate
+        ablations,
   \item bf16 CUDA/ROCm training paths,
   \item W\&B logging, fixed validation samples, checkpoint evaluation, and
         recovery scripts for VM migration,
@@ -375,6 +382,62 @@ beat the Stage 2 condition-only baseline. The current interpretation is that
 Stage 4 has learned a safe near-identity residual path, not a reliable
 missing-detail generator.
 
+\subsection{Stage 2 Residual Diagnostic and Deterministic Refiner}
+
+A direct residual/oracle diagnostic was run on mild val100 to separate the
+Stage 2 condition-only error into lowpass and highpass components.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lr}
+\toprule
+Metric & Value \\
+\midrule
+Bicubic PSNR & 24.4778 \\
+Condition decoded PSNR & 25.0543 \\
+Oracle full residual PSNR & 41.8207 \\
+Oracle full vs condition & +16.7664 \\
+Oracle highpass PSNR & 35.0872 \\
+Oracle highpass vs condition & +10.0329 \\
+Oracle lowpass PSNR & 25.0814 \\
+Oracle lowpass vs condition & +0.0270 \\
+Residual highpass energy ratio & 0.8988 \\
+Residual lowpass energy ratio & 0.0758 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+This indicates that the Stage 2 condition encoder already preserves most
+structure and low-frequency color, while the remaining recoverable error is
+dominated by high-frequency detail.
+
+The follow-up deterministic bounded residual refiner freezes the Stage 1 VAE
+and Stage 2 condition encoder, then predicts only:
+\[
+c + s \tanh(r) \sigma(g + b),
+\]
+where \(c\) is the condition latent, \(r\) is the residual head, \(g\) is the
+gate head, \(s\) is the residual scale, and \(b\) is the gate bias. The
+sparse-gate probe reached its best validation result at step 500.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lrrrr}
+\toprule
+Model & Mean PSNR & vs condition & Wins & Gate mean \\
+\midrule
+Stage 2 condition-only & 25.0449 & n/a & n/a & n/a \\
+Sparse-gate residual refiner & 25.1178 & +0.0729 & 86/100 & 0.2147 \\
+Open-gate residual refiner & 25.0972 & +0.0523 & 73/100 & 0.8680 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The sparse-gate result is a small but real gain and is qualitatively close to
+the condition output, without the destructive edits seen in previous diffusion
+Stage 4 probes. The open-gate ablation was worse despite a much larger mean gate
+value, so the next step should not simply force larger residual edits.
+
 \section{Limitations}
 
 This is an engineering report for an active experiment, not a claim of a final
@@ -382,9 +445,9 @@ published method. The large-scale completed results are photo-domain only, while
 anime/illustration domain conditioning remains implemented but not yet validated
 at the same scale. The reported sampled PSNR values are useful for internal
 checkpoint comparison, but they are not a full benchmark suite against external
-SR methods. The highest-signal next direction is to add a direct residual/gate
-target or condition uncertainty/detail-need signal before investing in longer
-Stage 4 continuations.
+SR methods. The highest-signal next direction is to use the deterministic
+sparse-gate refiner as direct supervision or warm start for a Stage 4 residual
+path, instead of investing in longer unconstrained Stage 4 continuations.
 
 \begin{thebibliography}{9}
 \bibitem{rombach2022latent}

@@ -62,11 +62,28 @@ PHOTO100K_XL_STAGE4_EDGE_FILES = [
     "samples/stage4_photo100k_xl_edge_b16_val100_t50_32step_grid_lr_bicubic_sr_gt.png",
 ]
 
+RESIDUAL_REFINER_STAGE2_XL_MILD_FILES = [
+    *PHOTO100K_XL_STAGE4_EDGE_FILES,
+    "checkpoints/residual_refiner_stage2_xl_mild_best_eval_refined.pt",
+    "configs/residual_refiner_stage2_xl_mild_probe.yaml",
+    "configs/residual_refiner_stage2_xl_mild_open_gate_probe.yaml",
+    "metrics/diagnose_stage2_xl_residuals_mild_val100_summary.json",
+    "metrics/diagnose_stage2_xl_residuals_mild_val100_metrics.csv",
+    "samples/diagnose_stage2_xl_residuals_mild_val100_grid.png",
+    "metrics/residual_refiner_stage2_xl_mild_probe_early_stop_summary.json",
+    "metrics/residual_refiner_stage2_xl_mild_probe_metrics.jsonl",
+    "samples/residual_refiner_stage2_xl_mild_probe_step500_grid.png",
+    "metrics/residual_refiner_stage2_xl_mild_open_gate_probe_early_stop_summary.json",
+    "metrics/residual_refiner_stage2_xl_mild_open_gate_probe_metrics.jsonl",
+    "samples/residual_refiner_stage2_xl_mild_open_gate_probe_step500_grid.png",
+]
+
 PRESETS = {
     "prototype": PROTOTYPE_FILES,
     "photo100k": PHOTO100K_FILES,
     "photo100k_xl_candidates": PHOTO100K_XL_CANDIDATE_FILES,
     "photo100k_xl_stage4_edge": PHOTO100K_XL_STAGE4_EDGE_FILES,
+    "residual_refiner_stage2_xl_mild": RESIDUAL_REFINER_STAGE2_XL_MILD_FILES,
 }
 
 
@@ -83,7 +100,8 @@ def parse_args() -> argparse.Namespace:
         help=(
             "Artifact set to download. 'photo100k' includes selected handoff checkpoints; "
             "'photo100k_xl_candidates' also includes Stage 2 XL candidate condition encoders; "
-            "'photo100k_xl_stage4_edge' includes the latest XL Stage 4 edge-loss checkpoint and eval artifacts."
+            "'photo100k_xl_stage4_edge' includes the latest XL Stage 4 edge-loss checkpoint and eval artifacts; "
+            "'residual_refiner_stage2_xl_mild' also includes residual diagnostic and deterministic refiner probe artifacts."
         ),
     )
     parser.add_argument(

@@ -146,6 +146,45 @@ signal for where residual detail is needed. Simply continuing the same
 diffusion loss is less promising than supervising the residual/gate path or
 adding a condition uncertainty/detail-need signal.
 
+A direct Stage 2 residual diagnostic confirmed that the missing signal is
+mostly high-frequency detail rather than lowpass structure. On mild val100,
+injecting only the GT highpass residual into the Stage 2 condition latent gives
+a large oracle gain, while lowpass residuals barely move PSNR:
+
+```text
+Stage2 residual diagnostic mild val100:
+  condition-only decoded PSNR: 25.0543
+  bicubic PSNR:                24.4778
+  oracle full residual PSNR:   41.8207, +16.7664 vs condition
+  oracle highpass PSNR:        35.0872, +10.0329 vs condition
+  oracle lowpass PSNR:         25.0814, +0.0270 vs condition
+  residual highpass energy:    0.8988
+  residual lowpass energy:     0.0758
+```
+
+The first deterministic bounded residual refiner probe produced a small but
+real gain over Stage 2 condition-only without the destructive edits seen in
+diffusion Stage 4 probes. A sparse gate was better than simply opening the gate:
+
+```text
+Sparse-gate residual refiner step 500:
+  condition mean PSNR: 25.0449
+  refined mean PSNR:   25.1178
+  delta:               +0.0729
+  wins vs condition:   86/100
+  gate mean:           0.2147
+
+Open-gate residual refiner step 500:
+  refined mean PSNR:   25.0972
+  delta:               +0.0523
+  wins vs condition:   73/100
+  gate mean:           0.8680
+```
+
+This does not solve final SR quality yet, but it changes the next step: use the
+deterministic residual path as a supervised detail teacher or warm start before
+asking the diffusion U-Net to hallucinate residual detail.
+
 For VM migration and continuation context, read:
 
 - [docs/HANDOFF_KO.md](docs/HANDOFF_KO.md)
@@ -182,6 +221,8 @@ Implemented:
   denoise/sharpening experiments.
 - condition-only validation tooling for isolating Stage 2 from diffusion.
 - gated residual x0 diffusion parameterization for bounded Stage 4 refinement.
+- Stage 2 residual oracle diagnostics for lowpass/highpass error isolation.
+- Deterministic bounded residual refiner probe with sparse/open gate ablations.
 - Partial checkpoint initialization for widened/deepened Stage 2 and diffusion
   models via `--partial-init`.
 - Multi-GPU diffusion training through PyTorch DDP, with single-GPU fallback
@@ -496,9 +537,10 @@ The default inference config still points at the smaller 10k Stage 4
 condition-start checkpoint for faster setup. The Colab notebook now also lets
 you select the larger photo100k Stage 4 checkpoints, including the public XL
 edge-loss Stage 4 checkpoint for denoise/sharpening review. The newer gated
-residual probe is documented as an experiment, but its checkpoint has not been
-promoted as a public artifact because it still matches rather than beats the
-Stage 2 condition-only baseline.
+residual diffusion checkpoint is documented as an experiment but not promoted.
+The deterministic residual refiner probe is preserved on Hugging Face as a
+research artifact because it beats Stage 2 condition-only on mild val100, but it
+is not wired into the default public inference path yet.
 
 For a click-to-run demo, open the Colab notebook:
 
@@ -531,6 +573,12 @@ Download the latest XL Stage 4 edge-loss artifact set:
 
 ```bash
 python scripts/download_hf_checkpoints.py --preset photo100k_xl_stage4_edge
+```
+
+Download the latest residual diagnostic/refiner artifact set:
+
+```bash
+python scripts/download_hf_checkpoints.py --preset residual_refiner_stage2_xl_mild
 ```
 
 Run x4 SR from an LR image. The default HF config expects a 128x128 LR crop and
@@ -927,6 +975,11 @@ Stage 4: perceptual / GAN fine-tune
   deterministic condition path on average.
 - The next high-signal direction is not simply longer Stage 4 training. Add a
   more direct residual/gate target or condition uncertainty/detail-need signal.
+- The residual diagnostic shows the recoverable gap is mostly highpass. A
+  deterministic sparse-gate residual refiner reaches `25.1178` mean PSNR on
+  mild val100 versus `25.0449` for condition-only, so the next Stage 4 path
+  should use that residual signal as supervision or initialization rather than
+  only changing diffusion loss weights.
 
 Run the Stage 4-lite low-timestep fine-tune:
 

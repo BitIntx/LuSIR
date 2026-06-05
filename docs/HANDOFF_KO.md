@@ -5,6 +5,35 @@
 
 최신 실패/부분 성공/다음 가설 기록은 `docs/TRIAL_AND_ERROR_KO.md`에 누적합니다.
 
+## 2026-06-05 추가 최신 실험 요약
+
+- Stage2 residual/oracle diagnostic 완료.
+- Stage2 condition은 구조/색/저주파를 이미 잘 맞추고, 남은 차이는 대부분 고주파 detail이다.
+- `mild` val100 diagnostic:
+  - bicubic PSNR: `24.4778`
+  - condition decoded PSNR: `25.0543`
+  - oracle full residual PSNR: `41.8207`, condition 대비 `+16.7664`
+  - oracle highpass PSNR: `35.0872`, condition 대비 `+10.0329`
+  - oracle lowpass PSNR: `25.0814`, condition 대비 `+0.0270`
+  - residual highpass energy ratio: `0.8988`
+- deterministic bounded residual refiner probe 완료.
+- sparse-gate best step `500`:
+  - condition mean PSNR: `25.0449`
+  - refined mean PSNR: `25.1178`
+  - condition 대비 `+0.0729`
+  - condition 이긴 샘플 `86/100`
+  - gate mean `0.2147`
+- open-gate ablation step `500`:
+  - refined mean PSNR: `25.0972`
+  - condition 대비 `+0.0523`
+  - condition 이긴 샘플 `73/100`
+  - gate mean `0.8680`
+- 결론: residual detail은 학습 가능하지만, gate를 무작정 열면 좋아지는 문제가 아니다.
+  다음 Stage4는 긴 continuation보다 deterministic residual refiner를 teacher/warm-start로
+  쓰거나 residual/gate supervision을 직접 넣는 방향이 우선이다.
+- HF preset:
+  `python scripts/download_hf_checkpoints.py --preset residual_refiner_stage2_xl_mild`
+
 ## 2026-06-05 최신 실험 요약
 
 - `diffusion_photo100k_xl_stage4_condition_v3_rolesplit_mild_b8_probe` 학습 완료.

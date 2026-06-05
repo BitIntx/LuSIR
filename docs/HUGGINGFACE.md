@@ -33,6 +33,12 @@ prototype checkpoints:
 python scripts/download_hf_checkpoints.py
 ```
 
+Download the latest residual diagnostic/refiner artifact set:
+
+```bash
+python scripts/download_hf_checkpoints.py --preset residual_refiner_stage2_xl_mild
+```
+
 This creates the local `checkpoints/` files expected by
 `configs/hf/diffusion_stage4_condition.yaml`.
 
@@ -151,6 +157,28 @@ Upload the photo100k Stage 4 `photo_v2` condition-start checkpoint and sampled e
   --artifact /home/jwheojjang/scratch/sr-diffusion/runs/diffusion_photo100k_b32_stage4_condition_v2/summary.json=metrics/stage4_photo100k_condition_v2_b32_summary.json \
   --artifact /home/jwheojjang/scratch/sr-diffusion/runs/eval_diffusion_photo100k_stage4_condition_v2_val100_t25_32step/summary.json=metrics/stage4_photo100k_condition_v2_val100_t25_32step_summary.json \
   --artifact /home/jwheojjang/scratch/sr-diffusion/runs/compare_photo100k_stage3_v2_vs_stage4_condition_v2_val100/summary.json=metrics/stage4_photo100k_condition_v2_compare_stage3_v2_summary.json
+```
+
+Upload the Stage2 residual diagnostic and deterministic residual refiner probe
+artifacts:
+
+```bash
+/home/ubuntu/venvs/cuda/bin/python scripts/upload_hf_artifact.py \
+  --repo-id jwheo/sr-diffusion \
+  --repo-type model \
+  --message "Upload Stage2 residual refiner probe artifacts" \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/residual_refiner_stage2_xl_mild_probe/checkpoints/best_eval_refined.pt=checkpoints/residual_refiner_stage2_xl_mild_best_eval_refined.pt \
+  --artifact configs/residual_refiner_stage2_xl_mild_probe.yaml=configs/residual_refiner_stage2_xl_mild_probe.yaml \
+  --artifact configs/residual_refiner_stage2_xl_mild_open_gate_probe.yaml=configs/residual_refiner_stage2_xl_mild_open_gate_probe.yaml \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/diagnose_stage2_xl_residuals_mild_val100/summary.json=metrics/diagnose_stage2_xl_residuals_mild_val100_summary.json \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/diagnose_stage2_xl_residuals_mild_val100/metrics.csv=metrics/diagnose_stage2_xl_residuals_mild_val100_metrics.csv \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/diagnose_stage2_xl_residuals_mild_val100/residual_diagnostic_grid.png=samples/diagnose_stage2_xl_residuals_mild_val100_grid.png \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/residual_refiner_stage2_xl_mild_probe/early_stop_summary.json=metrics/residual_refiner_stage2_xl_mild_probe_early_stop_summary.json \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/residual_refiner_stage2_xl_mild_probe/metrics.jsonl=metrics/residual_refiner_stage2_xl_mild_probe_metrics.jsonl \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/residual_refiner_stage2_xl_mild_probe/eval_step_000500/eval_grid_lr_bicubic_condition_refined_oracle_gt.png=samples/residual_refiner_stage2_xl_mild_probe_step500_grid.png \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/residual_refiner_stage2_xl_mild_open_gate_probe/early_stop_summary.json=metrics/residual_refiner_stage2_xl_mild_open_gate_probe_early_stop_summary.json \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/residual_refiner_stage2_xl_mild_open_gate_probe/metrics.jsonl=metrics/residual_refiner_stage2_xl_mild_open_gate_probe_metrics.jsonl \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/residual_refiner_stage2_xl_mild_open_gate_probe/eval_step_000500/eval_grid_lr_bicubic_condition_refined_oracle_gt.png=samples/residual_refiner_stage2_xl_mild_open_gate_probe_step500_grid.png
 ```
 
 Make the Hub repository public after license files and the model card are in
