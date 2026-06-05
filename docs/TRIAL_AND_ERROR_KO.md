@@ -216,3 +216,51 @@ sampled val100 결과, 같은 `mild` 기준:
 - 다음 우선순위는 Stage4 architecture/parameterization 변경이다.
   예: U-Net이 full x0를 직접 예측하지 않고, condition 위의 bounded residual 또는
   gated residual만 예측하게 만들기.
+
+## 실험 3: gated residual x0 parameterization
+
+목표:
+
+- Stage4 U-Net이 full x0/noise-to-x0를 마음대로 예측하지 못하게 제한.
+- U-Net output을 noise가 아니라 `condition + bounded residual * learned gate`로 해석.
+- DDIM sampler에는 이 x0에서 역산한 noise를 사용해 학습/평가/샘플링 의미를 일치.
+- mild val100에서 Stage2 condition-only `25.0449 dB`를 넘는지 확인.
+
+추가된 config:
+
+- `configs/diffusion_photo100k_xl_stage4_condition_v3_gated_residual_mild_b8_probe.yaml`
+
+핵심 설정:
+
+- degradation: `mild`
+- prediction type: `gated_residual_x0`
+- model output channels: `32`
+  - first 16 channels: residual logits
+  - next 16 channels: gate logits
+- latent residual bound: `1.25`
+  - val100 mild 기준 `abs(target_latent - condition_latent)` 분포:
+    - p95 `0.695`
+    - p99 `1.25`
+    - p99.5 `1.617`
+- batch: `8`, grad accumulation: `4`
+- micro steps: `8000`
+- 실제 optimizer update: `2000`
+- train timestep range: `1..75`
+- sample/eval timestep: `25`
+
+초기화:
+
+- role-split mild best checkpoint에서 partial init.
+- output head shape만 달라서 2개 tensor는 새로 초기화.
+- CUDA smoke 결과:
+  - matched params: `469599616/469636512`
+  - batch 8 forward/backward 성공
+  - max allocated: 약 `39.9GB`
+
+평가 계획:
+
+1. 학습 완료 후 best checkpoint를 `mild` val100에서 sampled eval.
+2. 우선 `start_timestep=25`, `init=condition`, `steps=32`.
+3. t25가 condition-only를 못 넘으면 t10/t5/t1도 확인해 보존/개입 곡선을 본다.
+4. 성공 기준은 평균 PSNR이 condition-only `25.0449`를 넘고, condition을 이긴 샘플 수가
+   role-split t1의 `10/100`보다 유의하게 늘어나는 것이다.

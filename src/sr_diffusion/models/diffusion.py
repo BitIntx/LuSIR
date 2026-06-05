@@ -76,3 +76,44 @@ class NoiseScheduler:
             dtype=noisy.dtype
         )
         return (noisy - sqrt_alpha * original) / sqrt_one_minus_alpha.clamp_min(1e-8)
+
+
+def predict_x0_and_noise(
+    scheduler: NoiseScheduler,
+    noisy: torch.Tensor,
+    timesteps: torch.Tensor,
+    model_output: torch.Tensor,
+    condition: torch.Tensor,
+    diffusion_config: dict[str, Any] | None = None,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    config = diffusion_config or {}
+    prediction_type = str(config.get("prediction_type", "noise"))
+
+    if prediction_type in {"noise", "epsilon"}:
+        predicted_noise = model_output
+        predicted_x0 = scheduler.predict_x0_from_noise(noisy, timesteps, predicted_noise)
+        return predicted_x0, predicted_noise
+
+    if prediction_type == "x0":
+        predicted_x0 = model_output
+    elif prediction_type == "residual_x0":
+        predicted_x0 = condition + model_output
+    elif prediction_type == "bounded_residual_x0":
+        residual_scale = float(config.get("residual_scale", 1.0))
+        predicted_x0 = condition + residual_scale * torch.tanh(model_output)
+    elif prediction_type == "gated_residual_x0":
+        if model_output.shape[1] != condition.shape[1] * 2:
+            raise ValueError(
+                "gated_residual_x0 requires model out_channels to be exactly "
+                f"2 * condition channels, got {model_output.shape[1]} and {condition.shape[1]}"
+            )
+        residual_logits, gate_logits = torch.chunk(model_output, 2, dim=1)
+        residual_scale = float(config.get("residual_scale", 1.0))
+        gate_bias = float(config.get("gate_bias", 0.0))
+        residual = residual_scale * torch.tanh(residual_logits) * torch.sigmoid(gate_logits + gate_bias)
+        predicted_x0 = condition + residual
+    else:
+        raise ValueError(f"Unsupported diffusion prediction_type: {prediction_type}")
+
+    predicted_noise = scheduler.noise_from_x0(noisy, predicted_x0, timesteps)
+    return predicted_x0, predicted_noise

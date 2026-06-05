@@ -32,7 +32,7 @@ from sr_diffusion.losses.reconstruction import (
     sobel_edge_loss,
     sobel_residual_magnitude_loss,
 )
-from sr_diffusion.models import AutoencoderKL, ConditionalUNet, LRToLatentPredictor, NoiseScheduler
+from sr_diffusion.models import AutoencoderKL, ConditionalUNet, LRToLatentPredictor, NoiseScheduler, predict_x0_and_noise
 from sr_diffusion.utils import (
     autocast_context,
     format_partial_load_report,
@@ -366,6 +366,7 @@ def evaluate(
     train_condition_encoder: bool,
     eval_timestep: int,
     init_mode: str,
+    diffusion_config: dict[str, Any],
 ) -> dict[str, float]:
     model_was_training = model.training
     cond_was_training = condition_encoder.training
@@ -393,8 +394,15 @@ def evaluate(
                 noisy, target_noise = make_diffusion_inputs(
                     scheduler, target_latent, condition, noise, timestep, init_mode
                 )
-                predicted_noise = model(noisy, timestep, condition, domain_id)
-                x0 = scheduler.predict_x0_from_noise(noisy, timestep, predicted_noise)
+                model_output = model(noisy, timestep, condition, domain_id)
+                x0, predicted_noise = predict_x0_and_noise(
+                    scheduler,
+                    noisy,
+                    timestep,
+                    model_output,
+                    condition,
+                    diffusion_config,
+                )
                 decoded = vae.decode(x0)
                 target = normalize_image(hr)
                 noise_mse = F.mse_loss(predicted_noise, target_noise)
@@ -633,37 +641,28 @@ def main() -> None:
                     noisy, target_noise = make_diffusion_inputs(
                         scheduler, target_latent, condition, noise, timesteps, train_init_mode
                     )
-                    predicted_noise = model(noisy, timesteps, condition, domain_id)
+                    model_output = model(noisy, timesteps, condition, domain_id)
+                    predicted_x0, predicted_noise = predict_x0_and_noise(
+                        scheduler,
+                        noisy,
+                        timesteps,
+                        model_output,
+                        condition,
+                        diffusion_cfg,
+                    )
                     noise_loss = F.mse_loss(predicted_noise, target_noise)
-                    needs_predicted_x0 = (
-                        x0_loss_weight > 0.0
-                        or decoded_loss_weight > 0.0
+                    if x0_loss_weight > 0.0:
+                        x0_loss = F.mse_loss(predicted_x0, target_latent)
+                    else:
+                        x0_loss = torch.zeros((), device=device, dtype=noise_loss.dtype)
+                    if (
+                        decoded_loss_weight > 0.0
                         or edge_loss_weight > 0.0
                         or highpass_loss_weight > 0.0
                         or residual_edge_magnitude_loss_weight > 0.0
                         or residual_highpass_magnitude_loss_weight > 0.0
                         or lowpass_anchor_loss_weight > 0.0
                         or detail_gate_anchor_loss_weight > 0.0
-                    )
-                    if needs_predicted_x0:
-                        predicted_x0 = scheduler.predict_x0_from_noise(noisy, timesteps, predicted_noise)
-                    else:
-                        predicted_x0 = None
-                    if x0_loss_weight > 0.0 and predicted_x0 is not None:
-                        x0_loss = F.mse_loss(predicted_x0, target_latent)
-                    else:
-                        x0_loss = torch.zeros((), device=device, dtype=noise_loss.dtype)
-                    if (
-                        (
-                            decoded_loss_weight > 0.0
-                            or edge_loss_weight > 0.0
-                            or highpass_loss_weight > 0.0
-                            or residual_edge_magnitude_loss_weight > 0.0
-                            or residual_highpass_magnitude_loss_weight > 0.0
-                            or lowpass_anchor_loss_weight > 0.0
-                            or detail_gate_anchor_loss_weight > 0.0
-                        )
-                        and predicted_x0 is not None
                     ):
                         decoded = vae.decode(predicted_x0)
                         target_image = normalize_image(hr)
@@ -803,6 +802,7 @@ def main() -> None:
                         train_condition_encoder,
                         eval_timestep,
                         eval_init_mode,
+                        diffusion_cfg,
                     )
                     (eval_dir / f"step_{step:07d}_metrics.json").write_text(
                         json.dumps({"step": step, "metrics": metrics}, indent=2, sort_keys=True) + "\n",
@@ -851,8 +851,15 @@ def main() -> None:
                             timestep,
                             sample_init_mode,
                         )
-                        sample_pred_noise = unwrap_model(model)(sample_noisy, timestep, sample_condition, sample_domain)
-                        sample_x0 = scheduler.predict_x0_from_noise(sample_noisy, timestep, sample_pred_noise)
+                        sample_model_output = unwrap_model(model)(sample_noisy, timestep, sample_condition, sample_domain)
+                        sample_x0, _ = predict_x0_and_noise(
+                            scheduler,
+                            sample_noisy,
+                            timestep,
+                            sample_model_output,
+                            sample_condition,
+                            diffusion_cfg,
+                        )
                         sample_decoded = vae.decode(sample_x0)
                     sample_count = sample_hr.shape[0]
                     lr_display = F.interpolate(sample_source["lr"].float().cpu(), size=sample_hr.shape[-2:], mode="nearest")

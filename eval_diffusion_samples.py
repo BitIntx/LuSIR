@@ -137,6 +137,7 @@ def main() -> None:
             seed=args.seed + global_index,
             output_dir=samples_dir,
             save_every=0,
+            diffusion_config=config.get("diffusion", {}),
         ).float()
         bicubic = F.interpolate(lr.float(), size=hr.shape[-2:], mode="bicubic", align_corners=False).clamp(0.0, 1.0)
         lr_nearest = F.interpolate(lr.float(), size=hr.shape[-2:], mode="nearest").clamp(0.0, 1.0)

@@ -21,6 +21,17 @@
   유용한 SR detail을 안정적으로 추가하지 못했다. 다음은 loss weight 튜닝보다
   bounded/gated residual 방식의 Stage4 parameterization 변경을 검토한다.
 
+다음으로 `gated_residual_x0` parameterization을 구현했고, 새 probe config를 추가했다:
+
+```text
+configs/diffusion_photo100k_xl_stage4_condition_v3_gated_residual_mild_b8_probe.yaml
+```
+
+핵심은 U-Net output을 noise가 아니라 `condition + bounded residual * learned gate`
+로 해석하고, sampler noise는 해당 x0에서 역산하는 것이다. CUDA smoke는 batch 8
+forward/backward까지 통과했다. 자세한 가설과 평가 기준은
+`docs/TRIAL_AND_ERROR_KO.md`의 "실험 3" 섹션을 본다.
+
 ## 목표
 
 직접 학습하는 x4 vision-only latent diffusion super-resolution 모델.

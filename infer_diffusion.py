@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from sr_diffusion.datasets.manifest import crop_square, pil_to_tensor
 from sr_diffusion.degradations import DegradationPipeline
-from sr_diffusion.models import AutoencoderKL, ConditionalUNet, LRToLatentPredictor, NoiseScheduler
+from sr_diffusion.models import AutoencoderKL, ConditionalUNet, LRToLatentPredictor, NoiseScheduler, predict_x0_and_noise
 from sr_diffusion.utils import autocast_context, get_device, load_config
 
 
@@ -233,6 +233,7 @@ def ddim_sample(
     save_every: int = 0,
     progress_every: int = 4,
     progress_label: str = "sample",
+    diffusion_config: dict | None = None,
 ) -> torch.Tensor:
     device = lr.device
     generator = torch.Generator(device=device)
@@ -273,9 +274,16 @@ def ddim_sample(
         for index, timestep in enumerate(timesteps):
             timestep_batch = torch.full((latent.shape[0],), int(timestep.item()), device=device, dtype=torch.long)
             with autocast_context(device, dtype_name):
-                predicted_noise = model(latent, timestep_batch, condition, domain_id)
-            predicted_noise = predicted_noise.to(dtype=latent.dtype)
-            pred_x0 = scheduler.predict_x0_from_noise(latent, timestep_batch, predicted_noise)
+                model_output = model(latent, timestep_batch, condition, domain_id)
+            model_output = model_output.to(dtype=latent.dtype)
+            pred_x0, predicted_noise = predict_x0_and_noise(
+                scheduler,
+                latent,
+                timestep_batch,
+                model_output,
+                condition.to(dtype=latent.dtype),
+                diffusion_config,
+            )
 
             prev_timestep = int(timesteps[index + 1].item()) if index + 1 < len(timesteps) else -1
             alpha_t = alphas_cumprod[int(timestep.item())]
@@ -332,6 +340,7 @@ def tiled_sample(
     output_dir: Path,
     device: torch.device,
     progress_every: int = 4,
+    diffusion_config: dict | None = None,
 ) -> Image.Image:
     if tile_batch_size <= 0:
         raise ValueError(f"tile_batch_size must be positive: {tile_batch_size}")
@@ -386,6 +395,7 @@ def tiled_sample(
                 save_every=0,
                 progress_every=progress_every,
                 progress_label=f"tile_batch={batch_index}/{num_batches}",
+                diffusion_config=diffusion_config,
             )
 
         for tile_output, (x, y) in zip(output, batch_coords, strict=True):
@@ -471,6 +481,7 @@ def main() -> None:
             output_dir=args.output_dir,
             device=device,
             progress_every=args.progress_every,
+            diffusion_config=config.get("diffusion", {}),
         )
         output.save(args.output_dir / "sr_00.png")
         print(f"saved {args.output_dir}", flush=True)
@@ -507,6 +518,7 @@ def main() -> None:
         save_every=args.save_every,
         progress_every=args.progress_every,
         progress_label="sample",
+        diffusion_config=config.get("diffusion", {}),
     )
     for index, image in enumerate(output):
         tensor_to_pil(image).save(args.output_dir / f"sr_{index:02d}.png")
