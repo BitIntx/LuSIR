@@ -12,13 +12,25 @@ def get_device(requested: str = "auto") -> torch.device:
     return torch.device(requested)
 
 
-def autocast_context(device: torch.device, dtype_name: str | None) -> ContextManager[None]:
+def cuda_bf16_supported() -> bool:
+    is_supported = getattr(torch.cuda, "is_bf16_supported", None)
+    return bool(torch.cuda.is_available() and is_supported is not None and is_supported())
+
+
+def cuda_autocast_dtype(dtype_name: str | None) -> torch.dtype | None:
     if dtype_name in (None, "fp32", "float32"):
+        return None
+    if dtype_name in ("bf16", "bfloat16"):
+        return torch.bfloat16 if cuda_bf16_supported() else torch.float16
+    if dtype_name in ("fp16", "float16"):
+        return torch.float16
+    raise ValueError(f"Unsupported dtype: {dtype_name}")
+
+
+def autocast_context(device: torch.device, dtype_name: str | None) -> ContextManager[None]:
+    dtype = cuda_autocast_dtype(dtype_name)
+    if dtype is None:
         return nullcontext()
     if device.type != "cuda":
         return nullcontext()
-    if dtype_name in ("bf16", "bfloat16"):
-        return torch.autocast(device_type="cuda", dtype=torch.bfloat16)
-    if dtype_name in ("fp16", "float16"):
-        return torch.autocast(device_type="cuda", dtype=torch.float16)
-    raise ValueError(f"Unsupported dtype: {dtype_name}")
+    return torch.autocast(device_type="cuda", dtype=dtype)

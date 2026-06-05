@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from sr_diffusion.datasets.manifest import crop_square, pil_to_tensor
 from sr_diffusion.degradations import DegradationPipeline
 from sr_diffusion.models import AutoencoderKL, ConditionalUNet, LRToLatentPredictor, NoiseScheduler, predict_x0_and_noise
-from sr_diffusion.utils import autocast_context, get_device, load_config
+from sr_diffusion.utils import autocast_context, cuda_autocast_dtype, get_device, load_config
 
 
 def parse_args() -> argparse.Namespace:
@@ -93,30 +93,56 @@ def resolve_checkpoint_arg(args: argparse.Namespace, config: dict) -> Path:
     return resolve_path(config, checkpoint)
 
 
-def load_autoencoder(config: dict, device: torch.device) -> AutoencoderKL:
+def inference_module_dtype(device: torch.device, dtype_name: str | None) -> torch.dtype | None:
+    if device.type != "cuda":
+        return None
+    return cuda_autocast_dtype(dtype_name)
+
+
+def load_autoencoder(config: dict, device: torch.device, dtype_name: str | None) -> AutoencoderKL:
     auto_cfg = config["autoencoder"]
     vae_config = load_config(resolve_path(config, auto_cfg["config"]))
-    vae = AutoencoderKL.from_config(vae_config["model"]).to(device)
-    checkpoint = torch.load(resolve_path(config, auto_cfg["checkpoint"]), map_location=device)
+    vae = AutoencoderKL.from_config(vae_config["model"])
+    checkpoint = torch.load(resolve_path(config, auto_cfg["checkpoint"]), map_location="cpu")
     vae.load_state_dict(checkpoint["model"])
+    dtype = inference_module_dtype(device, dtype_name)
+    if dtype is None:
+        vae = vae.to(device)
+    else:
+        vae = vae.to(device=device, dtype=dtype)
     vae.eval()
     return vae
 
 
-def load_condition_encoder(config: dict, device: torch.device) -> LRToLatentPredictor:
+def load_condition_encoder(config: dict, device: torch.device, dtype_name: str | None) -> LRToLatentPredictor:
     cond_cfg = config["condition_encoder"]
     cond_config = load_config(resolve_path(config, cond_cfg["config"]))
-    encoder = LRToLatentPredictor.from_config(cond_config["model"]).to(device)
-    checkpoint = torch.load(resolve_path(config, cond_cfg["checkpoint"]), map_location=device)
+    encoder = LRToLatentPredictor.from_config(cond_config["model"])
+    checkpoint = torch.load(resolve_path(config, cond_cfg["checkpoint"]), map_location="cpu")
     encoder.load_state_dict(checkpoint["model"])
+    dtype = inference_module_dtype(device, dtype_name)
+    if dtype is None:
+        encoder = encoder.to(device)
+    else:
+        encoder = encoder.to(device=device, dtype=dtype)
     encoder.eval()
     return encoder
 
 
-def load_unet(config: dict, checkpoint_path: Path, device: torch.device) -> tuple[ConditionalUNet, int]:
-    model = ConditionalUNet.from_config(config["model"]).to(device)
-    checkpoint = torch.load(checkpoint_path, map_location=device)
+def load_unet(
+    config: dict,
+    checkpoint_path: Path,
+    device: torch.device,
+    dtype_name: str | None,
+) -> tuple[ConditionalUNet, int]:
+    model = ConditionalUNet.from_config(config["model"])
+    checkpoint = torch.load(checkpoint_path, map_location="cpu")
     model.load_state_dict(checkpoint["model"])
+    dtype = inference_module_dtype(device, dtype_name)
+    if dtype is None:
+        model = model.to(device)
+    else:
+        model = model.to(device=device, dtype=dtype)
     model.eval()
     return model, int(checkpoint.get("step", 0))
 
@@ -444,9 +470,9 @@ def main() -> None:
     torch.manual_seed(args.seed)
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
-    vae = load_autoencoder(config, device)
-    condition_encoder = load_condition_encoder(config, device)
-    model, checkpoint_step = load_unet(config, checkpoint_path, device)
+    vae = load_autoencoder(config, device, dtype_name)
+    condition_encoder = load_condition_encoder(config, device, dtype_name)
+    model, checkpoint_step = load_unet(config, checkpoint_path, device, dtype_name)
     scheduler = NoiseScheduler.from_config(config.get("diffusion", {}))
     start_timestep = resolve_start_timestep(config, args.start_timestep)
 
