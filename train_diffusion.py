@@ -20,6 +20,7 @@ from torch.nn.parallel import DistributedDataParallel
 from torchvision.utils import save_image
 
 ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
 from sr_diffusion.datasets import ManifestImageDataset
@@ -43,6 +44,7 @@ from sr_diffusion.utils import (
     seed_everything,
     seed_worker,
 )
+from train_residual_refiner import BoundedResidualRefiner
 
 
 def parse_args() -> argparse.Namespace:
@@ -243,6 +245,46 @@ def load_condition_encoder(config: dict[str, Any], device: torch.device) -> tupl
         parameter.requires_grad_(trainable)
     print(f"loaded_condition_encoder={cond_cfg['checkpoint']} step={checkpoint.get('step', 'unknown')} trainable={trainable}")
     return encoder, trainable
+
+
+def load_residual_refiner_teacher(config: dict[str, Any], device: torch.device) -> BoundedResidualRefiner | None:
+    teacher_cfg = config.get("teacher", {}).get("residual_refiner", {})
+    if not bool(teacher_cfg.get("enabled", False)):
+        return None
+    teacher_config = load_config(teacher_cfg["config"])
+    model_config = teacher_cfg.get("model", teacher_config["model"])
+    teacher = BoundedResidualRefiner.from_config(model_config).to(device)
+    checkpoint = torch.load(teacher_cfg["checkpoint"], map_location=device)
+    teacher.load_state_dict(checkpoint["model"])
+    teacher.eval()
+    for parameter in teacher.parameters():
+        parameter.requires_grad_(False)
+    print(
+        f"loaded_residual_refiner_teacher={teacher_cfg['checkpoint']} "
+        f"step={checkpoint.get('step', 'unknown')}"
+    )
+    return teacher
+
+
+def gated_residual_components(
+    model_output: torch.Tensor,
+    condition: torch.Tensor,
+    diffusion_config: dict[str, Any],
+) -> tuple[torch.Tensor, torch.Tensor]:
+    prediction_type = str(diffusion_config.get("prediction_type", "noise"))
+    if prediction_type != "gated_residual_x0":
+        raise ValueError("teacher residual supervision requires diffusion.prediction_type='gated_residual_x0'")
+    if model_output.shape[1] != condition.shape[1] * 2:
+        raise ValueError(
+            "gated_residual_x0 requires model out_channels to be exactly "
+            f"2 * condition channels, got {model_output.shape[1]} and {condition.shape[1]}"
+        )
+    residual_logits, gate_logits = torch.chunk(model_output, 2, dim=1)
+    residual_scale = float(diffusion_config.get("residual_scale", 1.0))
+    gate_bias = float(diffusion_config.get("gate_bias", 0.0))
+    gate = torch.sigmoid(gate_logits + gate_bias)
+    residual = residual_scale * torch.tanh(residual_logits) * gate
+    return residual, gate
 
 
 def save_checkpoint(
@@ -524,6 +566,7 @@ def main() -> None:
 
     vae = load_autoencoder(config, device=device)
     condition_encoder, train_condition_encoder = load_condition_encoder(config, device=device)
+    residual_refiner_teacher = load_residual_refiner_teacher(config, device=device)
     model = ConditionalUNet.from_config(config["model"]).to(device)
     scheduler = NoiseScheduler.from_config(diffusion_cfg)
     print_main(f"diffusion_timesteps={scheduler.num_train_timesteps} train_init={train_init_mode}", rank)
@@ -584,6 +627,18 @@ def main() -> None:
     detail_gate_anchor_loss_weight = float(loss_cfg.get("detail_gate_anchor_weight", 0.0))
     lowpass_anchor_kernel_size = int(loss_cfg.get("lowpass_anchor_kernel_size", 9))
     detail_gate_threshold = float(loss_cfg.get("detail_gate_threshold", 0.035))
+    teacher_residual_loss_weight = float(loss_cfg.get("teacher_residual_weight", 0.0))
+    teacher_highpass_loss_weight = float(loss_cfg.get("teacher_highpass_weight", 0.0))
+    teacher_gate_loss_weight = float(loss_cfg.get("teacher_gate_weight", 0.0))
+    teacher_x0_loss_weight = float(loss_cfg.get("teacher_x0_weight", 0.0))
+    teacher_loss_enabled = (
+        teacher_residual_loss_weight > 0.0
+        or teacher_highpass_loss_weight > 0.0
+        or teacher_gate_loss_weight > 0.0
+        or teacher_x0_loss_weight > 0.0
+    )
+    if teacher_loss_enabled and residual_refiner_teacher is None:
+        raise ValueError("Teacher loss weights are non-zero, but teacher.residual_refiner.enabled is false.")
     charbonnier_eps = float(loss_cfg.get("charbonnier_eps", 1e-3))
     best_metric = str(eval_cfg.get("best_metric", "eval/noise_mse"))
     best_mode = str(eval_cfg.get("best_mode", "min"))
@@ -650,6 +705,44 @@ def main() -> None:
                         condition,
                         diffusion_cfg,
                     )
+                    if teacher_loss_enabled:
+                        with torch.no_grad():
+                            teacher_lr_input = normalize_image(lr)
+                            teacher_x0, teacher_residual, teacher_gate = residual_refiner_teacher(
+                                condition.detach(),
+                                teacher_lr_input,
+                                domain_id,
+                            )
+                        predicted_residual, predicted_gate = gated_residual_components(
+                            model_output,
+                            condition,
+                            diffusion_cfg,
+                        )
+                        teacher_residual_loss = charbonnier_loss(
+                            predicted_residual,
+                            teacher_residual.detach(),
+                            eps=charbonnier_eps,
+                        )
+                        teacher_highpass_loss = laplacian_loss(
+                            predicted_residual,
+                            teacher_residual.detach(),
+                            eps=charbonnier_eps,
+                        )
+                        teacher_gate_loss = charbonnier_loss(
+                            predicted_gate,
+                            teacher_gate.detach(),
+                            eps=charbonnier_eps,
+                        )
+                        teacher_x0_loss = charbonnier_loss(
+                            predicted_x0,
+                            teacher_x0.detach(),
+                            eps=charbonnier_eps,
+                        )
+                    else:
+                        teacher_residual_loss = torch.zeros((), device=device, dtype=predicted_x0.dtype)
+                        teacher_highpass_loss = torch.zeros((), device=device, dtype=predicted_x0.dtype)
+                        teacher_gate_loss = torch.zeros((), device=device, dtype=predicted_x0.dtype)
+                        teacher_x0_loss = torch.zeros((), device=device, dtype=predicted_x0.dtype)
                     noise_loss = F.mse_loss(predicted_noise, target_noise)
                     if x0_loss_weight > 0.0:
                         x0_loss = F.mse_loss(predicted_x0, target_latent)
@@ -738,6 +831,10 @@ def main() -> None:
                         + residual_highpass_magnitude_loss_weight * residual_highpass_magnitude_loss
                         + lowpass_anchor_loss_weight * lowpass_anchor
                         + detail_gate_anchor_loss_weight * detail_gate_anchor
+                        + teacher_residual_loss_weight * teacher_residual_loss
+                        + teacher_highpass_loss_weight * teacher_highpass_loss
+                        + teacher_gate_loss_weight * teacher_gate_loss
+                        + teacher_x0_loss_weight * teacher_x0_loss
                     )
                     scaled_loss = loss / grad_accum_steps
 
@@ -762,6 +859,10 @@ def main() -> None:
                     f"res_high_mag={float(residual_highpass_magnitude_loss.detach().cpu()):.5f} "
                     f"low_anchor={float(lowpass_anchor.detach().cpu()):.5f} "
                     f"detail_gate={float(detail_gate_anchor.detach().cpu()):.5f} "
+                    f"teacher_res={float(teacher_residual_loss.detach().cpu()):.5f} "
+                    f"teacher_high={float(teacher_highpass_loss.detach().cpu()):.5f} "
+                    f"teacher_gate={float(teacher_gate_loss.detach().cpu()):.5f} "
+                    f"teacher_x0={float(teacher_x0_loss.detach().cpu()):.5f} "
                     f"steps_per_sec={interval_steps / elapsed:.2f}"
                 )
                 wandb_log(
@@ -777,6 +878,10 @@ def main() -> None:
                         "train/residual_highpass_magnitude": float(residual_highpass_magnitude_loss.detach().cpu()),
                         "train/lowpass_anchor": float(lowpass_anchor.detach().cpu()),
                         "train/detail_gate_anchor": float(detail_gate_anchor.detach().cpu()),
+                        "train/teacher_residual": float(teacher_residual_loss.detach().cpu()),
+                        "train/teacher_highpass": float(teacher_highpass_loss.detach().cpu()),
+                        "train/teacher_gate": float(teacher_gate_loss.detach().cpu()),
+                        "train/teacher_x0": float(teacher_x0_loss.detach().cpu()),
                         "train/lr": optimizer.param_groups[0]["lr"],
                         "system/steps_per_sec": interval_steps / elapsed,
                     },
