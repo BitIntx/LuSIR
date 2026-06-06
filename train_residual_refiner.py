@@ -423,6 +423,9 @@ def main() -> None:
     sample_count = int(eval_cfg.get("sample_count", 8))
     eps = float(loss_cfg.get("charbonnier_eps", 1e-3))
     highpass_kernel = int(loss_cfg.get("highpass_kernel", 15))
+    decoded_weight = float(loss_cfg.get("decoded_weight", 0.0))
+    decoded_highpass_weight = float(loss_cfg.get("decoded_highpass_weight", 0.0))
+    decoded_highpass_kernel = int(loss_cfg.get("decoded_highpass_kernel", highpass_kernel))
 
     best_metric = -float("inf")
     best_metrics: dict[str, float] | None = None
@@ -497,21 +500,35 @@ def main() -> None:
 
         with autocast_context(device, dtype_name):
             refined, predicted_residual, gate = model(condition.detach(), lr_input, domain_id)
-        target_residual = target_latent.detach() - condition.detach()
-        latent_loss = charbonnier(refined, target_latent.detach(), eps)
-        residual_loss = charbonnier(predicted_residual, target_residual, eps)
-        highpass_loss = charbonnier(
-            highpass(predicted_residual, highpass_kernel),
-            highpass(target_residual, highpass_kernel),
-            eps,
-        )
-        gate_loss = gate.float().abs().mean()
-        loss = (
-            float(loss_cfg.get("latent_weight", 1.0)) * latent_loss
-            + float(loss_cfg.get("residual_weight", 0.5)) * residual_loss
-            + float(loss_cfg.get("highpass_weight", 1.0)) * highpass_loss
-            + float(loss_cfg.get("gate_l1_weight", 0.001)) * gate_loss
-        )
+            target_residual = target_latent.detach() - condition.detach()
+            latent_loss = charbonnier(refined, target_latent.detach(), eps)
+            residual_loss = charbonnier(predicted_residual, target_residual, eps)
+            highpass_loss = charbonnier(
+                highpass(predicted_residual, highpass_kernel),
+                highpass(target_residual, highpass_kernel),
+                eps,
+            )
+            gate_loss = gate.float().abs().mean()
+            decoded_loss = refined.new_zeros(())
+            decoded_highpass_loss = refined.new_zeros(())
+            if decoded_weight > 0.0 or decoded_highpass_weight > 0.0:
+                decoded_refined = vae.decode(refined)
+                if decoded_weight > 0.0:
+                    decoded_loss = charbonnier(decoded_refined, target, eps)
+                if decoded_highpass_weight > 0.0:
+                    decoded_highpass_loss = charbonnier(
+                        highpass(decoded_refined, decoded_highpass_kernel),
+                        highpass(target, decoded_highpass_kernel),
+                        eps,
+                    )
+            loss = (
+                float(loss_cfg.get("latent_weight", 1.0)) * latent_loss
+                + float(loss_cfg.get("residual_weight", 0.5)) * residual_loss
+                + float(loss_cfg.get("highpass_weight", 1.0)) * highpass_loss
+                + decoded_weight * decoded_loss
+                + decoded_highpass_weight * decoded_highpass_loss
+                + float(loss_cfg.get("gate_l1_weight", 0.001)) * gate_loss
+            )
         (loss / grad_accum_steps).backward()
 
         if (step + 1) % grad_accum_steps == 0:
@@ -527,6 +544,8 @@ def main() -> None:
                 f"latent={float(latent_loss.detach().cpu()):.5f} "
                 f"residual={float(residual_loss.detach().cpu()):.5f} "
                 f"highpass={float(highpass_loss.detach().cpu()):.5f} "
+                f"decoded={float(decoded_loss.detach().cpu()):.5f} "
+                f"decoded_highpass={float(decoded_highpass_loss.detach().cpu()):.5f} "
                 f"gate={float(gate_loss.detach().cpu()):.5f} "
                 f"steps_per_s={log_every / elapsed:.3f}",
                 flush=True,
