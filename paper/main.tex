@@ -8,7 +8,7 @@
 
 \title{Vision-Only Latent Diffusion Super-Resolution without T2I Pretraining}
 \author{sr-diffusion contributors}
-\date{Completed-experiment snapshot through Stage 2 residual refiner probing}
+\date{Completed-experiment snapshot through teacher-supervised Stage 4 probing}
 
 \begin{document}
 \maketitle
@@ -460,6 +460,44 @@ edits seen in earlier diffusion probes, but the visible detail gain is still
 small. The result is best interpreted as a safe residual teacher or warm start,
 not as a final detail generator.
 
+\section{Teacher-Supervised Stage 4 Residual Probe}
+
+The sparse-gate deterministic refiner was used as a frozen teacher for the
+gated-residual Stage 4 U-Net on \texttt{photo\_v3\_noise\_mix}. Direct losses
+supervised the predicted residual, highpass residual, and gate. Training
+completed 8000 micro-steps, or 2000 optimizer updates with gradient
+accumulation four.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lrrrrr}
+\toprule
+Checkpoint & Start \(t\) & SR PSNR & vs bicubic & vs condition & Wins \\
+\midrule
+Teacher step 2000 & 25 & 22.9640 & +0.6041 & +0.0626 & 68/100 \\
+Teacher step 2000 & 50 & 22.9639 & +0.6040 & +0.0625 & n/a \\
+Teacher step 4000 & 25 & 22.9571 & +0.5972 & +0.0557 & 65/100 \\
+Teacher step 8000 & 25 & 22.9490 & +0.5891 & +0.0476 & 59/100 \\
+Edge step 4250 & 25 & 22.9563 & +0.5964 & +0.0549 & 42/100 \\
+Edge step 4250 & 50 & 23.0799 & +0.7200 & +0.1784 & 45/100 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Teacher supervision produced a small cleanup gain over the Stage 2 condition
+output and slightly exceeded the edge model at \(t=25\). However, fur, leaves,
+branches, and building detail remained strongly smoothed. A simple
+absolute-Laplacian diagnostic measured teacher step-2000 output at 21.8\% of
+GT detail energy, below the existing edge \(t=25\) output at 32.7\%. This is
+not a complete perceptual metric, but it agrees with visual inspection.
+
+The best sampled checkpoint was step 2000; continuing to step 8000 reduced both
+mean PSNR and condition win count. The current interpretation is that the
+\texttt{photo\_v3\_noise\_mix} curriculum overemphasizes severe cleanup cases.
+The next high-signal experiment is therefore a less aggressive,
+detail-preserving degradation curriculum rather than another long continuation
+of this Stage 4 objective.
+
 \section{Limitations}
 
 This is an engineering report for an active experiment, not a claim of a final
@@ -467,9 +505,10 @@ published method. The large-scale completed results are photo-domain only, while
 anime/illustration domain conditioning remains implemented but not yet validated
 at the same scale. The reported sampled PSNR values are useful for internal
 checkpoint comparison, but they are not a full benchmark suite against external
-SR methods. The highest-signal next direction is to use the deterministic
-sparse-gate refiner as direct supervision or warm start for a Stage 4 residual
-path, instead of investing in longer unconstrained Stage 4 continuations.
+SR methods. Teacher supervision produced a small PSNR cleanup gain but did not
+recover visible fine detail. The highest-signal next direction is to redesign
+the degradation curriculum with a larger clean/mild share and a separate
+detail-restoration validation slice.
 
 \begin{thebibliography}{9}
 \bibitem{rombach2022latent}

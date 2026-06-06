@@ -7,6 +7,32 @@
 
 ## 2026-06-06 최신 실험 요약
 
+- deterministic residual refiner teacher-supervision Stage4 probe를 `8000` micro steps까지 완료.
+- config:
+  `configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_v3_b8_probe.yaml`
+- W&B:
+  - <https://wandb.ai/jwheo/sr-diffusion/runs/6h0124us>
+  - <https://wandb.ai/jwheo/sr-diffusion/runs/0p3lfqt7>
+- `photo_v3_noise_mix` sampled val100, condition init, 32 steps:
+
+| checkpoint | start timestep | SR PSNR | bicubic 대비 | condition 대비 | condition wins |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| teacher step 2000 | 25 | 22.9640 | +0.6041 | +0.0626 | 68/100 |
+| teacher step 2000 | 50 | 22.9639 | +0.6040 | +0.0625 | n/a |
+| teacher step 4000 | 25 | 22.9571 | +0.5972 | +0.0557 | 65/100 |
+| teacher step 8000 | 25 | 22.9490 | +0.5891 | +0.0476 | 59/100 |
+
+- step `2000`이 sampled 기준 최고이며, 이후 장기 학습은 개선되지 않았다.
+- 시각적으로는 털/잎/건물/나뭇가지 detail을 복원하지 못하고 smoothing이 강하다.
+  teacher step 2000의 absolute-Laplacian energy는 GT의 `21.8%`로, 기존 edge t25의
+  `32.7%`보다 낮다.
+- 결론: teacher supervision은 작은 PSNR cleanup 이득은 만들었지만 사용자 체감
+  업스케일 detail 목표에는 실패했다.
+- 다음 우선순위는 같은 Stage4 continuation이 아니라 `photo_v3_noise_mix`의 과도한
+  노이즈 강도/비중을 줄이고 clean/mild 중심 detail 복원 curriculum을 재설계하는 것이다.
+- HF preset:
+  `python scripts/download_hf_checkpoints.py --preset stage4_teacher_residual_probe`
+
 - residual refiner standalone eval/inference 도구 추가:
   - `eval_residual_refiner.py`
   - `infer_residual_refiner.py`

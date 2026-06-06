@@ -39,6 +39,12 @@ Download the latest residual diagnostic/refiner artifact set:
 python scripts/download_hf_checkpoints.py --preset residual_refiner_stage2_xl_mild
 ```
 
+Download the selected teacher-supervised Stage 4 probe artifact set:
+
+```bash
+python scripts/download_hf_checkpoints.py --preset stage4_teacher_residual_probe
+```
+
 This creates the local `checkpoints/` files expected by
 `configs/hf/diffusion_stage4_condition.yaml`.
 
@@ -186,6 +192,21 @@ artifacts:
   --artifact /home/jwheojjang/scratch/sr-diffusion/runs/eval_residual_refiner_stage2_xl_photo_v2_val100/eval_grid_lr_bicubic_condition_refined_oracle_gt.png=samples/eval_residual_refiner_stage2_xl_photo_v2_val100_grid.png \
   --artifact /home/jwheojjang/scratch/sr-diffusion/runs/eval_residual_refiner_stage2_xl_photo_v3_noise_mix_val100/eval_grid_lr_bicubic_condition_refined_oracle_gt.png=samples/eval_residual_refiner_stage2_xl_photo_v3_noise_mix_val100_grid.png \
   --artifact /home/jwheojjang/scratch/sr-diffusion/runs/compare_residual_refiner_vs_stage4_edge_0801_photo_v3.png=samples/compare_residual_refiner_vs_stage4_edge_0801_photo_v3.png
+```
+
+Upload the selected teacher-supervised Stage 4 probe checkpoint and sampled
+evaluation artifacts:
+
+```bash
+/home/ubuntu/venvs/cuda/bin/python scripts/upload_hf_artifact.py \
+  --repo-id jwheo/sr-diffusion \
+  --repo-type model \
+  --message "Upload Stage4 teacher residual probe artifacts" \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_v3_b8_probe/checkpoints/step_0002000.pt=checkpoints/stage4_photo100k_xl_teacher_residual_photo_v3_step_0002000.pt \
+  --artifact configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_v3_b8_probe.yaml=configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_v3_b8_probe.yaml \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/eval_teacher_residual_photo_v3_step2000_val100_t25/summary.json=metrics/stage4_photo100k_xl_teacher_residual_photo_v3_step2000_val100_t25_32step_summary.json \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/eval_teacher_residual_photo_v3_step2000_val100_t50/summary.json=metrics/stage4_photo100k_xl_teacher_residual_photo_v3_step2000_val100_t50_32step_summary.json \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/eval_teacher_residual_photo_v3_step2000_val100_t25/grid_lr_bicubic_sr_gt.png=samples/stage4_photo100k_xl_teacher_residual_photo_v3_step2000_val100_t25_grid.png
 ```
 
 Make the Hub repository public after license files and the model card are in

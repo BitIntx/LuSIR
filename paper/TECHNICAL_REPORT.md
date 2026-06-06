@@ -1,6 +1,6 @@
 # Vision-Only Latent Diffusion Super-Resolution without T2I Pretraining
 
-Snapshot: Stage 2 residual diagnostic and deterministic residual refiner probe complete.
+Snapshot: teacher-supervised Stage 4 residual probe complete.
 
 ## Objective
 
@@ -241,6 +241,44 @@ edits seen in earlier diffusion probes, but the visible detail gain is still
 small. The result is best interpreted as a safe residual teacher or warm start,
 not as a final detail generator.
 
+## Teacher-Supervised Stage 4 Residual Probe
+
+The sparse-gate deterministic refiner was used as a frozen teacher for the
+gated-residual Stage 4 U-Net. Direct losses supervised the predicted residual,
+highpass residual, and gate on `photo_v3_noise_mix`.
+
+```text
+config: configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_v3_b8_probe.yaml
+train batch size: 8
+gradient accumulation: 4
+finished step: 8000 micro-steps, 2000 optimizer updates
+```
+
+Sampled val100, condition initialization, 32 sampling steps:
+
+| Checkpoint | Start timestep | Mean SR PSNR | vs bicubic | vs condition | Wins vs condition |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Teacher Stage 4 step 2000 | 25 | `22.9640` | `+0.6041` | `+0.0626` | `68/100` |
+| Teacher Stage 4 step 2000 | 50 | `22.9639` | `+0.6040` | `+0.0625` | n/a |
+| Teacher Stage 4 step 4000 | 25 | `22.9571` | `+0.5972` | `+0.0557` | `65/100` |
+| Teacher Stage 4 step 8000 | 25 | `22.9490` | `+0.5891` | `+0.0476` | `59/100` |
+| Existing edge Stage 4 step 4250 | 25 | `22.9563` | `+0.5964` | `+0.0549` | `42/100` |
+| Existing edge Stage 4 step 4250 | 50 | `23.0799` | `+0.7200` | `+0.1784` | `45/100` |
+
+Teacher supervision therefore produced a small, stable cleanup gain over the
+Stage 2 condition output and slightly exceeded the edge model at t25. However,
+the user-facing objective was not achieved. Fur, leaves, branches, and building
+detail remained strongly smoothed. A simple absolute-Laplacian diagnostic
+measured teacher step-2000 output at `21.8%` of GT detail energy, below the
+existing edge t25 output at `32.7%`. This is not a complete perceptual metric,
+but it agrees with visual inspection.
+
+The best sampled checkpoint was step 2000; continuing to step 8000 reduced both
+mean PSNR and condition win count. The active interpretation is that the
+current `photo_v3_noise_mix` curriculum overemphasizes severe denoise/cleanup
+cases, so direct residual supervision teaches a safer cleanup operator rather
+than a missing-detail generator.
+
 ## Systems Notes
 
 Diffusion training now supports PyTorch DDP when launched with `torchrun`.
@@ -263,17 +301,22 @@ The latest public artifacts are stored in `jwheo/sr-diffusion` on Hugging Face:
 ```text
 checkpoints/stage4_photo100k_xl_edge_b16_best_eval_condition_decoded.pt
 checkpoints/residual_refiner_stage2_xl_mild_best_eval_refined.pt
+checkpoints/stage4_photo100k_xl_teacher_residual_photo_v3_step_0002000.pt
 metrics/stage4_photo100k_xl_edge_b16_val100_t50_32step_summary.json
 metrics/diagnose_stage2_xl_residuals_mild_val100_summary.json
 metrics/residual_refiner_stage2_xl_mild_probe_early_stop_summary.json
 metrics/eval_residual_refiner_stage2_xl_photo_v3_noise_mix_val100_summary.json
+metrics/stage4_photo100k_xl_teacher_residual_photo_v3_step2000_val100_t25_32step_summary.json
+metrics/stage4_photo100k_xl_teacher_residual_photo_v3_step2000_val100_t50_32step_summary.json
 samples/stage4_photo100k_xl_edge_b16_val100_t50_32step_grid_lr_bicubic_sr_gt.png
 samples/diagnose_stage2_xl_residuals_mild_val100_grid.png
 samples/residual_refiner_stage2_xl_mild_probe_step500_grid.png
 samples/eval_residual_refiner_stage2_xl_photo_v3_noise_mix_val100_grid.png
 samples/compare_residual_refiner_vs_stage4_edge_0801_photo_v3.png
+samples/stage4_photo100k_xl_teacher_residual_photo_v3_step2000_val100_t25_grid.png
 configs/diffusion_photo100k_xl_stage4_condition_v3_edge_b16.yaml
 configs/residual_refiner_stage2_xl_mild_probe.yaml
+configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_v3_b8_probe.yaml
 ```
 
 ## Next Work
@@ -288,5 +331,5 @@ small supervised residual gains are learnable. Candidate next steps are:
 - add direct residual/gate supervision based on condition-vs-target error;
 - add a condition uncertainty or detail-need map so Stage 4 edits only locations
   where the Stage 2 condition encoder is likely missing recoverable detail;
-- revisit the Stage 2 degradation curriculum if the condition encoder remains
-  the dominant quality ceiling.
+- redesign the degradation curriculum with a larger clean/mild share and a
+  separate detail-restoration validation slice before another long Stage 4 run.

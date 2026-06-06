@@ -207,6 +207,27 @@ does not introduce the destructive edits seen in earlier diffusion probes, but
 the visible change is small. The best next use is therefore as a safe residual
 teacher/warm start, not as the final detail generator by itself.
 
+That teacher-supervision path was then tested in the gated-residual Stage 4
+U-Net on `photo_v3_noise_mix`. It produced a small, stable PSNR cleanup gain,
+but did not solve visible detail recovery:
+
+```text
+Teacher-supervised Stage4, sampled photo_v3_noise_mix val100:
+  step 2000, t25: 22.9640 PSNR, +0.0626 vs condition, wins 68/100
+  step 2000, t50: 22.9639 PSNR, +0.0625 vs condition
+  step 4000, t25: 22.9571 PSNR
+  step 8000, t25: 22.9490 PSNR
+```
+
+The best sampled checkpoint was step 2000; continuing to step 8000 reduced the
+result. Visual inspection still shows strong smoothing of fur, leaves,
+branches, and buildings. A simple absolute-Laplacian diagnostic measured only
+`21.8%` of GT detail energy for the teacher output, versus `32.7%` for the
+existing edge-loss Stage 4 t25 output. The next priority is therefore the
+degradation curriculum: `photo_v3_noise_mix` currently contains enough severe
+noise cases to bias the model toward denoise/cleanup instead of user-facing
+detail restoration.
+
 For VM migration and continuation context, read:
 
 - [docs/HANDOFF_KO.md](docs/HANDOFF_KO.md)
@@ -603,6 +624,13 @@ Download the latest residual diagnostic/refiner artifact set:
 
 ```bash
 python scripts/download_hf_checkpoints.py --preset residual_refiner_stage2_xl_mild
+```
+
+Download the selected teacher-supervised Stage 4 probe checkpoint and eval
+artifacts:
+
+```bash
+python scripts/download_hf_checkpoints.py --preset stage4_teacher_residual_probe
 ```
 
 Evaluate the residual refiner on a fixed validation preset:
@@ -1030,6 +1058,11 @@ Stage 4: perceptual / GAN fine-tune
   mild val100 versus `25.0449` for condition-only, so the next Stage 4 path
   should use that residual signal as supervision or initialization rather than
   only changing diffusion loss weights.
+- Direct teacher supervision was tested through 8000 micro steps. It improved
+  `photo_v3_noise_mix` condition-only by `+0.0626 dB` at step 2000, but outputs
+  remained strongly smoothed and later checkpoints regressed. The next
+  high-signal work is a less aggressive, detail-preserving degradation
+  curriculum rather than another long continuation of this Stage 4 objective.
 
 Run the Stage 4-lite low-timestep fine-tune:
 

@@ -532,3 +532,66 @@ samples/eval_residual_refiner_stage2_xl_photo_v2_val100_grid.png
 samples/eval_residual_refiner_stage2_xl_photo_v3_noise_mix_val100_grid.png
 samples/compare_residual_refiner_vs_stage4_edge_0801_photo_v3.png
 ```
+
+## 실험 7: deterministic refiner teacher supervision Stage4 probe
+
+목표:
+
+- sparse-gate residual refiner의 residual/highpass/gate를 frozen teacher target으로 사용한다.
+- gated-residual Stage4가 near-identity에 머무르지 않고 필요한 detail 위치와 크기를
+  직접 학습할 수 있는지 확인한다.
+- `photo_v3_noise_mix`에서 cleanup 이득과 사용자 체감 detail 복원을 같이 확인한다.
+
+설정:
+
+- config:
+  `configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_v3_b8_probe.yaml`
+- init: gated-residual mild step `2000`
+- teacher: sparse-gate residual refiner best step `500`
+- batch `8`, grad accumulation `4`
+- 완료: `8000` micro steps = `2000` optimizer updates
+- W&B:
+  - step 0-2000: <https://wandb.ai/jwheo/sr-diffusion/runs/6h0124us>
+  - step 2000-8000: <https://wandb.ai/jwheo/sr-diffusion/runs/0p3lfqt7>
+- GPU 병목 없음: L40S util `97-100%`, steady speed 약 `0.85 micro-step/s`
+
+one-step decoded proxy는 step `2000` 이후 개선되지 않았다:
+
+| checkpoint step | decoded PSNR |
+| ---: | ---: |
+| 2000 | 21.5888 |
+| 4000 | 21.5886 |
+| 8000 | 21.5669 |
+
+`photo_v3_noise_mix` sampled val100, condition init, 32 steps:
+
+| checkpoint | start timestep | SR PSNR | bicubic PSNR | bicubic 대비 | condition 대비 | condition wins |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| teacher Stage4 step 2000 | 25 | 22.9640 | 22.3599 | +0.6041 | +0.0626 | 68/100 |
+| teacher Stage4 step 2000 | 50 | 22.9639 | 22.3599 | +0.6040 | +0.0625 | n/a |
+| teacher Stage4 step 4000 | 25 | 22.9571 | 22.3599 | +0.5972 | +0.0557 | 65/100 |
+| teacher Stage4 step 8000 | 25 | 22.9490 | 22.3599 | +0.5891 | +0.0476 | 59/100 |
+| 기존 Stage4 edge step 4250 | 25 | 22.9563 | 22.3599 | +0.5964 | +0.0549 | 42/100 |
+| 기존 Stage4 edge step 4250 | 50 | 23.0799 | 22.3599 | +0.7200 | +0.1784 | 45/100 |
+
+시각/주파수 관찰:
+
+- teacher step 2000은 t25에서 condition과 edge t25를 PSNR 기준으로 소폭 이긴다.
+- 하지만 털, 잎, 나뭇가지, 건물 같은 고주파 구조를 복원하지 못하고 매끈한 덩어리로
+  바꾸는 경향이 강하다.
+- 평균 absolute-Laplacian energy는 teacher step 2000 SR이 GT의 `21.8%`이고,
+  기존 edge t25는 GT의 `32.7%`다. 이 값은 정식 perceptual metric은 아니지만
+  teacher 출력이 더 부드럽다는 시각 관찰과 일치한다.
+- t25와 t50 결과가 거의 같아, teacher-supervised gated residual sampler가
+  start timestep 변화에도 유용한 새 detail을 만들지 못한다.
+- `photo_v3_noise_mix` 입력 중 일부는 색/센서 노이즈가 과도하게 강하다. 현재 curriculum은
+  사용자 체감 SR보다 denoise/cleanup 학습을 과하게 유도할 가능성이 높다.
+
+결론:
+
+- teacher supervision은 수치상 안정적인 cleanup residual을 전달하는 데는 성공했다.
+- 그러나 사용자가 기대하는 업스케일 detail 생성 목표에는 실패했다.
+- step `2000` 이후 긴 continuation은 오히려 sampled PSNR과 condition win count가 감소했다.
+- 다음 실험은 같은 Stage4를 더 오래 돌리거나 teacher weight만 조정하지 않는다.
+- 우선순위는 degradation curriculum을 현실적인 강도로 재설계하고, clean/mild 비중을
+  높인 고주파 복원 평가를 별도로 두는 것이다.
