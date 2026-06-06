@@ -438,6 +438,28 @@ the condition output, without the destructive edits seen in previous diffusion
 Stage 4 probes. The open-gate ablation was worse despite a much larger mean gate
 value, so the next step should not simply force larger residual edits.
 
+The sparse-gate refiner was then connected to standalone eval and inference
+scripts and evaluated without retraining across the active degradation presets.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lrrrrr}
+\toprule
+Degradation & Bicubic & Condition & Refined & vs condition & Wins \\
+\midrule
+\texttt{mild} & 24.4778 & 25.0449 & 25.1178 & +0.0729 & 86/100 \\
+\texttt{photo\_v2} & 22.4103 & 22.9271 & 22.9767 & +0.0496 & 77/100 \\
+\texttt{photo\_v3\_noise\_mix} & 22.3599 & 22.9014 & 22.9600 & +0.0586 & 86/100 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Qualitatively, the refined outputs remain very close to the Stage 2 condition
+outputs. This is useful because the refiner does not introduce the destructive
+edits seen in earlier diffusion probes, but the visible detail gain is still
+small. The result is best interpreted as a safe residual teacher or warm start,
+not as a final detail generator.
+
 \section{Limitations}
 
 This is an engineering report for an active experiment, not a claim of a final

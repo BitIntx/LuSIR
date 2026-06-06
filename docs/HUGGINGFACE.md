@@ -178,7 +178,14 @@ artifacts:
   --artifact /home/jwheojjang/scratch/sr-diffusion/runs/residual_refiner_stage2_xl_mild_probe/eval_step_000500/eval_grid_lr_bicubic_condition_refined_oracle_gt.png=samples/residual_refiner_stage2_xl_mild_probe_step500_grid.png \
   --artifact /home/jwheojjang/scratch/sr-diffusion/runs/residual_refiner_stage2_xl_mild_open_gate_probe/early_stop_summary.json=metrics/residual_refiner_stage2_xl_mild_open_gate_probe_early_stop_summary.json \
   --artifact /home/jwheojjang/scratch/sr-diffusion/runs/residual_refiner_stage2_xl_mild_open_gate_probe/metrics.jsonl=metrics/residual_refiner_stage2_xl_mild_open_gate_probe_metrics.jsonl \
-  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/residual_refiner_stage2_xl_mild_open_gate_probe/eval_step_000500/eval_grid_lr_bicubic_condition_refined_oracle_gt.png=samples/residual_refiner_stage2_xl_mild_open_gate_probe_step500_grid.png
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/residual_refiner_stage2_xl_mild_open_gate_probe/eval_step_000500/eval_grid_lr_bicubic_condition_refined_oracle_gt.png=samples/residual_refiner_stage2_xl_mild_open_gate_probe_step500_grid.png \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/eval_residual_refiner_stage2_xl_mild_val100/summary.json=metrics/eval_residual_refiner_stage2_xl_mild_val100_summary.json \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/eval_residual_refiner_stage2_xl_photo_v2_val100/summary.json=metrics/eval_residual_refiner_stage2_xl_photo_v2_val100_summary.json \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/eval_residual_refiner_stage2_xl_photo_v3_noise_mix_val100/summary.json=metrics/eval_residual_refiner_stage2_xl_photo_v3_noise_mix_val100_summary.json \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/eval_residual_refiner_stage2_xl_mild_val100/eval_grid_lr_bicubic_condition_refined_oracle_gt.png=samples/eval_residual_refiner_stage2_xl_mild_val100_grid.png \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/eval_residual_refiner_stage2_xl_photo_v2_val100/eval_grid_lr_bicubic_condition_refined_oracle_gt.png=samples/eval_residual_refiner_stage2_xl_photo_v2_val100_grid.png \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/eval_residual_refiner_stage2_xl_photo_v3_noise_mix_val100/eval_grid_lr_bicubic_condition_refined_oracle_gt.png=samples/eval_residual_refiner_stage2_xl_photo_v3_noise_mix_val100_grid.png \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/compare_residual_refiner_vs_stage4_edge_0801_photo_v3.png=samples/compare_residual_refiner_vs_stage4_edge_0801_photo_v3.png
 ```
 
 Make the Hub repository public after license files and the model card are in

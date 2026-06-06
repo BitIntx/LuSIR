@@ -226,6 +226,21 @@ the condition output, without the destructive edits seen in previous diffusion
 Stage 4 probes. The open-gate ablation was worse despite a much larger mean
 gate value, so the next step should not simply force larger residual edits.
 
+The sparse-gate refiner was then connected to standalone eval and inference
+scripts and evaluated without retraining across the active degradation presets:
+
+| Degradation | Bicubic PSNR | Condition PSNR | Refined PSNR | vs condition | Wins |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `mild` | `24.4778` | `25.0449` | `25.1178` | `+0.0729` | `86/100` |
+| `photo_v2` | `22.4103` | `22.9271` | `22.9767` | `+0.0496` | `77/100` |
+| `photo_v3_noise_mix` | `22.3599` | `22.9014` | `22.9600` | `+0.0586` | `86/100` |
+
+Qualitatively, the refined outputs remain very close to the Stage 2 condition
+outputs. This is useful because the refiner does not introduce the destructive
+edits seen in earlier diffusion probes, but the visible detail gain is still
+small. The result is best interpreted as a safe residual teacher or warm start,
+not as a final detail generator.
+
 ## Systems Notes
 
 Diffusion training now supports PyTorch DDP when launched with `torchrun`.
@@ -251,9 +266,12 @@ checkpoints/residual_refiner_stage2_xl_mild_best_eval_refined.pt
 metrics/stage4_photo100k_xl_edge_b16_val100_t50_32step_summary.json
 metrics/diagnose_stage2_xl_residuals_mild_val100_summary.json
 metrics/residual_refiner_stage2_xl_mild_probe_early_stop_summary.json
+metrics/eval_residual_refiner_stage2_xl_photo_v3_noise_mix_val100_summary.json
 samples/stage4_photo100k_xl_edge_b16_val100_t50_32step_grid_lr_bicubic_sr_gt.png
 samples/diagnose_stage2_xl_residuals_mild_val100_grid.png
 samples/residual_refiner_stage2_xl_mild_probe_step500_grid.png
+samples/eval_residual_refiner_stage2_xl_photo_v3_noise_mix_val100_grid.png
+samples/compare_residual_refiner_vs_stage4_edge_0801_photo_v3.png
 configs/diffusion_photo100k_xl_stage4_condition_v3_edge_b16.yaml
 configs/residual_refiner_stage2_xl_mild_probe.yaml
 ```

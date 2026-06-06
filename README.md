@@ -185,6 +185,28 @@ This does not solve final SR quality yet, but it changes the next step: use the
 deterministic residual path as a supervised detail teacher or warm start before
 asking the diffusion U-Net to hallucinate residual detail.
 
+The residual refiner is now wired into standalone eval/inference tooling and
+was checked across the three active degradation presets using the same frozen
+step-500 sparse-gate checkpoint:
+
+```text
+Residual refiner val100 cross-degradation eval:
+  mild:
+    bicubic 24.4778, condition 25.0449, refined 25.1178
+    refined vs condition +0.0729, wins 86/100
+  photo_v2:
+    bicubic 22.4103, condition 22.9271, refined 22.9767
+    refined vs condition +0.0496, wins 77/100
+  photo_v3_noise_mix:
+    bicubic 22.3599, condition 22.9014, refined 22.9600
+    refined vs condition +0.0586, wins 86/100
+```
+
+Qualitatively, the refiner stays very close to the Stage 2 condition output. It
+does not introduce the destructive edits seen in earlier diffusion probes, but
+the visible change is small. The best next use is therefore as a safe residual
+teacher/warm start, not as the final detail generator by itself.
+
 For VM migration and continuation context, read:
 
 - [docs/HANDOFF_KO.md](docs/HANDOFF_KO.md)
@@ -223,6 +245,8 @@ Implemented:
 - gated residual x0 diffusion parameterization for bounded Stage 4 refinement.
 - Stage 2 residual oracle diagnostics for lowpass/highpass error isolation.
 - Deterministic bounded residual refiner probe with sparse/open gate ablations.
+- Standalone residual refiner eval/inference tooling, including tiled LR
+  inference for arbitrary-size inputs.
 - Partial checkpoint initialization for widened/deepened Stage 2 and diffusion
   models via `--partial-init`.
 - Multi-GPU diffusion training through PyTorch DDP, with single-GPU fallback
@@ -579,6 +603,32 @@ Download the latest residual diagnostic/refiner artifact set:
 
 ```bash
 python scripts/download_hf_checkpoints.py --preset residual_refiner_stage2_xl_mild
+```
+
+Evaluate the residual refiner on a fixed validation preset:
+
+```bash
+python eval_residual_refiner.py \
+  --degradation-preset photo_v3_noise_mix \
+  --output-dir outputs/eval_residual_refiner_photo_v3
+```
+
+Run deterministic residual-refiner inference from an LR image:
+
+```bash
+python infer_residual_refiner.py \
+  --input-lr /path/to/lr_128.png \
+  --output-dir outputs/residual_refiner_demo
+```
+
+Run the same path on a larger LR image with tiled blending:
+
+```bash
+python infer_residual_refiner.py \
+  --input-lr /path/to/larger_lr.png \
+  --output-dir outputs/residual_refiner_tiled \
+  --tile \
+  --tile-overlap 32
 ```
 
 Run x4 SR from an LR image. The default HF config expects a 128x128 LR crop and

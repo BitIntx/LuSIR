@@ -76,6 +76,13 @@ RESIDUAL_REFINER_STAGE2_XL_MILD_FILES = [
     "metrics/residual_refiner_stage2_xl_mild_open_gate_probe_early_stop_summary.json",
     "metrics/residual_refiner_stage2_xl_mild_open_gate_probe_metrics.jsonl",
     "samples/residual_refiner_stage2_xl_mild_open_gate_probe_step500_grid.png",
+    "metrics/eval_residual_refiner_stage2_xl_mild_val100_summary.json",
+    "metrics/eval_residual_refiner_stage2_xl_photo_v2_val100_summary.json",
+    "metrics/eval_residual_refiner_stage2_xl_photo_v3_noise_mix_val100_summary.json",
+    "samples/eval_residual_refiner_stage2_xl_mild_val100_grid.png",
+    "samples/eval_residual_refiner_stage2_xl_photo_v2_val100_grid.png",
+    "samples/eval_residual_refiner_stage2_xl_photo_v3_noise_mix_val100_grid.png",
+    "samples/compare_residual_refiner_vs_stage4_edge_0801_photo_v3.png",
 ]
 
 PRESETS = {
@@ -101,7 +108,8 @@ def parse_args() -> argparse.Namespace:
             "Artifact set to download. 'photo100k' includes selected handoff checkpoints; "
             "'photo100k_xl_candidates' also includes Stage 2 XL candidate condition encoders; "
             "'photo100k_xl_stage4_edge' includes the latest XL Stage 4 edge-loss checkpoint and eval artifacts; "
-            "'residual_refiner_stage2_xl_mild' also includes residual diagnostic and deterministic refiner probe artifacts."
+            "'residual_refiner_stage2_xl_mild' also includes residual diagnostic, deterministic refiner, "
+            "and cross-degradation eval artifacts."
         ),
     )
     parser.add_argument(

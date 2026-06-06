@@ -5,6 +5,31 @@
 
 최신 실패/부분 성공/다음 가설 기록은 `docs/TRIAL_AND_ERROR_KO.md`에 누적합니다.
 
+## 2026-06-06 최신 실험 요약
+
+- residual refiner standalone eval/inference 도구 추가:
+  - `eval_residual_refiner.py`
+  - `infer_residual_refiner.py`
+- 같은 frozen sparse-gate refiner checkpoint step `500`으로 cross-degradation val100 평가 완료.
+
+| degradation | bicubic PSNR | condition PSNR | refined PSNR | refined-condition | wins |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `mild` | 24.4778 | 25.0449 | 25.1178 | +0.0729 | 86/100 |
+| `photo_v2` | 22.4103 | 22.9271 | 22.9767 | +0.0496 | 77/100 |
+| `photo_v3_noise_mix` | 22.3599 | 22.9014 | 22.9600 | +0.0586 | 86/100 |
+
+- 시각 판단:
+  - refined는 condition과 매우 가깝고, 과한 fake texture나 색 손상은 보이지 않는다.
+  - 대신 눈에 보이는 detail 회복도 작다.
+  - 단일 DIV2K val 샘플에서 Stage4 XL edge는 더 많이 건드려 cleanup이 강하지만,
+    Stage4/refiner 모두 GT fine texture를 안정적으로 복원하지는 못했다.
+- 결론:
+  - residual refiner는 v2/v3에서도 condition-only를 안정적으로 이기는 안전한 보정기다.
+  - final SR 모델이라기보다 Stage4 residual teacher/warm-start로 쓰는 쪽이 타당하다.
+  - 다음 우선순위는 refiner capacity/loss 확장 또는 Stage4 residual/gate supervision이다.
+- HF preset:
+  `python scripts/download_hf_checkpoints.py --preset residual_refiner_stage2_xl_mild`
+
 ## 2026-06-05 추가 최신 실험 요약
 
 - Stage2 residual/oracle diagnostic 완료.

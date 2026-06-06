@@ -466,3 +466,69 @@ samples/diagnose_stage2_xl_residuals_mild_val100_grid.png
 samples/residual_refiner_stage2_xl_mild_probe_step500_grid.png
 samples/residual_refiner_stage2_xl_mild_open_gate_probe_step500_grid.png
 ```
+
+## 실험 6: residual refiner inference/eval 연결 및 cross-degradation 확인
+
+목표:
+
+- residual refiner가 학습 스크립트 안에서만 쓰이는 상태를 벗어나 실제 inference/eval
+  도구로 연결한다.
+- `mild`에서 얻은 작은 이득이 `photo_v2`, `photo_v3_noise_mix`에서도 유지되는지 확인한다.
+- Stage4 XL edge와 단일 샘플에서 체감 차이를 비교한다.
+
+추가된 스크립트:
+
+- `eval_residual_refiner.py`
+- `infer_residual_refiner.py`
+
+실행:
+
+```bash
+python eval_residual_refiner.py \
+  --degradation-preset photo_v3_noise_mix \
+  --output-dir /home/jwheojjang/scratch/sr-diffusion/runs/eval_residual_refiner_stage2_xl_photo_v3_noise_mix_val100 \
+  --limit 100 \
+  --batch-size 8 \
+  --num-workers 4 \
+  --sample-count 8
+```
+
+같은 frozen sparse-gate checkpoint step `500`으로 val100 평가:
+
+| degradation | bicubic PSNR | condition PSNR | refined PSNR | refined-condition | wins |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `mild` | 24.4778 | 25.0449 | 25.1178 | +0.0729 | 86/100 |
+| `photo_v2` | 22.4103 | 22.9271 | 22.9767 | +0.0496 | 77/100 |
+| `photo_v3_noise_mix` | 22.3599 | 22.9014 | 22.9600 | +0.0586 | 86/100 |
+
+시각 관찰:
+
+- 세 preset 모두에서 refined는 condition과 매우 가깝다.
+- 큰 색 변형, fake texture, over-editing은 보이지 않는다.
+- 다만 눈으로 보이는 detail 회복도 작다. PSNR/win-count로는 안정적 이득이 있지만,
+  사용자가 기대하는 "업스케일 detail 생성"이라고 보기에는 아직 약하다.
+- 같은 DIV2K val 샘플에서 Stage4 XL edge와 비교하면 Stage4 edge가 더 많이 건드려
+  cleanup 효과는 강하지만, 둘 다 GT의 fine texture를 복원하지는 못한다.
+
+결론:
+
+- residual refiner는 `mild`에 과적합된 실패가 아니다. v2/v3에서도 condition-only를
+  안정적으로 이긴다.
+- 현재 best refiner는 안전한 미세 보정기다. final SR 모델이라기보다 Stage4 residual
+  teacher/warm-start로 쓰기 적합하다.
+- 다음 우선순위는 다음 중 하나다.
+  - refiner capacity/loss를 조금 키워 눈에 보이는 detail gain이 커지는지 확인.
+  - Stage4 diffusion U-Net에 refiner residual/gate target을 직접 supervision으로 넣기.
+  - Stage2가 detail-need/uncertainty map을 내도록 해서 refiner/Stage4 gate 조건으로 쓰기.
+
+HF 추가 보존:
+
+```text
+metrics/eval_residual_refiner_stage2_xl_mild_val100_summary.json
+metrics/eval_residual_refiner_stage2_xl_photo_v2_val100_summary.json
+metrics/eval_residual_refiner_stage2_xl_photo_v3_noise_mix_val100_summary.json
+samples/eval_residual_refiner_stage2_xl_mild_val100_grid.png
+samples/eval_residual_refiner_stage2_xl_photo_v2_val100_grid.png
+samples/eval_residual_refiner_stage2_xl_photo_v3_noise_mix_val100_grid.png
+samples/compare_residual_refiner_vs_stage4_edge_0801_photo_v3.png
+```
