@@ -129,6 +129,53 @@ presets:
       - preset: mild
         weight: 0.2
 
+  photo_detail:
+    blur_prob: 0.28
+    blur_radius: [0.05, 1.0]
+    lr_blur_prob: 0.08
+    lr_blur_radius: [0.1, 0.45]
+    sensor_noise_prob: 0.08
+    sensor_read_sigma: [0.0, 2.0]
+    sensor_shot_scale: [0.0, 5.0]
+    gaussian_noise_prob: 0.1
+    gaussian_sigma: [0.0, 2.5]
+    chroma_noise_prob: 0.03
+    chroma_noise_sigma: [0.5, 3.0]
+    chroma_noise_blur_radius: [0.0, 0.5]
+    poisson_noise_prob: 0.02
+    jpeg_prob: 0.28
+    jpeg_quality: [72, 98]
+    webp_prob: 0.08
+    webp_quality: [72, 98]
+    ringing_prob: 0.05
+    ringing_radius: [1, 2]
+    ringing_strength: [0.01, 0.04]
+    color_prob: 0.08
+    color_jitter: [0.96, 1.04]
+    color_shift_prob: 0.04
+    color_shift_gain: [0.98, 1.02]
+    color_shift_bias: [-2.0, 2.0]
+    sharpen_prob: 0.12
+    sharpen_factor: [0.9, 1.25]
+    oversharpen_prob: 0.04
+    oversharpen_radius: [0.5, 1.0]
+    oversharpen_percent: [105, 160]
+    oversharpen_threshold: [1, 5]
+    anime_line_prob: 0.0
+    banding_prob: 0.03
+    banding_levels: [48, 128]
+
+  photo_detail_mix:
+    preset_mix:
+      - preset: clean
+        weight: 0.35
+      - preset: photo_detail
+        weight: 0.48
+      - preset: mild
+        weight: 0.15
+      - preset: photo_v2
+        weight: 0.02
+
   anime:
     blur_prob: 0.25
     blur_radius: [0.05, 0.8]

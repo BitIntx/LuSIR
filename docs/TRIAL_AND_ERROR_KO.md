@@ -595,3 +595,88 @@ one-step decoded proxy는 step `2000` 이후 개선되지 않았다:
 - 다음 실험은 같은 Stage4를 더 오래 돌리거나 teacher weight만 조정하지 않는다.
 - 우선순위는 degradation curriculum을 현실적인 강도로 재설계하고, clean/mild 비중을
   높인 고주파 복원 평가를 별도로 두는 것이다.
+
+## 실험 8: detail-preserving curriculum Stage4 long adaptation
+
+문제:
+
+- `photo_v3_noise_mix`는 clean 샘플이 없고 `photo_v2`/`photo_v3_noise`가 합계 `80%`다.
+- sample logging에서 일부 LR은 색/센서 노이즈가 과도해, 업스케일보다 denoise/cleanup
+  학습을 강하게 유도했다.
+- Stage2 condition은 mild/detail 입력에서 이미 구조와 질감을 잘 보존하므로 Stage2를
+  즉시 재학습하는 것보다 Stage4 학습 분포를 먼저 바로잡는 편이 타당했다.
+
+추가:
+
+- `configs/degradation_presets.yaml`
+  - `photo_detail`
+  - `photo_detail_mix`: clean `35%`, photo_detail `48%`, mild `15%`, photo_v2 `2%`
+- `analyze_degradation_presets.py`
+- `configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_detail_b8_long.yaml`
+
+val100 degradation audit:
+
+| preset | bicubic PSNR | LR chroma RMS vs clean | LR TV ratio vs clean |
+| --- | ---: | ---: | ---: |
+| `clean` | 25.0575 | 0.00000 | 1.0000 |
+| `photo_detail` | 24.6502 | 0.00513 | 1.0041 |
+| `photo_detail_mix` | 24.7357 | 0.00507 | 1.0174 |
+| `mild` | 24.4778 | 0.00776 | 1.0205 |
+| `photo_v2` | 22.4103 | 0.02003 | 1.1658 |
+| `photo_v3_noise_mix` | 22.3599 | 0.02040 | 1.1879 |
+
+기존 Stage2 XL baseline:
+
+| preset | bicubic PSNR | condition PSNR | condition-bicubic |
+| --- | ---: | ---: | ---: |
+| `photo_detail` | 24.6502 | 25.2067 | +0.5565 |
+| `photo_detail_mix` | 24.7357 | 25.3103 | +0.5745 |
+
+결론:
+
+- Stage2 구조가 처음부터 잘못된 것은 아니다.
+- 기존 Stage2는 detail-preserving 입력에서 구조/질감을 실제로 복원하므로 동결 유지했다.
+- 이전 smoothing의 주요 원인은 Stage4 objective/teacher 한계와 과도한 degradation
+  curriculum의 결합이었다.
+
+Stage4 장기 적응:
+
+- init: teacher-supervised Stage4 step `2000`
+- degradation: `photo_detail_mix`
+- batch `8`, grad accumulation `4`
+- lr `1e-6`
+- 완료 `12000` micro steps = `3000` optimizer updates
+- W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/so0lbyte>
+- L40S util `99-100%`, VRAM 약 `45.0/46.1GB`, steady `0.856 micro-step/s`
+
+sampled `photo_detail_mix` val100, condition init, t25, 32 steps:
+
+| 모델/checkpoint | SR PSNR | bicubic 대비 | condition 대비 | condition wins |
+| --- | ---: | ---: | ---: | ---: |
+| Stage2 condition-only | 25.3103 | +0.5745 | n/a | n/a |
+| teacher Stage4 init | 25.3187 | +0.5829 | +0.0084 | 46/100 |
+| photo-detail Stage4 best step 8000 | 25.3406 | +0.6049 | +0.0303 | 71/100 |
+| photo-detail Stage4 latest step 12000 | 25.3337 | +0.5980 | +0.0235 | 67/100 |
+| 기존 edge Stage4 step 4250 | 25.1176 | +0.3818 | -0.1927 | 13/100 |
+
+시각/주파수 관찰:
+
+- step 8000은 condition의 구조와 선명도를 유지하면서 작은 residual correction을 더한다.
+- 기존 edge Stage4의 넓은 over-editing과 smoothing은 크게 줄었다.
+- step 12000은 step 8000과 시각적으로 유사하지만 sampled PSNR/승률은 소폭 후퇴했다.
+- 평균 absolute-Laplacian energy ratio:
+  - teacher init: GT의 `29.6%`
+  - best step 8000: GT의 `29.7%`
+  - latest step 12000: GT의 `29.9%`
+  - edge Stage4: GT의 `41.2%`
+- 즉 이번 성공은 fake texture를 크게 늘린 결과가 아니라, condition을 보존하면서
+  correction 정확도를 높인 결과다.
+- 2% `photo_v2` strong tail에서는 동상 표면의 밝은 점 같은 artifact가 여전히 보인다.
+
+결론:
+
+- curriculum 변경은 성공했다. gated-residual Stage4가 처음으로 condition-only를
+  평균 PSNR과 condition win count 모두에서 명확히 이겼다.
+- 공식 선택은 step `8000`; 동일 설정의 더 긴 continuation은 우선순위가 아니다.
+- 아직 강한 missing-detail generator는 아니다. 다음은 perceptual/detail 평가를
+  강화하고 strong tail을 별도 robustness 경로로 분리하는 방향이 타당하다.

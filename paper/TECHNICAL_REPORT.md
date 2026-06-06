@@ -1,6 +1,6 @@
 # Vision-Only Latent Diffusion Super-Resolution without T2I Pretraining
 
-Snapshot: teacher-supervised Stage 4 residual probe complete.
+Snapshot: detail-preserving Stage 4 curriculum adaptation complete.
 
 ## Objective
 
@@ -23,11 +23,12 @@ denoised latent -> VAE decoder -> SR output
 ## Data
 
 The current large photo split has 103,450 training images and 100 fixed
-validation images. LR inputs are generated on the fly from HR crops. The latest
-XL edge-loss work uses `photo_v3_noise_mix`, a stronger denoise-focused
-degradation curriculum with mixed mild/v2/v3 noise cases. The latest
-residual-refinement probes also evaluate a mild val100 setting to isolate
-whether Stage 4 adds detail beyond the Stage 2 condition-only output.
+validation images. LR inputs are generated on the fly from HR crops. Earlier XL
+work used `photo_v3_noise_mix`, a strong denoise-focused curriculum with no
+clean share and 80% combined v2/v3 cases. The latest work introduces
+`photo_detail_mix`: 35% clean, 48% detail-preserving photo degradation, 15%
+mild degradation, and 2% strong `photo_v2`. This keeps a small robustness tail
+while shifting the primary objective toward user-facing detail restoration.
 
 ## Completed Baselines
 
@@ -279,6 +280,52 @@ current `photo_v3_noise_mix` curriculum overemphasizes severe denoise/cleanup
 cases, so direct residual supervision teaches a safer cleanup operator rather
 than a missing-detail generator.
 
+## Detail-Preserving Curriculum Adaptation
+
+A fixed-sample degradation audit confirmed the curriculum mismatch. On val100,
+`photo_v3_noise_mix` reduced the bicubic baseline to `22.3599` PSNR and produced
+mean LR chroma RMS error `0.02040` relative to clean downsampling.
+`photo_detail_mix` increased the bicubic baseline to `24.7357` and reduced the
+chroma error to `0.00507`.
+
+The existing Stage 2 XL condition encoder was evaluated before retraining. It
+already improved `photo_detail_mix` from `24.7357` bicubic PSNR to `25.3103`,
+a `+0.5745` gain. Stage 2 was therefore frozen, and the teacher-supervised
+gated-residual Stage 4 was adapted from its selected step-2000 checkpoint:
+
+```text
+config: configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_detail_b8_long.yaml
+run: diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_detail_b8_long
+W&B: https://wandb.ai/jwheo/sr-diffusion/runs/so0lbyte
+train batch size: 8
+gradient accumulation: 4
+learning rate: 1e-6
+finished step: 12000 micro-steps, 3000 optimizer updates
+```
+
+Sampled `photo_detail_mix` val100, condition initialization, start timestep 25,
+32 sampling steps:
+
+| Model/checkpoint | Mean SR PSNR | vs bicubic | vs condition | Wins vs condition |
+| --- | ---: | ---: | ---: | ---: |
+| Stage 2 condition-only | `25.3103` | `+0.5745` | n/a | n/a |
+| Teacher Stage 4 initialization | `25.3187` | `+0.5829` | `+0.0084` | `46/100` |
+| Photo-detail Stage 4 step 8000 | `25.3406` | `+0.6049` | `+0.0303` | `71/100` |
+| Photo-detail Stage 4 step 12000 | `25.3337` | `+0.5980` | `+0.0235` | `67/100` |
+| Existing edge Stage 4 step 4250 | `25.1176` | `+0.3818` | `-0.1927` | `13/100` |
+
+Step 8000 is the selected checkpoint. This is the first sampled gated-residual
+Stage 4 result that beats the Stage 2 condition-only baseline on both mean PSNR
+and a clear majority of samples. Qualitatively, it preserves the condition
+structure and sharpness and avoids the broad destructive edits produced by the
+edge model on this distribution.
+
+The result remains conservative. Mean absolute-Laplacian energy is `29.7%` of
+GT for step 8000, compared with `29.6%` for its teacher initialization and
+`41.2%` for the more aggressive edge model. The gain therefore comes primarily
+from more accurate bounded corrections, not from strong new texture synthesis.
+Rare strong-tail samples can still exhibit bright artifacts.
+
 ## Systems Notes
 
 Diffusion training now supports PyTorch DDP when launched with `torchrun`.
@@ -302,34 +349,37 @@ The latest public artifacts are stored in `jwheo/sr-diffusion` on Hugging Face:
 checkpoints/stage4_photo100k_xl_edge_b16_best_eval_condition_decoded.pt
 checkpoints/residual_refiner_stage2_xl_mild_best_eval_refined.pt
 checkpoints/stage4_photo100k_xl_teacher_residual_photo_v3_step_0002000.pt
+checkpoints/stage4_photo100k_xl_teacher_residual_photo_detail_best8000.pt
 metrics/stage4_photo100k_xl_edge_b16_val100_t50_32step_summary.json
 metrics/diagnose_stage2_xl_residuals_mild_val100_summary.json
 metrics/residual_refiner_stage2_xl_mild_probe_early_stop_summary.json
 metrics/eval_residual_refiner_stage2_xl_photo_v3_noise_mix_val100_summary.json
 metrics/stage4_photo100k_xl_teacher_residual_photo_v3_step2000_val100_t25_32step_summary.json
 metrics/stage4_photo100k_xl_teacher_residual_photo_v3_step2000_val100_t50_32step_summary.json
+metrics/stage4_photo100k_xl_teacher_residual_photo_detail_best8000_val100_t25_summary.json
 samples/stage4_photo100k_xl_edge_b16_val100_t50_32step_grid_lr_bicubic_sr_gt.png
 samples/diagnose_stage2_xl_residuals_mild_val100_grid.png
 samples/residual_refiner_stage2_xl_mild_probe_step500_grid.png
 samples/eval_residual_refiner_stage2_xl_photo_v3_noise_mix_val100_grid.png
 samples/compare_residual_refiner_vs_stage4_edge_0801_photo_v3.png
 samples/stage4_photo100k_xl_teacher_residual_photo_v3_step2000_val100_t25_grid.png
+samples/stage4_photo100k_xl_teacher_residual_photo_detail_best8000_val100_t25_grid.png
 configs/diffusion_photo100k_xl_stage4_condition_v3_edge_b16.yaml
 configs/residual_refiner_stage2_xl_mild_probe.yaml
 configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_v3_b8_probe.yaml
+configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_detail_b8_long.yaml
 ```
 
 ## Next Work
 
-The highest-signal next direction is not a longer continuation of the same
-Stage 4 loss. Gated residual x0 prediction shows that structural constraints can
-protect the Stage 2 condition output, and the deterministic refiner shows that
-small supervised residual gains are learnable. Candidate next steps are:
+The detail-preserving curriculum is a meaningful improvement, but a longer
+continuation of the same run is not the highest-signal next step. Candidate
+next steps are:
 
-- distill or warm start the diffusion residual path from the deterministic
-  sparse-gate refiner;
-- add direct residual/gate supervision based on condition-vs-target error;
-- add a condition uncertainty or detail-need map so Stage 4 edits only locations
-  where the Stage 2 condition encoder is likely missing recoverable detail;
-- redesign the degradation curriculum with a larger clean/mild share and a
-  separate detail-restoration validation slice before another long Stage 4 run.
+- evaluate selected step 8000 on a separate user-facing/detail-focused set;
+- add LPIPS/DISTS-style perceptual metrics and explicit detail metrics alongside
+  PSNR;
+- separate the rare strong degradation tail into a robustness curriculum or
+  evaluation slice;
+- improve the teacher/refiner so it can safely transmit a larger recoverable
+  high-frequency residual.

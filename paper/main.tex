@@ -8,7 +8,7 @@
 
 \title{Vision-Only Latent Diffusion Super-Resolution without T2I Pretraining}
 \author{sr-diffusion contributors}
-\date{Completed-experiment snapshot through teacher-supervised Stage 4 probing}
+\date{Completed-experiment snapshot through detail-preserving Stage 4 adaptation}
 
 \begin{document}
 \maketitle
@@ -30,7 +30,11 @@ validation, reaching 25.0445 PSNR versus 25.0449 for condition-only, but it
 still does not provide a net average gain. A direct residual diagnostic then
 showed that the recoverable gap is dominated by high-frequency residuals, and a
 small deterministic sparse-gate residual refiner improved mild val100 mean PSNR
-from 25.0449 to 25.1178 with 86/100 wins over condition-only.
+from 25.0449 to 25.1178 with 86/100 wins over condition-only. A subsequent
+detail-preserving curriculum adaptation produced the first sampled
+gated-residual Stage 4 result to beat condition-only on both mean PSNR and a
+clear majority of samples: 25.3406 PSNR and 71/100 wins versus 25.3103 for the
+condition baseline.
 \end{abstract}
 
 \section{Objective}
@@ -109,11 +113,11 @@ The repository currently includes:
 The large-scale photo runs use a 103,450-image training split and a fixed
 100-image validation split. HR crops are 512px and LR inputs are 128px. The
 original photo degradation was extended with stronger blur, noise, compression,
-ringing, color shift, and banding variants. The latest XL edge-loss work uses
-the \texttt{photo\_v3\_noise\_mix} degradation preset to emphasize
-denoise/sharpening behavior. Follow-up residual-refinement probes also evaluate
-a mild val100 setting to isolate whether Stage 4 adds detail beyond the Stage 2
-condition-only output.
+ringing, color shift, and banding variants. Earlier XL edge-loss work used
+\texttt{photo\_v3\_noise\_mix}, a strong denoise-focused preset with no clean
+share and 80\% combined v2/v3 cases. The latest \texttt{photo\_detail\_mix}
+uses 35\% clean, 48\% detail-preserving photo degradation, 15\% mild
+degradation, and 2\% strong \texttt{photo\_v2}.
 
 \begin{table}[H]
 \centering
@@ -127,7 +131,7 @@ Train split & 103,450 images \\
 Validation split & 100 fixed images \\
 VAE latent & 128px, 16 channels \\
 Primary dtype & bf16 \\
-Primary XL degradation & \texttt{photo\_v3\_noise\_mix} \\
+Latest detail degradation & \texttt{photo\_detail\_mix} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -498,6 +502,42 @@ The next high-signal experiment is therefore a less aggressive,
 detail-preserving degradation curriculum rather than another long continuation
 of this Stage 4 objective.
 
+\section{Detail-Preserving Curriculum Adaptation}
+
+A fixed-sample degradation audit confirmed that
+\texttt{photo\_v3\_noise\_mix} overemphasized cleanup. On val100 it produced a
+22.3599 bicubic PSNR baseline and 0.02040 mean LR chroma RMS error relative to
+clean downsampling. The new \texttt{photo\_detail\_mix} increased the bicubic
+baseline to 24.7357 and reduced chroma error to 0.00507.
+
+The existing Stage 2 XL condition encoder already improved
+\texttt{photo\_detail\_mix} to 25.3103 PSNR, so it remained frozen. The
+teacher-supervised gated-residual Stage 4 was adapted for 12000 micro-steps
+with batch size eight, gradient accumulation four, and learning rate
+\(10^{-6}\).
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lrrrr}
+\toprule
+Model/checkpoint & SR PSNR & vs bicubic & vs condition & Wins \\
+\midrule
+Stage 2 condition-only & 25.3103 & +0.5745 & n/a & n/a \\
+Teacher Stage 4 initialization & 25.3187 & +0.5829 & +0.0084 & 46/100 \\
+Photo-detail Stage 4 step 8000 & 25.3406 & +0.6049 & +0.0303 & 71/100 \\
+Photo-detail Stage 4 step 12000 & 25.3337 & +0.5980 & +0.0235 & 67/100 \\
+Existing edge Stage 4 step 4250 & 25.1176 & +0.3818 & -0.1927 & 13/100 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Step 8000 is the selected checkpoint. It preserves the condition structure and
+sharpness and avoids the broad destructive edits produced by the edge model on
+this distribution. Mean absolute-Laplacian energy is still only 29.7\% of GT,
+so the improvement comes primarily from more accurate bounded corrections
+rather than strong new texture synthesis. Rare strong-tail samples can still
+exhibit bright artifacts.
+
 \section{Limitations}
 
 This is an engineering report for an active experiment, not a claim of a final
@@ -505,10 +545,11 @@ published method. The large-scale completed results are photo-domain only, while
 anime/illustration domain conditioning remains implemented but not yet validated
 at the same scale. The reported sampled PSNR values are useful for internal
 checkpoint comparison, but they are not a full benchmark suite against external
-SR methods. Teacher supervision produced a small PSNR cleanup gain but did not
-recover visible fine detail. The highest-signal next direction is to redesign
-the degradation curriculum with a larger clean/mild share and a separate
-detail-restoration validation slice.
+SR methods. The detail-preserving curriculum improved sampled Stage 4 accuracy,
+but the selected output remains conservative and does not recover all visible
+fine detail. The highest-signal next directions are a separate user-facing
+detail evaluation set, perceptual/detail metrics, and separation of the rare
+strong degradation tail into a robustness curriculum or evaluation slice.
 
 \begin{thebibliography}{9}
 \bibitem{rombach2022latent}

@@ -228,6 +228,33 @@ degradation curriculum: `photo_v3_noise_mix` currently contains enough severe
 noise cases to bias the model toward denoise/cleanup instead of user-facing
 detail restoration.
 
+That curriculum was redesigned as `photo_detail_mix`, with `35%` clean,
+`48%` detail-preserving photo degradation, `15%` mild degradation, and only
+`2%` strong `photo_v2` cases. On the fixed val100 set, its bicubic baseline is
+`24.7357` PSNR versus `22.3599` for `photo_v3_noise_mix`, and chroma corruption
+is about 75% lower. The existing Stage 2 XL condition encoder already handles
+this distribution well, so Stage 2 was kept frozen and the teacher-supervised
+gated-residual Stage 4 was adapted for 12000 micro-steps:
+
+```text
+Photo-detail Stage4 long run:
+  config: configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_detail_b8_long.yaml
+  W&B: https://wandb.ai/jwheo/sr-diffusion/runs/so0lbyte
+  condition-only:       25.3103 PSNR
+  teacher init:         25.3187 PSNR, +0.0084 vs condition, wins 46/100
+  selected step 8000:   25.3406 PSNR, +0.0303 vs condition, wins 71/100
+  latest step 12000:    25.3337 PSNR, +0.0235 vs condition, wins 67/100
+  previous edge Stage4: 25.1176 PSNR, -0.1927 vs condition, wins 13/100
+```
+
+This is the first sampled Stage 4 gated-residual result that beats the Stage 2
+condition-only baseline on both mean PSNR and a clear majority of samples.
+Visually it preserves the condition output and avoids the broad destructive
+edits of the edge model. It is still a conservative restoration model rather
+than a strong missing-detail generator: mean absolute-Laplacian energy is about
+`29.7%` of GT, and rare strong-degradation cases can still produce bright
+artifacts.
+
 For VM migration and continuation context, read:
 
 - [docs/HANDOFF_KO.md](docs/HANDOFF_KO.md)

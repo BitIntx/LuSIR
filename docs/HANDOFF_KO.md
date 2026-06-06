@@ -7,6 +7,52 @@
 
 ## 2026-06-06 최신 실험 요약
 
+- detail-preserving degradation curriculum과 Stage4 장기 적응 학습 완료.
+- 새 preset:
+  - `photo_detail`: object/detail 신호를 보존하는 약한 blur/noise/compression 조합.
+  - `photo_detail_mix`: clean `35%`, photo_detail `48%`, mild `15%`, photo_v2 `2%`.
+- 기존 `photo_v3_noise_mix`는 clean 비중이 없고 강한 v2/v3가 `80%`라 denoise/cleanup
+  편향이 과도했다.
+- val100 degradation audit:
+  - `photo_v3_noise_mix`: bicubic `22.3599`, chroma RMS `0.02040`
+  - `photo_detail_mix`: bicubic `24.7357`, chroma RMS `0.00507`
+- 기존 Stage2 XL은 새 mix에서도 condition-only `25.3103`, bicubic 대비 `+0.5745`라
+  Stage2 재학습은 보류했다.
+- Stage4 long run:
+  - config:
+    `configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_detail_b8_long.yaml`
+  - W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/so0lbyte>
+  - 완료: `12000` micro steps = `3000` optimizer updates
+  - 병목 없음: L40S util `99-100%`, VRAM 약 `45.0/46.1GB`, steady `0.856 step/s`
+
+| 모델/checkpoint | SR PSNR | bicubic 대비 | condition 대비 | condition wins |
+| --- | ---: | ---: | ---: | ---: |
+| Stage2 condition-only | 25.3103 | +0.5745 | n/a | n/a |
+| teacher Stage4 init | 25.3187 | +0.5829 | +0.0084 | 46/100 |
+| photo-detail Stage4 best step 8000 | 25.3406 | +0.6049 | +0.0303 | 71/100 |
+| photo-detail Stage4 latest step 12000 | 25.3337 | +0.5980 | +0.0235 | 67/100 |
+| 기존 edge Stage4 step 4250 | 25.1176 | +0.3818 | -0.1927 | 13/100 |
+
+- 공식 선택 checkpoint는 step `8000`의 `best_eval_condition_decoded.pt`.
+- HF preset:
+  `python scripts/download_hf_checkpoints.py --preset stage4_photo_detail`
+- 시각적으로 condition의 구조/선명도를 보존하면서 작은 보정을 더하고, 기존 edge
+  Stage4처럼 전체를 과하게 덮어쓰지 않는다.
+- 이번 결과는 Stage4 gated-residual이 처음으로 condition-only를 평균 PSNR과 승률
+  모두에서 명확히 넘은 결과다.
+- 한계:
+  - absolute-Laplacian energy는 GT의 약 `29.7%`라 실제 fine-detail 생성은 여전히 약하다.
+  - `photo_detail_mix`의 2% strong tail에서 동상 같은 밝은 점 artifact가 남는다.
+  - step 12000은 step 8000보다 소폭 후퇴했으므로 더 긴 동일 continuation은 우선순위가 아니다.
+
+다음 우선순위:
+
+1. best step 8000을 별도 detail-focused/실사용 이미지 세트에서 평가.
+2. strong tail `photo_v2` 2%를 별도 robustness curriculum 또는 별도 평가 slice로 분리 검토.
+3. PSNR뿐 아니라 LPIPS/DISTS 계열 perceptual metric과 detail metric을 평가에 추가.
+4. 같은 Stage4 continuation보다 teacher/refiner가 더 큰 실제 high-frequency residual을
+   안전하게 전달하도록 개선.
+
 - deterministic residual refiner teacher-supervision Stage4 probe를 `8000` micro steps까지 완료.
 - config:
   `configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_v3_b8_probe.yaml`

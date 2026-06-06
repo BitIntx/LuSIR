@@ -209,6 +209,20 @@ evaluation artifacts:
   --artifact /home/jwheojjang/scratch/sr-diffusion/runs/eval_teacher_residual_photo_v3_step2000_val100_t25/grid_lr_bicubic_sr_gt.png=samples/stage4_photo100k_xl_teacher_residual_photo_v3_step2000_val100_t25_grid.png
 ```
 
+Upload the selected detail-preserving Stage 4 checkpoint and sampled evaluation:
+
+```bash
+/home/ubuntu/venvs/cuda/bin/python scripts/upload_hf_artifact.py \
+  --repo-id jwheo/sr-diffusion \
+  --repo-type model \
+  --message "Upload detail-preserving Stage4 artifacts" \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_detail_b8_long/checkpoints/best_eval_condition_decoded.pt=checkpoints/stage4_photo100k_xl_teacher_residual_photo_detail_best8000.pt \
+  --artifact configs/degradation_presets.yaml=configs/degradation_presets.yaml \
+  --artifact configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_detail_b8_long.yaml=configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_detail_b8_long.yaml \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/eval_stage4_teacher_photo_detail_long_best8000_val100_t25/summary.json=metrics/stage4_photo100k_xl_teacher_residual_photo_detail_best8000_val100_t25_summary.json \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/eval_stage4_teacher_photo_detail_long_best8000_val100_t25/grid_lr_bicubic_sr_gt.png=samples/stage4_photo100k_xl_teacher_residual_photo_detail_best8000_val100_t25_grid.png
+```
+
 Make the Hub repository public after license files and the model card are in
 place:
 

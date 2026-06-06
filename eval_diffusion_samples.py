@@ -35,6 +35,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--degradation-preset", default=None)
     parser.add_argument("--split", default=None)
     parser.add_argument("--limit", type=int, default=8)
     parser.add_argument("--batch-size", type=int, default=1)
@@ -98,6 +99,8 @@ def save_image(path: Path, image: torch.Tensor) -> None:
 def main() -> None:
     args = parse_args()
     config = load_config(args.config)
+    if args.degradation_preset is not None:
+        config["data"]["degradation_preset"] = args.degradation_preset
     seed_everything(args.seed)
     device = get_device(args.device)
     dtype_name = config["train"].get("dtype", "bf16")
@@ -191,6 +194,7 @@ def main() -> None:
         "checkpoint": str(args.checkpoint),
         "checkpoint_step": checkpoint_step,
         "config": str(args.config),
+        "degradation_preset": str(config["data"].get("degradation_preset", "mild")),
         "split": split,
         "limit": len(rows),
         "steps": args.steps,

@@ -94,6 +94,15 @@ STAGE4_TEACHER_RESIDUAL_PROBE_FILES = [
     "samples/stage4_photo100k_xl_teacher_residual_photo_v3_step2000_val100_t25_grid.png",
 ]
 
+STAGE4_PHOTO_DETAIL_FILES = [
+    *STAGE4_TEACHER_RESIDUAL_PROBE_FILES,
+    "checkpoints/stage4_photo100k_xl_teacher_residual_photo_detail_best8000.pt",
+    "configs/degradation_presets.yaml",
+    "configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_detail_b8_long.yaml",
+    "metrics/stage4_photo100k_xl_teacher_residual_photo_detail_best8000_val100_t25_summary.json",
+    "samples/stage4_photo100k_xl_teacher_residual_photo_detail_best8000_val100_t25_grid.png",
+]
+
 PRESETS = {
     "prototype": PROTOTYPE_FILES,
     "photo100k": PHOTO100K_FILES,
@@ -101,6 +110,7 @@ PRESETS = {
     "photo100k_xl_stage4_edge": PHOTO100K_XL_STAGE4_EDGE_FILES,
     "residual_refiner_stage2_xl_mild": RESIDUAL_REFINER_STAGE2_XL_MILD_FILES,
     "stage4_teacher_residual_probe": STAGE4_TEACHER_RESIDUAL_PROBE_FILES,
+    "stage4_photo_detail": STAGE4_PHOTO_DETAIL_FILES,
 }
 
 
@@ -120,7 +130,8 @@ def parse_args() -> argparse.Namespace:
             "'photo100k_xl_stage4_edge' includes the latest XL Stage 4 edge-loss checkpoint and eval artifacts; "
             "'residual_refiner_stage2_xl_mild' also includes residual diagnostic, deterministic refiner, "
             "and cross-degradation eval artifacts; 'stage4_teacher_residual_probe' also includes the selected "
-            "teacher-supervised Stage 4 probe checkpoint and sampled eval artifacts."
+            "teacher-supervised Stage 4 probe checkpoint and sampled eval artifacts; "
+            "'stage4_photo_detail' includes the selected detail-preserving Stage 4 checkpoint."
         ),
     )
     parser.add_argument(
