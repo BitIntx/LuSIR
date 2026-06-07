@@ -115,6 +115,38 @@ def clean_config(config: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in config.items() if not key.startswith("_")}
 
 
+def init_wandb(config: dict[str, Any], output_dir: Path, model: nn.Module) -> Any | None:
+    wandb_cfg = config.get("logging", {}).get("wandb", {})
+    if not bool(wandb_cfg.get("enabled", False)):
+        return None
+    try:
+        import wandb
+    except ImportError as exc:
+        raise RuntimeError("wandb logging is enabled, but wandb is not installed") from exc
+    wandb_dir = Path(wandb_cfg.get("dir", output_dir / "wandb"))
+    wandb_dir.mkdir(parents=True, exist_ok=True)
+    mode = str(wandb_cfg.get("mode", "offline"))
+    os.environ["WANDB_MODE"] = mode
+    run = wandb.init(
+        project=wandb_cfg.get("project", "sr-diffusion"),
+        entity=wandb_cfg.get("entity"),
+        name=wandb_cfg.get("name", config.get("project", {}).get("name")),
+        dir=str(wandb_dir),
+        mode=mode,
+        tags=wandb_cfg.get("tags"),
+        config=clean_config(config),
+    )
+    if bool(wandb_cfg.get("watch", False)):
+        wandb.watch(model, log="gradients", log_freq=int(wandb_cfg.get("watch_log_freq", 100)))
+    print(f"wandb_run={run.url}", flush=True)
+    return run
+
+
+def wandb_log(run: Any | None, data: dict[str, Any], step: int) -> None:
+    if run is not None:
+        run.log(data, step=step)
+
+
 def make_dataset(config: dict[str, Any], split: str, seed: int, deterministic: bool | None = None) -> ManifestImageDataset:
     data_config = config["data"]
     return ManifestImageDataset(
@@ -506,6 +538,7 @@ def main() -> None:
             for parameter_group in optimizer.param_groups:
                 parameter_group["lr"] = float(resume_lr)
             print(f"resume_lr={float(resume_lr):.8f}")
+    run = init_wandb(config, output_dir, model)
 
     train_dataset = make_dataset(config, split=str(config["data"].get("split", "train")), seed=seed, deterministic=False)
     train_loader = DataLoader(
@@ -567,6 +600,13 @@ def main() -> None:
         )
         with metrics_log_path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps({"step": step, **metrics}, sort_keys=True) + "\n")
+        wandb_data: dict[str, Any] = dict(metrics)
+        grid_path = eval_dir / "eval_grid_lr_bicubic_condition_refined_oracle_gt.png"
+        if run is not None and grid_path.exists():
+            import wandb
+
+            wandb_data["samples/eval_grid"] = wandb.Image(str(grid_path), caption=f"eval step {step}")
+        wandb_log(run, wandb_data, step=step)
         return metrics
 
     if args.eval_only_checkpoint is not None:
@@ -583,6 +623,8 @@ def main() -> None:
             encoding="utf-8",
         )
         print(json.dumps(summary, indent=2, sort_keys=True))
+        if run is not None:
+            run.finish()
         return
 
     existing_best_path = checkpoints_dir / "best_eval_refined.pt"
@@ -662,17 +704,30 @@ def main() -> None:
         if step % log_every == 0 or step == 1:
             elapsed = max(time.time() - last_log_time, 1e-6)
             last_log_time = time.time()
+            steps_per_s = log_every / elapsed
+            train_metrics = {
+                "train/loss": float(loss.detach().cpu()),
+                "train/latent": float(latent_loss.detach().cpu()),
+                "train/residual": float(residual_loss.detach().cpu()),
+                "train/highpass": float(highpass_loss.detach().cpu()),
+                "train/decoded": float(decoded_loss.detach().cpu()),
+                "train/decoded_highpass": float(decoded_highpass_loss.detach().cpu()),
+                "train/gate": float(gate_loss.detach().cpu()),
+                "train/lr": float(optimizer.param_groups[0]["lr"]),
+                "system/steps_per_s": steps_per_s,
+            }
             print(
-                f"step={step} loss={float(loss.detach().cpu()):.5f} "
-                f"latent={float(latent_loss.detach().cpu()):.5f} "
-                f"residual={float(residual_loss.detach().cpu()):.5f} "
-                f"highpass={float(highpass_loss.detach().cpu()):.5f} "
-                f"decoded={float(decoded_loss.detach().cpu()):.5f} "
-                f"decoded_highpass={float(decoded_highpass_loss.detach().cpu()):.5f} "
-                f"gate={float(gate_loss.detach().cpu()):.5f} "
-                f"steps_per_s={log_every / elapsed:.3f}",
+                f"step={step} loss={train_metrics['train/loss']:.5f} "
+                f"latent={train_metrics['train/latent']:.5f} "
+                f"residual={train_metrics['train/residual']:.5f} "
+                f"highpass={train_metrics['train/highpass']:.5f} "
+                f"decoded={train_metrics['train/decoded']:.5f} "
+                f"decoded_highpass={train_metrics['train/decoded_highpass']:.5f} "
+                f"gate={train_metrics['train/gate']:.5f} "
+                f"steps_per_s={steps_per_s:.3f}",
                 flush=True,
             )
+            wandb_log(run, train_metrics, step=step)
 
         if step % save_every == 0:
             save_checkpoint(checkpoints_dir / f"step_{step:07d}.pt", model, optimizer, step, config)
@@ -712,6 +767,8 @@ def main() -> None:
     }
     summary_path.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps(summary, indent=2, sort_keys=True))
+    if run is not None:
+        run.finish()
 
 
 if __name__ == "__main__":

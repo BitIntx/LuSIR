@@ -2,6 +2,16 @@ project:
   name: residual_refiner_stage2_xl_photo_detail_v2_continue_40k
   output_dir: /home/jwheojjang/scratch/sr-diffusion/runs/residual_refiner_stage2_xl_photo_detail_v2_long
 
+logging:
+  wandb:
+    enabled: true
+    project: sr-diffusion
+    name: residual_refiner_stage2_xl_photo_detail_v2_continue_40k
+    mode: online
+    dir: /home/jwheojjang/scratch/sr-diffusion/wandb
+    tags: [stage2, residual-refiner, photo100k, photo-detail-mix, xl, v2, continuation-40k]
+    watch: false
+
 seed: 1337
 
 autoencoder:
