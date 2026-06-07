@@ -148,6 +148,22 @@ signal for where residual detail is needed. Simply continuing the same
 diffusion loss is less promising than supervising the residual/gate path or
 adding a condition uncertainty/detail-need signal.
 
+A decoded-detail-loss-only Stage 2 probe improved PSNR but did not visibly
+restore texture; its detail ratio eventually fell below initialization. The
+current Stage 2 experiment therefore replaces the flat condition predictor
+with a backward-compatible multiscale-context branch and balances COCO against
+repeated random crops from DIV2K/Flickr2K. The new branch is zero-initialized at
+its output, so partial initialization from the selected step 72000 checkpoint
+starts with exactly the previous Stage 2 output.
+
+```text
+Stage 2 multiscale config: configs/latent_pretrain_photo100k_multiscale_hqmix_long.yaml
+model params:              55.50M
+training mix:              100,000 COCO / 103,500 DIV2K+Flickr2K rows
+effective batch:           8 x grad_accum 4 = 32
+planned micro-steps:       50,000
+```
+
 A direct Stage 2 residual diagnostic confirmed that the missing signal is
 mostly high-frequency detail rather than lowpass structure. On mild val100,
 injecting only the GT highpass residual into the Stage 2 condition latent gives

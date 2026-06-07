@@ -42,6 +42,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Stage 2 deterministic LR to HR-latent pretraining.")
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--limit-steps", type=int, default=None)
+    parser.add_argument("--output-dir", type=Path, default=None)
+    parser.add_argument("--disable-wandb", action="store_true")
     parser.add_argument("--resume", type=Path, default=None)
     parser.add_argument("--init-checkpoint", type=Path, default=None)
     parser.add_argument(
@@ -363,6 +365,10 @@ def evaluate(
 def main() -> None:
     args = parse_args()
     config = load_config(args.config)
+    if args.output_dir is not None:
+        config["project"]["output_dir"] = str(args.output_dir)
+    if args.disable_wandb:
+        config.setdefault("logging", {}).setdefault("wandb", {})["enabled"] = False
     seed = int(config.get("seed", 0))
     seed_everything(seed)
 
@@ -447,9 +453,13 @@ def main() -> None:
     if args.resume:
         start_step = load_checkpoint(args.resume, model, optimizer, device)
         print(f"resumed step={start_step}")
-    elif args.init_checkpoint:
-        init_step = load_model_weights(args.init_checkpoint, model, device, partial=bool(args.partial_init))
-        print(f"initialized_from={args.init_checkpoint} source_step={init_step} partial_init={bool(args.partial_init)}")
+    else:
+        init_config = config.get("initialization", {})
+        init_checkpoint = args.init_checkpoint or init_config.get("checkpoint")
+        if init_checkpoint:
+            partial_init = bool(args.partial_init or init_config.get("partial", False))
+            init_step = load_model_weights(Path(init_checkpoint), model, device, partial=partial_init)
+            print(f"initialized_from={init_checkpoint} source_step={init_step} partial_init={partial_init}")
 
     max_steps = int(args.limit_steps or train_cfg.get("max_steps", 1000))
     log_every = int(train_cfg.get("log_every", 50))

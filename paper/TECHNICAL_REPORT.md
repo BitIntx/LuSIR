@@ -395,6 +395,34 @@ correction strength. This is an architectural and visual assessment, not a
 direct SOTA benchmark. A defensible comparison requires same-input blind A/B
 testing plus LPIPS/DISTS/MANIQA/MUSIQ and user-preference evaluation.
 
+## Stage 2 Multiscale Redesign
+
+A decoded pixel/edge/highpass fine-tuning probe confirmed that the flat Stage 2
+condition predictor is the current bottleneck. By step 4000, decoded PSNR had
+risen from `23.7387` to `24.2792`, but the Laplacian detail ratio fell from
+`0.2817` to `0.2773` and fixed samples remained visibly smooth. This is
+consistent with the distortion-perception limitation of optimizing
+reconstruction losses without sufficient spatial context or high-quality
+training exposure.
+
+The replacement keeps all parameters and names of the selected 19M-parameter
+step 72000 predictor, then adds a zero-output-initialized 128-to-64-to-32
+multiscale context branch. Partial initialization therefore exactly preserves
+the previous output before training. The training manifest also changes from
+100,000 COCO plus 3,450 DIV2K/Flickr2K rows to a roughly balanced exposure of
+100,000 COCO and 103,500 repeated DIV2K/Flickr2K rows. Random crops and
+degradations remain stochastic, so repeated high-quality rows generate
+different training pairs.
+
+The design is informed by broad-context and multiscale restoration findings in
+[SwinIR](https://arxiv.org/abs/2108.10257),
+[HAT](https://arxiv.org/abs/2309.05239), and
+[NAFNet](https://arxiv.org/abs/2204.04676), together with the data/degradation
+emphasis of [Real-ESRGAN](https://arxiv.org/abs/2107.10833). The resulting
+55.50M-parameter model passed a full batch-8 forward/backward and val100 smoke
+test on one L40S at approximately `34.8/46.1GB` VRAM and `100%` GPU
+utilization.
+
 ## Public Artifacts
 
 The latest public artifacts are stored in `jwheo/sr-diffusion` on Hugging Face:

@@ -777,3 +777,68 @@ steady 약 `1.31 micro-step/s`였다. 판정 기준은 decoded PSNR만이 아니
 Laplacian detail ratio와 고정 샘플의 실제 질감 복원이다. 이 probe에서
 Condition 선명도가 움직이지 않으면 단일 해상도 residual CNN을 멀티스케일
 Stage 2 구조로 교체한다.
+
+### Probe 결과와 구조 교체 결정
+
+4000 step까지 고정 샘플을 확인했지만 사용자 체감 선명도는 좋아지지 않았다.
+decoded PSNR은 소폭 올랐으나, 3500/4000 step의 Laplacian detail ratio는
+초기값보다 오히려 낮았다.
+
+```text
+step 1:    decoded PSNR 23.7387, detail ratio 0.28167
+step 2500: decoded PSNR 24.1447, detail ratio 0.31115
+step 4000: decoded PSNR 24.2792, detail ratio 0.27731
+stop:      decoded PSNR 24.2941, detail ratio 0.28655
+```
+
+결론:
+
+- 동일한 단일 해상도 trunk에 decoded/detail loss만 추가하면 distortion 수치는
+  개선돼도 실제 detail 복원은 안정적으로 좋아지지 않는다.
+- 기존 manifest의 train 103,450장 중 COCO가 100,000장이고,
+  DIV2K/Flickr2K는 3,450장뿐이라 고품질 복원 신호가 지나치게 희석된다.
+- loss weight 추가 실험을 계속하기보다 Stage 2의 문맥 범위와 데이터 노출 비율을
+  동시에 바꾼다.
+
+## 2026-06-07 Stage 2 multiscale-context + HQ-balanced long run
+
+공개 복원 연구의 공통 방향을 참고했다.
+
+- [SwinIR](https://arxiv.org/abs/2108.10257), [HAT](https://arxiv.org/abs/2309.05239):
+  SR에서 넓은 문맥과 장거리 상호작용의 중요성.
+- [NAFNet](https://arxiv.org/abs/2204.04676): 복원 모델에서 효율적인
+  multi-scale encoder-decoder 경로의 유효성.
+- [Real-ESRGAN](https://arxiv.org/abs/2107.10833): 실제 복원 성능에서
+  degradation/data 구성의 중요성.
+
+기존 19M flat Stage 2 trunk의 이름과 가중치는 보존하고, 128 -> 64 -> 32
+해상도의 multiscale-context 분기를 추가했다. 마지막 context projection을
+zero-init하여 step 72000 체크포인트를 partial-init하면 최초 출력이 기존 모델과
+정확히 같고, 이후에만 넓은 문맥을 학습한다.
+
+데이터는 새 이미지를 무작정 추가하는 대신 기존 고품질 원본의 학습 노출을 먼저
+교정했다. `scripts/build_hq_mix_manifest.py --hq-repeat 30`으로 train manifest를
+다음처럼 구성했다.
+
+```text
+train rows:       203,500
+COCO rows:        100,000
+DIV2K/Flickr2K:   103,500
+HQ train ratio:    50.86%
+```
+
+장기 run 설정:
+
+```text
+config: configs/latent_pretrain_photo100k_multiscale_hqmix_long.yaml
+model params: 55.50M
+degradation: photo_detail_mix
+loss: latent 0.25 + decoded 1.0 + edge 1.0 + highpass 2.0
+      + highpass residual magnitude 1.0
+batch: 8, grad accumulation: 4, effective batch: 32
+max micro-steps: 50,000
+```
+
+L40S smoke 결과 batch 8 forward/backward와 val100 eval이 정상 통과했다.
+GPU util은 `100%`, VRAM은 약 `34.8/46.1GB`였고 batch 4와 micro-step 속도가
+거의 같아 batch 8을 선택했다. 전체 테스트는 `25 passed`.
