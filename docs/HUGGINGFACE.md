@@ -223,6 +223,25 @@ Upload the selected detail-preserving Stage 4 checkpoint and sampled evaluation:
   --artifact /home/jwheojjang/scratch/sr-diffusion/runs/eval_stage4_teacher_photo_detail_long_best8000_val100_t25/grid_lr_bicubic_sr_gt.png=samples/stage4_photo100k_xl_teacher_residual_photo_detail_best8000_val100_t25_grid.png
 ```
 
+Upload the selected decoded-detail residual refiner v2 and cross-preset evals:
+
+```bash
+/home/ubuntu/venvs/cuda/bin/python scripts/upload_hf_artifact.py \
+  --repo-id jwheo/sr-diffusion \
+  --repo-type model \
+  --message "Upload decoded-detail residual refiner v2 artifacts" \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/residual_refiner_stage2_xl_photo_detail_v2_long/checkpoints/best_eval_refined.pt=checkpoints/residual_refiner_stage2_xl_photo_detail_v2_best11000.pt \
+  --artifact configs/residual_refiner_stage2_xl_photo_detail_v2_long.yaml=configs/residual_refiner_stage2_xl_photo_detail_v2_long.yaml \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/residual_refiner_stage2_xl_photo_detail_v2_long/summary.json=metrics/residual_refiner_stage2_xl_photo_detail_v2_long_summary.json \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/eval_residual_refiner_v2_stage2_xl_mild_val100/summary.json=metrics/eval_residual_refiner_v2_stage2_xl_mild_val100_summary.json \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/eval_residual_refiner_v2_stage2_xl_photo_v2_val100/summary.json=metrics/eval_residual_refiner_v2_stage2_xl_photo_v2_val100_summary.json \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/eval_residual_refiner_v2_stage2_xl_photo_v3_noise_mix_val100/summary.json=metrics/eval_residual_refiner_v2_stage2_xl_photo_v3_noise_mix_val100_summary.json \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/residual_refiner_stage2_xl_photo_detail_v2_long/eval_step_011000/eval_grid_lr_bicubic_condition_refined_oracle_gt.png=samples/residual_refiner_stage2_xl_photo_detail_v2_best11000_grid.png \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/eval_residual_refiner_v2_stage2_xl_mild_val100/eval_grid_lr_bicubic_condition_refined_oracle_gt.png=samples/eval_residual_refiner_v2_stage2_xl_mild_val100_grid.png \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/eval_residual_refiner_v2_stage2_xl_photo_v2_val100/eval_grid_lr_bicubic_condition_refined_oracle_gt.png=samples/eval_residual_refiner_v2_stage2_xl_photo_v2_val100_grid.png \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/eval_residual_refiner_v2_stage2_xl_photo_v3_noise_mix_val100/eval_grid_lr_bicubic_condition_refined_oracle_gt.png=samples/eval_residual_refiner_v2_stage2_xl_photo_v3_noise_mix_val100_grid.png
+```
+
 Make the Hub repository public after license files and the model card are in
 place:
 

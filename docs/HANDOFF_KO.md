@@ -7,6 +7,28 @@
 
 ## 2026-06-06 최신 실험 요약
 
+- residual refiner v2 장기 학습 및 cross-preset 평가 완료.
+- v2 변경: hidden `192`, residual block `12`, `photo_detail_mix`, decoded
+  image/highpass supervision.
+- 완료: `12000` micro steps, best step `11000`.
+- 병목 없음: L40S util `99-100%`, VRAM 약 `42.0/46.1GB`, steady `0.89 step/s`.
+
+| degradation | condition mean PSNR | v2 refined mean PSNR | condition 대비 | wins |
+| --- | ---: | ---: | ---: | ---: |
+| `photo_detail_mix` | 25.3103 | 25.4420 | +0.1318 | 90/100 |
+| `mild` | 25.0449 | 25.1627 | +0.1178 | 87/100 |
+| `photo_v2` | 22.9271 | 23.0257 | +0.0986 | 84/100 |
+| `photo_v3_noise_mix` | 22.9014 | 23.0174 | +0.1160 | 88/100 |
+
+- 기존 v1 cross-preset 이득 `+0.0496~+0.0729 dB` 대비 v2는
+  `+0.0986~+0.1178 dB`로 약 두 배 개선됐다.
+- 새 흰색 artifact나 fake texture 없이 경계/미세 대비가 조금 개선됐다. 다만 GT
+  fine texture 전체를 복원하는 강한 detail generator는 아직 아니다.
+- 공식 선택 checkpoint:
+  `checkpoints/residual_refiner_stage2_xl_photo_detail_v2_best11000.pt`
+- HF preset:
+  `python scripts/download_hf_checkpoints.py --preset residual_refiner_v2`
+
 - detail-preserving degradation curriculum과 Stage4 장기 적응 학습 완료.
 - 새 preset:
   - `photo_detail`: object/detail 신호를 보존하는 약한 blur/noise/compression 조합.

@@ -207,6 +207,28 @@ does not introduce the destructive edits seen in earlier diffusion probes, but
 the visible change is small. The best next use is therefore as a safe residual
 teacher/warm start, not as the final detail generator by itself.
 
+Residual refiner v2 increased model capacity and added decoded-image and
+decoded-highpass supervision while training on `photo_detail_mix`. The
+12000-step run selected step 11000:
+
+```text
+Residual refiner v2, selected step 11000:
+  photo_detail_mix: condition 25.3103, refined 25.4420, +0.1318, wins 90/100
+  mild:             condition 25.0449, refined 25.1627, +0.1178, wins 87/100
+  photo_v2:         condition 22.9271, refined 23.0257, +0.0986, wins 84/100
+  photo_v3_noise_mix: condition 22.9014, refined 23.0174, +0.1160, wins 88/100
+```
+
+Compared with the original sparse-gate refiner, the cross-preset PSNR gain is
+roughly doubled without introducing visible white artifacts, fake texture, or
+destructive edits. The result is still conservative: it improves local
+contrast and boundaries but does not reconstruct the full GT fine texture.
+Download the selected artifacts with:
+
+```bash
+python scripts/download_hf_checkpoints.py --preset residual_refiner_v2
+```
+
 That teacher-supervision path was then tested in the gated-residual Stage 4
 U-Net on `photo_v3_noise_mix`. It produced a small, stable PSNR cleanup gain,
 but did not solve visible detail recovery:

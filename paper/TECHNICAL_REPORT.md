@@ -326,6 +326,28 @@ GT for step 8000, compared with `29.6%` for its teacher initialization and
 from more accurate bounded corrections, not from strong new texture synthesis.
 Rare strong-tail samples can still exhibit bright artifacts.
 
+## Decoded-Detail Residual Refiner v2
+
+The deterministic bounded residual refiner was scaled from 128 channels and
+8 residual blocks to 192 channels and 12 blocks. In addition to latent
+residual and highpass losses, v2 backpropagates through the frozen VAE decoder
+and supervises the decoded image and decoded highpass response. It was trained
+for 12000 micro-steps on `photo_detail_mix`; step 11000 was selected.
+
+| Degradation | Condition mean PSNR | Refined mean PSNR | Gain | Wins |
+| --- | ---: | ---: | ---: | ---: |
+| `photo_detail_mix` | `25.3103` | `25.4420` | `+0.1318` | `90/100` |
+| `mild` | `25.0449` | `25.1627` | `+0.1178` | `87/100` |
+| `photo_v2` | `22.9271` | `23.0257` | `+0.0986` | `84/100` |
+| `photo_v3_noise_mix` | `22.9014` | `23.0174` | `+0.1160` | `88/100` |
+
+The original refiner gained `+0.0496` to `+0.0729` dB across the same three
+cross-degradation tests. V2 therefore roughly doubled the safe correction
+gain and generalized beyond its training curriculum. Visual inspection found
+slightly stronger local contrast and boundaries without new white artifacts,
+fake texture, or broad destructive edits. The model remains a conservative
+refiner rather than a full missing-detail generator.
+
 ## Systems Notes
 
 Diffusion training now supports PyTorch DDP when launched with `torchrun`.
@@ -341,6 +363,10 @@ On the tested 2x L40S environment, the gated-residual probe ran with high GPU
 utilization, about `0.79` micro-step/s, and roughly `44.7 / 46.1 GiB` allocated
 per GPU. No GPU bottleneck or NCCL communication issue was observed.
 
+The decoded-detail residual refiner v2 ran on one L40S at about `0.89`
+micro-step/s with `42.0 / 46.1 GiB` allocated and sustained `99-100%` GPU
+utilization.
+
 ## Public Artifacts
 
 The latest public artifacts are stored in `jwheo/sr-diffusion` on Hugging Face:
@@ -350,6 +376,7 @@ checkpoints/stage4_photo100k_xl_edge_b16_best_eval_condition_decoded.pt
 checkpoints/residual_refiner_stage2_xl_mild_best_eval_refined.pt
 checkpoints/stage4_photo100k_xl_teacher_residual_photo_v3_step_0002000.pt
 checkpoints/stage4_photo100k_xl_teacher_residual_photo_detail_best8000.pt
+checkpoints/residual_refiner_stage2_xl_photo_detail_v2_best11000.pt
 metrics/stage4_photo100k_xl_edge_b16_val100_t50_32step_summary.json
 metrics/diagnose_stage2_xl_residuals_mild_val100_summary.json
 metrics/residual_refiner_stage2_xl_mild_probe_early_stop_summary.json
@@ -357,6 +384,8 @@ metrics/eval_residual_refiner_stage2_xl_photo_v3_noise_mix_val100_summary.json
 metrics/stage4_photo100k_xl_teacher_residual_photo_v3_step2000_val100_t25_32step_summary.json
 metrics/stage4_photo100k_xl_teacher_residual_photo_v3_step2000_val100_t50_32step_summary.json
 metrics/stage4_photo100k_xl_teacher_residual_photo_detail_best8000_val100_t25_summary.json
+metrics/residual_refiner_stage2_xl_photo_detail_v2_long_summary.json
+metrics/eval_residual_refiner_v2_stage2_xl_photo_v3_noise_mix_val100_summary.json
 samples/stage4_photo100k_xl_edge_b16_val100_t50_32step_grid_lr_bicubic_sr_gt.png
 samples/diagnose_stage2_xl_residuals_mild_val100_grid.png
 samples/residual_refiner_stage2_xl_mild_probe_step500_grid.png
@@ -364,10 +393,13 @@ samples/eval_residual_refiner_stage2_xl_photo_v3_noise_mix_val100_grid.png
 samples/compare_residual_refiner_vs_stage4_edge_0801_photo_v3.png
 samples/stage4_photo100k_xl_teacher_residual_photo_v3_step2000_val100_t25_grid.png
 samples/stage4_photo100k_xl_teacher_residual_photo_detail_best8000_val100_t25_grid.png
+samples/residual_refiner_stage2_xl_photo_detail_v2_best11000_grid.png
+samples/eval_residual_refiner_v2_stage2_xl_photo_v3_noise_mix_val100_grid.png
 configs/diffusion_photo100k_xl_stage4_condition_v3_edge_b16.yaml
 configs/residual_refiner_stage2_xl_mild_probe.yaml
 configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_v3_b8_probe.yaml
 configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_detail_b8_long.yaml
+configs/residual_refiner_stage2_xl_photo_detail_v2_long.yaml
 ```
 
 ## Next Work

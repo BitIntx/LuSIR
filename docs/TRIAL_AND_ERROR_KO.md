@@ -680,3 +680,53 @@ sampled `photo_detail_mix` val100, condition init, t25, 32 steps:
 - 공식 선택은 step `8000`; 동일 설정의 더 긴 continuation은 우선순위가 아니다.
 - 아직 강한 missing-detail generator는 아니다. 다음은 perceptual/detail 평가를
   강화하고 strong tail을 별도 robustness 경로로 분리하는 방향이 타당하다.
+
+## 실험 9: residual refiner v2 decoded-detail 장기 학습
+
+목표:
+
+- 기존 sparse-gate refiner의 안전성은 유지하면서 보정 폭과 실제 decoded detail을 늘린다.
+- latent loss만 키우지 않고 VAE decoder를 통과한 이미지/highpass를 직접 supervision한다.
+- `photo_detail_mix`에서 장기 학습한 뒤 기존 degradation에서도 이득이 유지되는지 확인한다.
+
+설정:
+
+- config: `configs/residual_refiner_stage2_xl_photo_detail_v2_long.yaml`
+- Stage1/Stage2 frozen
+- hidden channels `192`, residual blocks `12`
+- batch `12`, grad accumulation `2`, effective batch `24`
+- latent/residual/highpass + decoded/decoded-highpass + sparse gate loss
+- 완료: `12000` micro steps
+- L40S util `99-100%`, peak VRAM 약 `42.0/46.1GB`, steady `0.89 step/s`
+
+`photo_detail_mix` val100 학습 평가:
+
+| checkpoint | refined global PSNR | global delta | mean delta | wins | gate mean |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 7000 | 23.8227 | +0.0850 | +0.1173 | 92/100 | 0.2535 |
+| 11000 best | 23.8356 | +0.0979 | +0.1318 | 90/100 | 0.2499 |
+| 12000 latest | 23.8332 | +0.0955 | +0.1270 | 90/100 | 0.2451 |
+
+선택 step `11000` cross-preset val100:
+
+| degradation | condition mean PSNR | v1 mean delta | v2 refined mean PSNR | v2 mean delta | v2 wins |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `photo_detail_mix` | 25.3103 | n/a | 25.4420 | +0.1318 | 90/100 |
+| `mild` | 25.0449 | +0.0729 | 25.1627 | +0.1178 | 87/100 |
+| `photo_v2` | 22.9271 | +0.0496 | 23.0257 | +0.0986 | 84/100 |
+| `photo_v3_noise_mix` | 22.9014 | +0.0586 | 23.0174 | +0.1160 | 88/100 |
+
+시각 관찰:
+
+- condition 구조와 색을 유지하면서 털, 감귤 표면, 잎 경계의 미세 대비가 조금 늘었다.
+- 기존 흰색 artifact, fake texture, 과도한 sharpening은 새로 나타나지 않았다.
+- 강한 noise 입력에서도 v1보다 안전한 보정 폭이 커졌지만 GT fine texture와는
+  여전히 큰 차이가 있다.
+
+결론:
+
+- decoded-domain supervision과 capacity 증가는 성공했다. v1 대비 cross-preset 이득이
+  약 두 배가 되었고, 특정 degradation에만 과적합되지 않았다.
+- step 11000 이후는 사실상 수렴했으므로 동일 설정 continuation은 우선순위가 아니다.
+- 다음 고신호 작업은 별도 실사용/detail-focused set 평가와 LPIPS/DISTS/detail metric
+  추가다. 이후 v2를 새 Stage4 teacher 또는 deterministic 최종 보정기로 비교할 수 있다.

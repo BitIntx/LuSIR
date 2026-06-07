@@ -103,6 +103,20 @@ STAGE4_PHOTO_DETAIL_FILES = [
     "samples/stage4_photo100k_xl_teacher_residual_photo_detail_best8000_val100_t25_grid.png",
 ]
 
+RESIDUAL_REFINER_V2_FILES = [
+    *STAGE4_PHOTO_DETAIL_FILES,
+    "checkpoints/residual_refiner_stage2_xl_photo_detail_v2_best11000.pt",
+    "configs/residual_refiner_stage2_xl_photo_detail_v2_long.yaml",
+    "metrics/residual_refiner_stage2_xl_photo_detail_v2_long_summary.json",
+    "metrics/eval_residual_refiner_v2_stage2_xl_mild_val100_summary.json",
+    "metrics/eval_residual_refiner_v2_stage2_xl_photo_v2_val100_summary.json",
+    "metrics/eval_residual_refiner_v2_stage2_xl_photo_v3_noise_mix_val100_summary.json",
+    "samples/residual_refiner_stage2_xl_photo_detail_v2_best11000_grid.png",
+    "samples/eval_residual_refiner_v2_stage2_xl_mild_val100_grid.png",
+    "samples/eval_residual_refiner_v2_stage2_xl_photo_v2_val100_grid.png",
+    "samples/eval_residual_refiner_v2_stage2_xl_photo_v3_noise_mix_val100_grid.png",
+]
+
 PRESETS = {
     "prototype": PROTOTYPE_FILES,
     "photo100k": PHOTO100K_FILES,
@@ -111,6 +125,7 @@ PRESETS = {
     "residual_refiner_stage2_xl_mild": RESIDUAL_REFINER_STAGE2_XL_MILD_FILES,
     "stage4_teacher_residual_probe": STAGE4_TEACHER_RESIDUAL_PROBE_FILES,
     "stage4_photo_detail": STAGE4_PHOTO_DETAIL_FILES,
+    "residual_refiner_v2": RESIDUAL_REFINER_V2_FILES,
 }
 
 
@@ -131,7 +146,8 @@ def parse_args() -> argparse.Namespace:
             "'residual_refiner_stage2_xl_mild' also includes residual diagnostic, deterministic refiner, "
             "and cross-degradation eval artifacts; 'stage4_teacher_residual_probe' also includes the selected "
             "teacher-supervised Stage 4 probe checkpoint and sampled eval artifacts; "
-            "'stage4_photo_detail' includes the selected detail-preserving Stage 4 checkpoint."
+            "'stage4_photo_detail' includes the selected detail-preserving Stage 4 checkpoint; "
+            "'residual_refiner_v2' includes the selected decoded-detail residual refiner and cross-preset evals."
         ),
     )
     parser.add_argument(
