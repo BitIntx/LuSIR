@@ -1,0 +1,78 @@
+project:
+  name: latent_pretrain_photo100k_xl_stage2_detail_loss_probe
+  output_dir: /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo100k_xl_stage2_detail_loss_probe
+
+logging:
+  wandb:
+    enabled: true
+    project: sr-diffusion
+    name: latent_pretrain_photo100k_xl_stage2_detail_loss_probe
+    mode: online
+    dir: /home/ubuntu/scratch/sr-diffusion/wandb
+    tags: [stage2, latent-pretrain, photo100k, photo-detail-mix, xl, detail-loss, probe]
+    watch: false
+  samples:
+    enabled: true
+    split: val
+    fallback_split: train
+    count: 4
+    indices: [0, 1, 2, 3]
+
+seed: 1337
+
+autoencoder:
+  config: configs/autoencoder_photo10k.yaml
+  checkpoint: /home/ubuntu/scratch/sr-diffusion/runs/autoencoder_photo10k_b16_eval_online/checkpoints/best_eval_recon.pt
+
+data:
+  manifest: /home/ubuntu/scratch/sr-diffusion/data/manifest_photo100k.csv
+  split: train
+  hr_size: 512
+  scale: 4
+  degradation_preset: photo_detail_mix
+  domains:
+    photo: 0
+    anime: 1
+  num_workers: 4
+
+model:
+  type: lr_to_latent_predictor
+  in_channels: 3
+  latent_channels: 16
+  base_channels: 256
+  num_blocks: 16
+  norm_groups: 32
+  num_domains: 2
+
+loss:
+  latent: charbonnier
+  latent_weight: 0.25
+  decoded_weight: 1.0
+  edge_weight: 1.0
+  highpass_weight: 2.0
+  highpass_magnitude_weight: 1.0
+  charbonnier_eps: 0.001
+
+train:
+  device: auto
+  dtype: bf16
+  batch_size: 8
+  max_steps: 5000
+  lr: 0.00001
+  weight_decay: 0.0
+  grad_accum_steps: 4
+  log_every: 25
+  save_every: 1000
+  sample_every: 250
+
+eval:
+  enabled: true
+  split: val
+  limit: 100
+  batch_size: 8
+  num_workers: 4
+  every: 500
+  run_at_start: true
+  best_metric: eval/decoded_psnr
+  best_mode: max
+  best_checkpoint: best_eval_decoded.pt

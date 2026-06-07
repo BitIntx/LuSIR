@@ -744,3 +744,36 @@ sampled `photo_detail_mix` val100, condition init, t25, 32 steps:
   낮은 환각 위험과 deterministic한 구조 보존이다.
 - 다음 작업은 실사용/detail-focused blind A/B, perceptual metric 추가,
   degradation-aware gate, Condition 표현 개선이다.
+
+## 2026-06-07 Stage 2 decoded-detail loss probe
+
+Residual Refiner 결과를 `LR / bicubic / condition / refined / VAE oracle /
+GT`로 다시 비교했다. VAE oracle은 GT와 거의 동일하게 선명했지만 Condition
+출력부터 털, 잎맥, 글자, 먼 구조가 사라졌다.
+
+```text
+photo_detail_mix val100:
+  VAE oracle mean PSNR:          41.8124
+  Stage 2 condition mean PSNR:   25.3103
+  Condition Laplacian ratio:      0.2891
+  Refined Laplacian ratio:        0.3237
+```
+
+따라서 현재 주 병목은 Stage 1 VAE가 아니라 latent Charbonnier만으로 학습한
+Stage 2 Condition encoder라고 판단했다. 기존 Stage 2 XL step 72000에서
+초기화하고 다음 손실을 직접 적용하는 5000-step probe를 시작했다.
+
+```text
+config: configs/latent_pretrain_photo100k_xl_stage2_detail_loss_probe.yaml
+loss: latent 0.25 + decoded 1.0 + edge 1.0 + highpass 2.0
+      + highpass residual magnitude 1.0
+data: photo_detail_mix
+effective batch: 8 x grad_accum 4 = 32
+W&B: https://wandb.ai/jwheo/sr-diffusion/runs/hgr8ilhk
+```
+
+초기 실행은 L40S 한 장에서 VRAM 약 `32.9/46.1GB`, GPU util `100%`,
+steady 약 `1.31 micro-step/s`였다. 판정 기준은 decoded PSNR만이 아니라
+Laplacian detail ratio와 고정 샘플의 실제 질감 복원이다. 이 probe에서
+Condition 선명도가 움직이지 않으면 단일 해상도 residual CNN을 멀티스케일
+Stage 2 구조로 교체한다.

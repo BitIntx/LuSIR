@@ -19,6 +19,12 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "src"))
 
 from sr_diffusion.datasets import ManifestImageDataset
+from sr_diffusion.losses.reconstruction import (
+    charbonnier_loss,
+    laplacian_loss,
+    laplacian_residual_magnitude_loss,
+    sobel_edge_loss,
+)
 from sr_diffusion.models import AutoencoderKL, LRToLatentPredictor
 from sr_diffusion.utils import (
     autocast_context,
@@ -77,6 +83,69 @@ def latent_loss(prediction: torch.Tensor, target: torch.Tensor, kind: str) -> to
 
 def psnr_from_mse(mse: float, peak: float = 2.0) -> float:
     return 20.0 * float(np.log10(peak)) - 10.0 * float(np.log10(max(mse, 1e-12)))
+
+
+def laplacian_response(x: torch.Tensor) -> torch.Tensor:
+    kernel = x.new_tensor(
+        [
+            [0.0, 1.0, 0.0],
+            [1.0, -4.0, 1.0],
+            [0.0, 1.0, 0.0],
+        ],
+        dtype=torch.float32,
+    ) / 4.0
+    channels = int(x.shape[1])
+    weight = kernel.view(1, 1, 3, 3).repeat(channels, 1, 1, 1)
+    padded = F.pad(x.float(), (1, 1, 1, 1), mode="reflect")
+    return F.conv2d(padded, weight, groups=channels)
+
+
+def compute_stage2_loss(
+    prediction: torch.Tensor,
+    target_latent: torch.Tensor,
+    target_image: torch.Tensor,
+    reference_image: torch.Tensor,
+    vae: AutoencoderKL,
+    loss_config: dict[str, Any],
+) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+    latent = latent_loss(prediction, target_latent, str(loss_config.get("latent", "charbonnier")))
+    decoded_weight = float(loss_config.get("decoded_weight", 0.0))
+    edge_weight = float(loss_config.get("edge_weight", 0.0))
+    highpass_weight = float(loss_config.get("highpass_weight", 0.0))
+    highpass_magnitude_weight = float(loss_config.get("highpass_magnitude_weight", 0.0))
+    if decoded_weight > 0.0 or edge_weight > 0.0 or highpass_weight > 0.0 or highpass_magnitude_weight > 0.0:
+        decoded = vae.decode(prediction)
+        eps = float(loss_config.get("charbonnier_eps", 1e-3))
+        pixel = charbonnier_loss(decoded, target_image, eps=eps)
+        edge = sobel_edge_loss(decoded, target_image, eps=eps)
+        highpass = laplacian_loss(decoded, target_image, eps=eps)
+        highpass_magnitude = laplacian_residual_magnitude_loss(
+            decoded,
+            target_image,
+            reference_image,
+            eps=eps,
+        )
+    else:
+        decoded = prediction.new_empty(0)
+        pixel = prediction.new_zeros(())
+        edge = prediction.new_zeros(())
+        highpass = prediction.new_zeros(())
+        highpass_magnitude = prediction.new_zeros(())
+    total = (
+        float(loss_config.get("latent_weight", 1.0)) * latent
+        + decoded_weight * pixel
+        + edge_weight * edge
+        + highpass_weight * highpass
+        + highpass_magnitude_weight * highpass_magnitude
+    )
+    return total, {
+        "latent": latent,
+        "decoded": pixel,
+        "edge": edge,
+        "highpass": highpass,
+        "highpass_magnitude": highpass_magnitude,
+        "decoded_image": decoded,
+    }
 
 
 def make_dataset(config: dict[str, Any], split: str, seed: int, deterministic: bool | None = None) -> ManifestImageDataset:
@@ -222,11 +291,21 @@ def evaluate(
     dataloader: DataLoader,
     device: torch.device,
     dtype_name: str,
-    loss_kind: str,
+    loss_config: dict[str, Any],
 ) -> dict[str, float]:
     was_training = model.training
     model.eval()
-    totals = {"latent_loss": 0.0, "latent_mse": 0.0, "decoded_mse": 0.0}
+    totals = {
+        "loss": 0.0,
+        "latent_loss": 0.0,
+        "latent_mse": 0.0,
+        "decoded_mse": 0.0,
+        "decoded_edge": 0.0,
+        "decoded_highpass": 0.0,
+        "laplacian_energy_ratio": 0.0,
+        "oracle_decoded_mse": 0.0,
+        "oracle_laplacian_energy_ratio": 0.0,
+    }
     count = 0
     with torch.no_grad():
         for batch in dataloader:
@@ -235,27 +314,48 @@ def evaluate(
             domain_id = batch["domain_id"].to(device, non_blocking=True)
             target = normalize_image(hr)
             lr_input = normalize_image(lr)
+            reference = F.interpolate(lr_input, size=target.shape[-2:], mode="bicubic", align_corners=False)
             batch_size = int(hr.shape[0])
             with autocast_context(device, dtype_name):
                 target_latent, _ = vae.encode(target)
                 prediction = model(lr_input, domain_id)
-                loss = latent_loss(prediction, target_latent, loss_kind)
+                loss, components = compute_stage2_loss(prediction, target_latent, target, reference, vae, loss_config)
                 latent_mse = F.mse_loss(prediction, target_latent)
-                decoded = vae.decode(prediction)
+                decoded = components["decoded_image"] if components["decoded_image"].numel() > 0 else vae.decode(prediction)
                 decoded_mse = F.mse_loss(decoded, target)
-            totals["latent_loss"] += float(loss.detach().cpu()) * batch_size
+                oracle_decoded = vae.decode(target_latent)
+                oracle_decoded_mse = F.mse_loss(oracle_decoded, target)
+            target_laplacian = laplacian_response(target)
+            decoded_laplacian = laplacian_response(decoded)
+            oracle_laplacian = laplacian_response(oracle_decoded)
+            target_energy = target_laplacian.abs().flatten(1).mean(dim=1).clamp_min(1e-12)
+            decoded_energy_ratio = decoded_laplacian.abs().flatten(1).mean(dim=1) / target_energy
+            oracle_energy_ratio = oracle_laplacian.abs().flatten(1).mean(dim=1) / target_energy
+            totals["loss"] += float(loss.detach().cpu()) * batch_size
+            totals["latent_loss"] += float(components["latent"].detach().cpu()) * batch_size
             totals["latent_mse"] += float(latent_mse.detach().cpu()) * batch_size
             totals["decoded_mse"] += float(decoded_mse.detach().cpu()) * batch_size
+            totals["decoded_edge"] += float(sobel_edge_loss(decoded, target).detach().cpu()) * batch_size
+            totals["decoded_highpass"] += float(laplacian_loss(decoded, target).detach().cpu()) * batch_size
+            totals["laplacian_energy_ratio"] += float(decoded_energy_ratio.sum().cpu())
+            totals["oracle_decoded_mse"] += float(oracle_decoded_mse.detach().cpu()) * batch_size
+            totals["oracle_laplacian_energy_ratio"] += float(oracle_energy_ratio.sum().cpu())
             count += batch_size
     if was_training:
         model.train()
     count = max(1, count)
     decoded_mse = totals["decoded_mse"] / count
     return {
+        "eval/loss": totals["loss"] / count,
         "eval/latent_loss": totals["latent_loss"] / count,
         "eval/latent_mse": totals["latent_mse"] / count,
         "eval/decoded_mse": decoded_mse,
         "eval/decoded_psnr": psnr_from_mse(decoded_mse),
+        "eval/decoded_edge": totals["decoded_edge"] / count,
+        "eval/decoded_highpass": totals["decoded_highpass"] / count,
+        "eval/laplacian_energy_ratio": totals["laplacian_energy_ratio"] / count,
+        "eval/oracle_decoded_psnr": psnr_from_mse(totals["oracle_decoded_mse"] / count),
+        "eval/oracle_laplacian_energy_ratio": totals["oracle_laplacian_energy_ratio"] / count,
         "eval/num_images": float(count),
     }
 
@@ -278,7 +378,7 @@ def main() -> None:
     train_cfg = config["train"]
     device = get_device(train_cfg.get("device", "auto"))
     dtype_name = train_cfg.get("dtype", "bf16")
-    loss_kind = config.get("loss", {}).get("latent", "charbonnier")
+    loss_config = config.get("loss", {})
     print(f"device={device} dtype={dtype_name}")
 
     train_dataset = make_dataset(config, split=config["data"].get("split", "train"), seed=seed)
@@ -308,6 +408,11 @@ def main() -> None:
     eval_loader = None
     eval_every = int(eval_cfg.get("every", 1000))
     eval_run_at_start = bool(eval_cfg.get("run_at_start", True))
+    best_metric_name = str(eval_cfg.get("best_metric", "eval/latent_loss"))
+    best_metric_mode = str(eval_cfg.get("best_mode", "min"))
+    best_checkpoint_name = str(eval_cfg.get("best_checkpoint", "best_eval_latent.pt"))
+    if best_metric_mode not in {"min", "max"}:
+        raise ValueError(f"Unsupported eval.best_mode: {best_metric_mode}")
     if eval_enabled:
         eval_dataset = make_dataset(config, split=str(eval_cfg.get("split", "val")), seed=seed, deterministic=True)
         limit = int(eval_cfg.get("limit", 0))
@@ -365,7 +470,7 @@ def main() -> None:
 
     model.train()
     step = start_step
-    best_eval = float("inf")
+    best_eval = float("inf") if best_metric_mode == "min" else float("-inf")
     last_log = time.time()
     last_log_step = step
     optimizer.zero_grad(set_to_none=True)
@@ -378,6 +483,7 @@ def main() -> None:
             domain_id = batch["domain_id"].to(device, non_blocking=True)
             target = normalize_image(hr)
             lr_input = normalize_image(lr)
+            reference = F.interpolate(lr_input, size=target.shape[-2:], mode="bicubic", align_corners=False)
 
             with torch.no_grad():
                 with autocast_context(device, dtype_name):
@@ -385,7 +491,14 @@ def main() -> None:
 
             with autocast_context(device, dtype_name):
                 prediction = model(lr_input, domain_id)
-                loss = latent_loss(prediction, target_latent, loss_kind)
+                loss, loss_components = compute_stage2_loss(
+                    prediction,
+                    target_latent,
+                    target,
+                    reference,
+                    vae,
+                    loss_config,
+                )
                 scaled_loss = loss / grad_accum_steps
 
             scaled_loss.backward()
@@ -400,14 +513,24 @@ def main() -> None:
                 last_log_step = step
                 latent_mse = F.mse_loss(prediction.detach(), target_latent.detach())
                 print(
-                    f"step={step} latent_loss={float(loss.detach().cpu()):.5f} "
+                    f"step={step} loss={float(loss.detach().cpu()):.5f} "
+                    f"latent={float(loss_components['latent'].detach().cpu()):.5f} "
+                    f"decoded={float(loss_components['decoded'].detach().cpu()):.5f} "
+                    f"edge={float(loss_components['edge'].detach().cpu()):.5f} "
+                    f"highpass={float(loss_components['highpass'].detach().cpu()):.5f} "
+                    f"highpass_mag={float(loss_components['highpass_magnitude'].detach().cpu()):.5f} "
                     f"latent_mse={float(latent_mse.detach().cpu()):.5f} "
                     f"steps_per_sec={interval_steps / elapsed:.2f}"
                 )
                 wandb_log(
                     run,
                     {
-                        "train/latent_loss": float(loss.detach().cpu()),
+                        "train/loss": float(loss.detach().cpu()),
+                        "train/latent_loss": float(loss_components["latent"].detach().cpu()),
+                        "train/decoded": float(loss_components["decoded"].detach().cpu()),
+                        "train/edge": float(loss_components["edge"].detach().cpu()),
+                        "train/highpass": float(loss_components["highpass"].detach().cpu()),
+                        "train/highpass_magnitude": float(loss_components["highpass_magnitude"].detach().cpu()),
                         "train/latent_mse": float(latent_mse.detach().cpu()),
                         "train/lr": optimizer.param_groups[0]["lr"],
                         "system/steps_per_sec": interval_steps / elapsed,
@@ -422,19 +545,22 @@ def main() -> None:
                 and (step % eval_every == 0 or (step == 1 and eval_run_at_start))
             )
             if should_eval:
-                metrics = evaluate(model, vae, eval_loader, device, dtype_name, loss_kind)
+                metrics = evaluate(model, vae, eval_loader, device, dtype_name, loss_config)
                 (eval_dir / f"step_{step:07d}_metrics.json").write_text(
                     json.dumps({"step": step, "metrics": metrics}, indent=2, sort_keys=True) + "\n",
                     encoding="utf-8",
                 )
                 print(
                     f"eval step={step} latent_loss={metrics['eval/latent_loss']:.5f} "
-                    f"decoded_psnr={metrics['eval/decoded_psnr']:.2f}"
+                    f"decoded_psnr={metrics['eval/decoded_psnr']:.2f} "
+                    f"detail_ratio={metrics['eval/laplacian_energy_ratio']:.3f}"
                 )
                 wandb_log(run, metrics, step=step)
-                if metrics["eval/latent_loss"] < best_eval:
-                    best_eval = metrics["eval/latent_loss"]
-                    save_checkpoint(checkpoints_dir / "best_eval_latent.pt", model, optimizer, step, config)
+                metric_value = float(metrics[best_metric_name])
+                is_better = metric_value < best_eval if best_metric_mode == "min" else metric_value > best_eval
+                if is_better:
+                    best_eval = metric_value
+                    save_checkpoint(checkpoints_dir / best_checkpoint_name, model, optimizer, step, config)
 
             if step % sample_every == 0 or step == 1:
                 sample_source = fixed_sample_batch if fixed_sample_batch is not None else batch
