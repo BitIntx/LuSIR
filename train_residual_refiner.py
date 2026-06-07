@@ -138,13 +138,18 @@ def init_wandb(config: dict[str, Any], output_dir: Path, model: nn.Module) -> An
     wandb_dir.mkdir(parents=True, exist_ok=True)
     mode = str(wandb_cfg.get("mode", "offline"))
     os.environ["WANDB_MODE"] = mode
+    tags = list(wandb_cfg.get("tags") or [])
+    if "stage2" not in tags:
+        tags.append("stage2")
     run = wandb.init(
         project=wandb_cfg.get("project", "sr-diffusion"),
         entity=wandb_cfg.get("entity"),
         name=wandb_cfg.get("name", config.get("project", {}).get("name")),
         dir=str(wandb_dir),
         mode=mode,
-        tags=wandb_cfg.get("tags"),
+        tags=tags,
+        group=wandb_cfg.get("group", "stage2"),
+        job_type=wandb_cfg.get("job_type", "residual-refiner"),
         config=clean_config(config),
     )
     if bool(wandb_cfg.get("watch", False)):

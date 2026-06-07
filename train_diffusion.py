@@ -199,13 +199,17 @@ def init_wandb(config: dict[str, Any], output_dir: Path, model: torch.nn.Module)
     wandb_dir.mkdir(parents=True, exist_ok=True)
     mode = wandb_cfg.get("mode", "offline")
     os.environ["WANDB_MODE"] = str(mode)
+    tags = list(wandb_cfg.get("tags") or [])
+    default_group = next((stage for stage in ("stage4", "stage3") if stage in tags), "stage3")
     run = wandb.init(
         project=wandb_cfg.get("project", "sr-diffusion"),
         entity=wandb_cfg.get("entity"),
         name=wandb_cfg.get("name", config.get("project", {}).get("name")),
         dir=str(wandb_dir),
         mode=mode,
-        tags=wandb_cfg.get("tags"),
+        tags=tags,
+        group=wandb_cfg.get("group", default_group),
+        job_type=wandb_cfg.get("job_type", "diffusion"),
         config=clean_config(config),
     )
     if bool(wandb_cfg.get("watch", False)):
