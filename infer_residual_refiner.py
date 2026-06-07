@@ -65,11 +65,9 @@ def resolve_checkpoint(config: dict[str, Any], requested: Path | None) -> Path:
         candidates.append(Path(project_output) / "checkpoints" / "best_eval_refined.pt")
 
     for candidate in candidates:
-        path = candidate.expanduser()
-        if not path.is_absolute():
-            path = ROOT / path
+        path = resolve_path(config, candidate.expanduser())
         if path.exists():
-            return path
+            return path.resolve()
     formatted = "\n".join(f"- {candidate}" for candidate in candidates)
     raise FileNotFoundError(f"Could not find residual refiner checkpoint. Checked:\n{formatted}")
 
