@@ -62,6 +62,55 @@ def highpass(x: torch.Tensor, kernel_size: int) -> torch.Tensor:
     return x - lowpass(x, kernel_size)
 
 
+def metric_highpass(x: torch.Tensor, kernel_size: int = 15) -> torch.Tensor:
+    kernel_size = int(kernel_size)
+    if kernel_size <= 1:
+        return x
+    if kernel_size % 2 == 0:
+        raise ValueError(f"metric highpass kernel must be odd, got {kernel_size}")
+    padding = kernel_size // 2
+    padded = F.pad(x.float(), (padding, padding, padding, padding), mode="reflect")
+    return x.float() - F.avg_pool2d(padded, kernel_size=kernel_size, stride=1)
+
+
+def laplacian_response(x: torch.Tensor) -> torch.Tensor:
+    kernel = x.new_tensor(
+        [
+            [0.0, 1.0, 0.0],
+            [1.0, -4.0, 1.0],
+            [0.0, 1.0, 0.0],
+        ],
+        dtype=torch.float32,
+    ) / 4.0
+    channels = int(x.shape[1])
+    weight = kernel.view(1, 1, 3, 3).repeat(channels, 1, 1, 1)
+    padded = F.pad(x.float(), (1, 1, 1, 1), mode="reflect")
+    return F.conv2d(padded, weight, groups=channels)
+
+
+def ssim_per_image(prediction: torch.Tensor, target: torch.Tensor, kernel_size: int = 11) -> torch.Tensor:
+    prediction = prediction.float()
+    target = target.float()
+    padding = kernel_size // 2
+
+    def local_mean(x: torch.Tensor) -> torch.Tensor:
+        padded = F.pad(x, (padding, padding, padding, padding), mode="reflect")
+        return F.avg_pool2d(padded, kernel_size=kernel_size, stride=1)
+
+    mu_prediction = local_mean(prediction)
+    mu_target = local_mean(target)
+    prediction_variance = local_mean(prediction * prediction) - mu_prediction.pow(2)
+    target_variance = local_mean(target * target) - mu_target.pow(2)
+    covariance = local_mean(prediction * target) - mu_prediction * mu_target
+    c1 = 0.01**2
+    c2 = 0.03**2
+    numerator = (2.0 * mu_prediction * mu_target + c1) * (2.0 * covariance + c2)
+    denominator = (mu_prediction.pow(2) + mu_target.pow(2) + c1) * (
+        prediction_variance + target_variance + c2
+    )
+    return (numerator / denominator.clamp_min(1e-12)).flatten(1).mean(dim=1)
+
+
 def clean_config(config: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in config.items() if not key.startswith("_")}
 
@@ -289,6 +338,15 @@ def evaluate(
         "refined_psnr": 0.0,
         "bicubic_psnr": 0.0,
         "oracle_full_psnr": 0.0,
+        "condition_ssim": 0.0,
+        "refined_ssim": 0.0,
+        "condition_highpass_mae": 0.0,
+        "refined_highpass_mae": 0.0,
+        "condition_laplacian_mae": 0.0,
+        "refined_laplacian_mae": 0.0,
+        "condition_laplacian_energy_ratio": 0.0,
+        "refined_laplacian_energy_ratio": 0.0,
+        "detail_wins_vs_condition": 0.0,
     }
     count = 0
     grid_rows: list[list[tuple[str, Image.Image]]] = []
@@ -311,6 +369,23 @@ def evaluate(
         refined_mse_per = (decoded_refined - hr).float().pow(2).flatten(1).mean(dim=1)
         bicubic_mse_per = (bicubic - hr).float().pow(2).flatten(1).mean(dim=1)
         oracle_mse_per = (decoded_oracle - hr).float().pow(2).flatten(1).mean(dim=1)
+        condition_ssim_per = ssim_per_image(decoded_condition, hr)
+        refined_ssim_per = ssim_per_image(decoded_refined, hr)
+        target_highpass = metric_highpass(hr)
+        condition_highpass_mae_per = (metric_highpass(decoded_condition) - target_highpass).abs().flatten(1).mean(dim=1)
+        refined_highpass_mae_per = (metric_highpass(decoded_refined) - target_highpass).abs().flatten(1).mean(dim=1)
+        target_laplacian = laplacian_response(hr)
+        condition_laplacian = laplacian_response(decoded_condition)
+        refined_laplacian = laplacian_response(decoded_refined)
+        condition_laplacian_mae_per = (condition_laplacian - target_laplacian).abs().flatten(1).mean(dim=1)
+        refined_laplacian_mae_per = (refined_laplacian - target_laplacian).abs().flatten(1).mean(dim=1)
+        target_laplacian_energy_per = target_laplacian.abs().flatten(1).mean(dim=1).clamp_min(1e-12)
+        condition_laplacian_energy_ratio_per = (
+            condition_laplacian.abs().flatten(1).mean(dim=1) / target_laplacian_energy_per
+        )
+        refined_laplacian_energy_ratio_per = (
+            refined_laplacian.abs().flatten(1).mean(dim=1) / target_laplacian_energy_per
+        )
         totals["condition_decoded_mse"] += float(condition_mse_per.sum().cpu())
         totals["refined_decoded_mse"] += float(refined_mse_per.sum().cpu())
         totals["bicubic_mse"] += float(bicubic_mse_per.sum().cpu())
@@ -319,6 +394,17 @@ def evaluate(
         totals["refined_psnr"] += float((-10.0 * torch.log10(refined_mse_per.clamp_min(1e-12))).sum().cpu())
         totals["bicubic_psnr"] += float((-10.0 * torch.log10(bicubic_mse_per.clamp_min(1e-12))).sum().cpu())
         totals["oracle_full_psnr"] += float((-10.0 * torch.log10(oracle_mse_per.clamp_min(1e-12))).sum().cpu())
+        totals["condition_ssim"] += float(condition_ssim_per.sum().cpu())
+        totals["refined_ssim"] += float(refined_ssim_per.sum().cpu())
+        totals["condition_highpass_mae"] += float(condition_highpass_mae_per.sum().cpu())
+        totals["refined_highpass_mae"] += float(refined_highpass_mae_per.sum().cpu())
+        totals["condition_laplacian_mae"] += float(condition_laplacian_mae_per.sum().cpu())
+        totals["refined_laplacian_mae"] += float(refined_laplacian_mae_per.sum().cpu())
+        totals["condition_laplacian_energy_ratio"] += float(condition_laplacian_energy_ratio_per.sum().cpu())
+        totals["refined_laplacian_energy_ratio"] += float(refined_laplacian_energy_ratio_per.sum().cpu())
+        totals["detail_wins_vs_condition"] += float(
+            (refined_laplacian_mae_per < condition_laplacian_mae_per).float().sum().cpu()
+        )
         totals["latent_mse"] += float(F.mse_loss(refined.float(), target_latent.float(), reduction="sum").cpu()) / float(
             refined.shape[1] * refined.shape[2] * refined.shape[3]
         )
@@ -356,6 +442,15 @@ def evaluate(
         "eval/refined_mean_psnr": totals["refined_psnr"] / count,
         "eval/bicubic_mean_psnr": totals["bicubic_psnr"] / count,
         "eval/oracle_full_mean_psnr": totals["oracle_full_psnr"] / count,
+        "eval/condition_ssim": totals["condition_ssim"] / count,
+        "eval/refined_ssim": totals["refined_ssim"] / count,
+        "eval/condition_highpass_mae": totals["condition_highpass_mae"] / count,
+        "eval/refined_highpass_mae": totals["refined_highpass_mae"] / count,
+        "eval/condition_laplacian_mae": totals["condition_laplacian_mae"] / count,
+        "eval/refined_laplacian_mae": totals["refined_laplacian_mae"] / count,
+        "eval/condition_laplacian_energy_ratio": totals["condition_laplacian_energy_ratio"] / count,
+        "eval/refined_laplacian_energy_ratio": totals["refined_laplacian_energy_ratio"] / count,
+        "eval/detail_wins_vs_condition": totals["detail_wins_vs_condition"],
     }
     metrics["eval/condition_decoded_psnr"] = psnr_from_mse(metrics["eval/condition_decoded_mse"])
     metrics["eval/refined_decoded_psnr"] = psnr_from_mse(metrics["eval/refined_decoded_mse"])
@@ -366,6 +461,13 @@ def evaluate(
     )
     metrics["eval/refined_vs_condition_mean_psnr"] = (
         metrics["eval/refined_mean_psnr"] - metrics["eval/condition_mean_psnr"]
+    )
+    metrics["eval/refined_vs_condition_ssim"] = metrics["eval/refined_ssim"] - metrics["eval/condition_ssim"]
+    metrics["eval/refined_vs_condition_highpass_mae"] = (
+        metrics["eval/condition_highpass_mae"] - metrics["eval/refined_highpass_mae"]
+    )
+    metrics["eval/refined_vs_condition_laplacian_mae"] = (
+        metrics["eval/condition_laplacian_mae"] - metrics["eval/refined_laplacian_mae"]
     )
     if output_dir is not None and grid_rows:
         make_grid(grid_rows, output_dir / "eval_grid_lr_bicubic_condition_refined_oracle_gt.png")
@@ -399,6 +501,11 @@ def main() -> None:
     if args.resume is not None:
         start_step = load_checkpoint(args.resume, model, optimizer, device)
         print(f"resumed={args.resume} step={start_step}")
+        resume_lr = config.get("train", {}).get("resume_lr")
+        if resume_lr is not None:
+            for parameter_group in optimizer.param_groups:
+                parameter_group["lr"] = float(resume_lr)
+            print(f"resume_lr={float(resume_lr):.8f}")
 
     train_dataset = make_dataset(config, split=str(config["data"].get("split", "train")), seed=seed, deterministic=False)
     train_loader = DataLoader(
@@ -427,7 +534,11 @@ def main() -> None:
     decoded_highpass_weight = float(loss_cfg.get("decoded_highpass_weight", 0.0))
     decoded_highpass_kernel = int(loss_cfg.get("decoded_highpass_kernel", highpass_kernel))
 
-    best_metric = -float("inf")
+    best_metric_name = str(eval_cfg.get("best_metric", "eval/refined_decoded_psnr"))
+    best_mode = str(eval_cfg.get("best_mode", "max"))
+    if best_mode not in {"min", "max"}:
+        raise ValueError(f"eval.best_mode must be 'min' or 'max', got {best_mode!r}")
+    best_metric = float("-inf") if best_mode == "max" else float("inf")
     best_metrics: dict[str, float] | None = None
     summary_path = output_dir / "summary.json"
     metrics_log_path = output_dir / "metrics.jsonl"
@@ -449,6 +560,9 @@ def main() -> None:
             f"condition_psnr={metrics['eval/condition_decoded_psnr']:.4f} "
             f"delta={metrics['eval/refined_vs_condition_psnr']:+.4f} "
             f"mean_delta={metrics['eval/refined_vs_condition_mean_psnr']:+.4f} "
+            f"ssim_delta={metrics['eval/refined_vs_condition_ssim']:+.5f} "
+            f"lap_delta={metrics['eval/refined_vs_condition_laplacian_mae']:+.6f} "
+            f"detail_energy={metrics['eval/refined_laplacian_energy_ratio']:.4f} "
             f"wins={metrics['eval/wins_vs_condition']:.0f}/{metrics['eval/num_images']:.0f}"
         )
         with metrics_log_path.open("a", encoding="utf-8") as handle:
@@ -471,9 +585,18 @@ def main() -> None:
         print(json.dumps(summary, indent=2, sort_keys=True))
         return
 
+    existing_best_path = checkpoints_dir / "best_eval_refined.pt"
+    if start_step > 0 and existing_best_path.exists():
+        existing_best = torch.load(existing_best_path, map_location="cpu")
+        existing_best_metrics = existing_best.get("metrics", {})
+        if best_metric_name in existing_best_metrics:
+            best_metric = float(existing_best_metrics[best_metric_name])
+            best_metrics = existing_best_metrics
+            print(f"preserved_best={best_metric_name} value={best_metric:.8f} step={existing_best.get('step', 'unknown')}")
+
     if bool(eval_cfg.get("run_at_start", True)) and start_step == 0:
         metrics = run_eval(0)
-        best_metric = float(metrics["eval/refined_decoded_psnr"])
+        best_metric = float(metrics[best_metric_name])
         best_metrics = metrics
         save_checkpoint(checkpoints_dir / "best_eval_refined.pt", model, optimizer, 0, config, metrics)
 
@@ -557,8 +680,9 @@ def main() -> None:
 
         if eval_every > 0 and step % eval_every == 0:
             metrics = run_eval(step)
-            metric_value = float(metrics["eval/refined_decoded_psnr"])
-            if metric_value > best_metric:
+            metric_value = float(metrics[best_metric_name])
+            improved = metric_value > best_metric if best_mode == "max" else metric_value < best_metric
+            if improved:
                 best_metric = metric_value
                 best_metrics = metrics
                 save_checkpoint(checkpoints_dir / "best_eval_refined.pt", model, optimizer, step, config, metrics)
@@ -566,8 +690,10 @@ def main() -> None:
 
     final_metrics = run_eval(step)
     save_checkpoint(checkpoints_dir / "latest.pt", model, optimizer, step, config, final_metrics)
-    if float(final_metrics["eval/refined_decoded_psnr"]) > best_metric:
-        best_metric = float(final_metrics["eval/refined_decoded_psnr"])
+    final_metric_value = float(final_metrics[best_metric_name])
+    final_improved = final_metric_value > best_metric if best_mode == "max" else final_metric_value < best_metric
+    if final_improved:
+        best_metric = final_metric_value
         best_metrics = final_metrics
         save_checkpoint(checkpoints_dir / "best_eval_refined.pt", model, optimizer, step, config, final_metrics)
 
@@ -576,6 +702,9 @@ def main() -> None:
         "output_dir": str(output_dir),
         "finished_step": step,
         "best_refined_decoded_psnr": best_metric,
+        "best_metric_name": best_metric_name,
+        "best_metric_mode": best_mode,
+        "best_metric_value": best_metric,
         "best_metrics": best_metrics,
         "final_metrics": final_metrics,
         "checkpoint_latest": str(checkpoints_dir / "latest.pt"),

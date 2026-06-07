@@ -107,6 +107,7 @@ RESIDUAL_REFINER_V2_FILES = [
     *STAGE4_PHOTO_DETAIL_FILES,
     "checkpoints/residual_refiner_stage2_xl_photo_detail_v2_best11000.pt",
     "configs/residual_refiner_stage2_xl_photo_detail_v2_long.yaml",
+    "configs/hf/residual_refiner_stage2_xl_photo_detail_v2.yaml",
     "metrics/residual_refiner_stage2_xl_photo_detail_v2_long_summary.json",
     "metrics/eval_residual_refiner_v2_stage2_xl_mild_val100_summary.json",
     "metrics/eval_residual_refiner_v2_stage2_xl_photo_v2_val100_summary.json",
