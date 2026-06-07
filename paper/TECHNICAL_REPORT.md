@@ -376,6 +376,25 @@ The decoded-detail residual refiner v2 ran on one L40S at about `0.89`
 micro-step/s with `42.0 / 46.1 GiB` allocated and sustained `99-100%` GPU
 utilization.
 
+## Visual Review and External Positioning
+
+A fixed-sample visual review now compares LR, bicubic, Stage 2 condition,
+residual strengths `0.50`, `0.75`, and `1.00`, and GT side by side. On mild
+inputs the selected refiner makes small, generally structure-preserving
+improvements. On stronger `photo_v2` and `photo_v3_noise_mix` inputs, the main
+failure occurs earlier: the condition encoder removes noise together with real
+detail and sometimes leaves small cyan/white grid-like artifacts. The residual
+refiner changes are too small to recover the missing fur, leaf veins, text, and
+distant structural detail.
+
+Qualitatively, the current model is not competitive with leading generative
+restoration systems in perceived sharpness or plausible fine texture. Its
+useful distinction is a deterministic, vision-only path trained without a
+pretrained text-to-image model, with lower hallucination risk and adjustable
+correction strength. This is an architectural and visual assessment, not a
+direct SOTA benchmark. A defensible comparison requires same-input blind A/B
+testing plus LPIPS/DISTS/MANIQA/MUSIQ and user-preference evaluation.
+
 ## Public Artifacts
 
 The latest public artifacts are stored in `jwheo/sr-diffusion` on Hugging Face:
@@ -423,6 +442,7 @@ The selected residual refiner is now the strongest public deterministic path.
 Candidate next steps are:
 
 - evaluate step 39000 on a separate user-facing/detail-focused image set;
+- run same-input blind A/B against practical and generative public SR models;
 - add LPIPS/DISTS-style perceptual metrics alongside the existing SSIM and
   explicit detail metrics;
 - add a degradation-aware gate or strong-input guardrail for the lower-win

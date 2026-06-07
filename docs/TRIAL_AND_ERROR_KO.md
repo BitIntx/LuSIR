@@ -737,4 +737,10 @@ sampled `photo_detail_mix` val100, condition init, t25, 32 steps:
 
 - `1.0`은 평균 품질 최고, `0.75`는 balanced, `0.5`는 strong-tail 승률 우선 모드로
   추론 CLI와 Colab에 노출한다. 자동 degradation 판별기는 아직 신뢰 근거가 없어 넣지 않는다.
-- 다음 작업은 실사용/detail-focused set 평가와 degradation-aware gate 개선이다.
+- 동일 샘플 시각 비교 리포트에서 clean/mild 입력은 Refiner가 구조를 보존하며
+  소폭 개선했지만, strong 입력은 Condition 단계에서 세부가 이미 크게 사라지고
+  청록/흰 격자형 점도 남았다. Refiner 강도 변경만으로는 이 병목을 해결하지 못했다.
+- 공개 생성형 SOTA보다 미세 질감과 선명도는 아직 크게 부족하며, 현재 강점은
+  낮은 환각 위험과 deterministic한 구조 보존이다.
+- 다음 작업은 실사용/detail-focused blind A/B, perceptual metric 추가,
+  degradation-aware gate, Condition 표현 개선이다.

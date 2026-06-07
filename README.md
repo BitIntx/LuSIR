@@ -8,6 +8,8 @@
 Vision-only x4 latent diffusion super-resolution experiments.
 Report source: [paper/main.tex](paper/main.tex), with a plain Markdown snapshot
 in [paper/TECHNICAL_REPORT.md](paper/TECHNICAL_REPORT.md).
+The current residual-refiner visual review procedure and honest qualitative
+positioning are documented in [docs/VISUAL_REVIEW_KO.md](docs/VISUAL_REVIEW_KO.md).
 
 This is a public source-available, non-commercial research project. The goal is
 to train an SR model directly, without using a pretrained text-to-image
