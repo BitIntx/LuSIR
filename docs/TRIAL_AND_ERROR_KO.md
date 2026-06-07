@@ -681,52 +681,50 @@ sampled `photo_detail_mix` val100, condition init, t25, 32 steps:
 - 아직 강한 missing-detail generator는 아니다. 다음은 perceptual/detail 평가를
   강화하고 strong tail을 별도 robustness 경로로 분리하는 방향이 타당하다.
 
-## 실험 9: residual refiner v2 decoded-detail 장기 학습
+## 실험 9: residual refiner v2 decoded-detail 장기 학습 및 40k continuation
 
 목표:
 
-- 기존 sparse-gate refiner의 안전성은 유지하면서 보정 폭과 실제 decoded detail을 늘린다.
-- latent loss만 키우지 않고 VAE decoder를 통과한 이미지/highpass를 직접 supervision한다.
-- `photo_detail_mix`에서 장기 학습한 뒤 기존 degradation에서도 이득이 유지되는지 확인한다.
+- 기존 sparse-gate refiner의 안전성은 유지하면서 보정 폭과 decoded detail을 늘린다.
+- VAE decoder를 통과한 image/highpass supervision을 사용한다.
+- 초기 12k 결과가 계속 상승할 여지가 있는지 lower-LR continuation으로 검증한다.
 
 설정:
 
-- config: `configs/residual_refiner_stage2_xl_photo_detail_v2_long.yaml`
-- Stage1/Stage2 frozen
-- hidden channels `192`, residual blocks `12`
+- 초기 config: `configs/residual_refiner_stage2_xl_photo_detail_v2_long.yaml`
+- continuation config: `configs/residual_refiner_stage2_xl_photo_detail_v2_continue_40k.yaml`
+- Stage1/Stage2 frozen, hidden channels `192`, residual blocks `12`
 - batch `12`, grad accumulation `2`, effective batch `24`
-- latent/residual/highpass + decoded/decoded-highpass + sparse gate loss
-- 완료: `12000` micro steps
-- L40S util `99-100%`, peak VRAM 약 `42.0/46.1GB`, steady `0.89 step/s`
+- continuation LR `2.5e-5`, 완료 `40000` micro steps
+- W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/3v6wmf5o>
+- L40S util `99-100%`, VRAM 약 `41.8/46.1GB`, steady `0.87~0.91 step/s`
 
-`photo_detail_mix` val100 학습 평가:
+`photo_detail_mix` val100 주요 checkpoint:
 
-| checkpoint | refined global PSNR | global delta | mean delta | wins | gate mean |
+| checkpoint | refined global PSNR | global delta | mean delta | SSIM delta | wins |
 | ---: | ---: | ---: | ---: | ---: | ---: |
-| 7000 | 23.8227 | +0.0850 | +0.1173 | 92/100 | 0.2535 |
-| 11000 best | 23.8356 | +0.0979 | +0.1318 | 90/100 | 0.2499 |
-| 12000 latest | 23.8332 | +0.0955 | +0.1270 | 90/100 | 0.2451 |
+| 11000 | 23.8356 | +0.0979 | +0.1318 | n/a | 90/100 |
+| 20000 | 23.9300 | +0.1922 | +0.2290 | +0.00878 | 92/100 |
+| 30000 | 23.9802 | +0.2425 | +0.2991 | +0.00930 | 95/100 |
+| 39000 best | 24.0305 | +0.2927 | +0.3307 | +0.01076 | 94/100 |
+| 40000 latest | 24.0281 | +0.2904 | +0.3262 | +0.01161 | 91/100 |
 
-선택 step `11000` cross-preset val100:
+선택 step `39000` cross-preset val100:
 
-| degradation | condition mean PSNR | v1 mean delta | v2 refined mean PSNR | v2 mean delta | v2 wins |
+| degradation | condition mean PSNR | refined mean PSNR | mean delta | wins | detail wins |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| `photo_detail_mix` | 25.3103 | n/a | 25.4420 | +0.1318 | 90/100 |
-| `mild` | 25.0449 | +0.0729 | 25.1627 | +0.1178 | 87/100 |
-| `photo_v2` | 22.9271 | +0.0496 | 23.0257 | +0.0986 | 84/100 |
-| `photo_v3_noise_mix` | 22.9014 | +0.0586 | 23.0174 | +0.1160 | 88/100 |
+| `photo_detail_mix` | 25.3103 | 25.6410 | +0.3307 | 94/100 | 72/100 |
+| `mild` | 25.0449 | 25.3161 | +0.2712 | 91/100 | 76/100 |
+| `photo_v2` | 22.9271 | 23.0419 | +0.1148 | 81/100 | 54/100 |
+| `photo_v3_noise_mix` | 22.9014 | 23.0787 | +0.1773 | 81/100 | 59/100 |
 
-시각 관찰:
+관찰과 결론:
 
-- condition 구조와 색을 유지하면서 털, 감귤 표면, 잎 경계의 미세 대비가 조금 늘었다.
-- 기존 흰색 artifact, fake texture, 과도한 sharpening은 새로 나타나지 않았다.
-- 강한 noise 입력에서도 v1보다 안전한 보정 폭이 커졌지만 GT fine texture와는
-  여전히 큰 차이가 있다.
-
-결론:
-
-- decoded-domain supervision과 capacity 증가는 성공했다. v1 대비 cross-preset 이득이
-  약 두 배가 되었고, 특정 degradation에만 과적합되지 않았다.
-- step 11000 이후는 사실상 수렴했으므로 동일 설정 continuation은 우선순위가 아니다.
-- 다음 고신호 작업은 별도 실사용/detail-focused set 평가와 LPIPS/DISTS/detail metric
-  추가다. 이후 v2를 새 Stage4 teacher 또는 deterministic 최종 보정기로 비교할 수 있다.
+- 초기 판단과 달리 step 11000 이후에도 lower-LR continuation은 유의미하게 상승했다.
+- step 39000은 global decoded PSNR 최고이며 새 공개 기본 checkpoint로 선택한다.
+- step 40000은 SSIM delta가 더 높지만 PSNR과 승률이 소폭 낮고 detail energy가 더 커서
+  기본값으로는 step 39000이 더 균형적이다.
+- 모든 preset에서 평균 PSNR 이득은 증가했다. 다만 strong preset의 승률은 step 11000보다
+  낮아져 더 큰 correction이 일부 샘플을 악화시키는 tail risk가 확인됐다.
+- 다음 작업은 같은 설정의 추가 continuation보다 실사용/detail-focused set 평가와 strong-tail
+  guardrail 또는 degradation-aware gate 개선이 우선이다.

@@ -328,25 +328,30 @@ Rare strong-tail samples can still exhibit bright artifacts.
 
 ## Decoded-Detail Residual Refiner v2
 
-The deterministic bounded residual refiner was scaled from 128 channels and
-8 residual blocks to 192 channels and 12 blocks. In addition to latent
-residual and highpass losses, v2 backpropagates through the frozen VAE decoder
-and supervises the decoded image and decoded highpass response. It was trained
-for 12000 micro-steps on `photo_detail_mix`; step 11000 was selected.
+The deterministic bounded residual refiner uses 192 hidden channels, 12
+residual blocks, and decoded-image/highpass supervision through the frozen VAE
+decoder. An initial 12000-step run was continued to 40000 micro-steps with a
+lower `2.5e-5` learning rate. Step 39000 achieved the best global decoded PSNR
+and was selected.
 
 | Degradation | Condition mean PSNR | Refined mean PSNR | Gain | Wins |
 | --- | ---: | ---: | ---: | ---: |
-| `photo_detail_mix` | `25.3103` | `25.4420` | `+0.1318` | `90/100` |
-| `mild` | `25.0449` | `25.1627` | `+0.1178` | `87/100` |
-| `photo_v2` | `22.9271` | `23.0257` | `+0.0986` | `84/100` |
-| `photo_v3_noise_mix` | `22.9014` | `23.0174` | `+0.1160` | `88/100` |
+| `photo_detail_mix` | `25.3103` | `25.6410` | `+0.3307` | `94/100` |
+| `mild` | `25.0449` | `25.3161` | `+0.2712` | `91/100` |
+| `photo_v2` | `22.9271` | `23.0419` | `+0.1148` | `81/100` |
+| `photo_v3_noise_mix` | `22.9014` | `23.0787` | `+0.1773` | `81/100` |
 
-The original refiner gained `+0.0496` to `+0.0729` dB across the same three
-cross-degradation tests. V2 therefore roughly doubled the safe correction
-gain and generalized beyond its training curriculum. Visual inspection found
-slightly stronger local contrast and boundaries without new white artifacts,
-fake texture, or broad destructive edits. The model remains a conservative
-refiner rather than a full missing-detail generator.
+On the training curriculum, step 39000 reached global decoded PSNR `24.0305`,
+`+0.2927 dB` over condition-only, mean PSNR gain `+0.3307 dB`, SSIM gain
+`+0.01076`, and wins on `94/100` images. Step 40000 had a slightly higher SSIM
+gain (`+0.01161`) but lower PSNR and fewer wins, so step 39000 is the more
+balanced public default.
+
+The continuation improved mean PSNR on every tested degradation. However, the
+strong `photo_v2` and `photo_v3_noise_mix` win counts fell versus step 11000,
+indicating that the larger correction has a less conservative failure tail.
+Future work should prioritize user-facing/detail-focused evaluation and a
+strong-input guardrail rather than continuing the same training indefinitely.
 
 ## Systems Notes
 
@@ -376,7 +381,7 @@ checkpoints/stage4_photo100k_xl_edge_b16_best_eval_condition_decoded.pt
 checkpoints/residual_refiner_stage2_xl_mild_best_eval_refined.pt
 checkpoints/stage4_photo100k_xl_teacher_residual_photo_v3_step_0002000.pt
 checkpoints/stage4_photo100k_xl_teacher_residual_photo_detail_best8000.pt
-checkpoints/residual_refiner_stage2_xl_photo_detail_v2_best11000.pt
+checkpoints/residual_refiner_stage2_xl_photo_detail_v2_best39000.pt
 metrics/stage4_photo100k_xl_edge_b16_val100_t50_32step_summary.json
 metrics/diagnose_stage2_xl_residuals_mild_val100_summary.json
 metrics/residual_refiner_stage2_xl_mild_probe_early_stop_summary.json
@@ -385,7 +390,7 @@ metrics/stage4_photo100k_xl_teacher_residual_photo_v3_step2000_val100_t25_32step
 metrics/stage4_photo100k_xl_teacher_residual_photo_v3_step2000_val100_t50_32step_summary.json
 metrics/stage4_photo100k_xl_teacher_residual_photo_detail_best8000_val100_t25_summary.json
 metrics/residual_refiner_stage2_xl_photo_detail_v2_long_summary.json
-metrics/eval_residual_refiner_v2_stage2_xl_photo_v3_noise_mix_val100_summary.json
+metrics/eval_residual_refiner_v2_best39000_stage2_xl_photo_v3_noise_mix_val100_summary.json
 samples/stage4_photo100k_xl_edge_b16_val100_t50_32step_grid_lr_bicubic_sr_gt.png
 samples/diagnose_stage2_xl_residuals_mild_val100_grid.png
 samples/residual_refiner_stage2_xl_mild_probe_step500_grid.png
@@ -393,25 +398,24 @@ samples/eval_residual_refiner_stage2_xl_photo_v3_noise_mix_val100_grid.png
 samples/compare_residual_refiner_vs_stage4_edge_0801_photo_v3.png
 samples/stage4_photo100k_xl_teacher_residual_photo_v3_step2000_val100_t25_grid.png
 samples/stage4_photo100k_xl_teacher_residual_photo_detail_best8000_val100_t25_grid.png
-samples/residual_refiner_stage2_xl_photo_detail_v2_best11000_grid.png
-samples/eval_residual_refiner_v2_stage2_xl_photo_v3_noise_mix_val100_grid.png
+samples/residual_refiner_stage2_xl_photo_detail_v2_best39000_grid.png
+samples/eval_residual_refiner_v2_best39000_stage2_xl_photo_v3_noise_mix_val100_grid.png
 configs/diffusion_photo100k_xl_stage4_condition_v3_edge_b16.yaml
 configs/residual_refiner_stage2_xl_mild_probe.yaml
 configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_v3_b8_probe.yaml
 configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_detail_b8_long.yaml
-configs/residual_refiner_stage2_xl_photo_detail_v2_long.yaml
+configs/residual_refiner_stage2_xl_photo_detail_v2_continue_40k.yaml
 ```
 
 ## Next Work
 
-The detail-preserving curriculum is a meaningful improvement, but a longer
-continuation of the same run is not the highest-signal next step. Candidate
-next steps are:
+The selected residual refiner is now the strongest public deterministic path.
+Candidate next steps are:
 
-- evaluate selected step 8000 on a separate user-facing/detail-focused set;
-- add LPIPS/DISTS-style perceptual metrics and explicit detail metrics alongside
-  PSNR;
-- separate the rare strong degradation tail into a robustness curriculum or
-  evaluation slice;
-- improve the teacher/refiner so it can safely transmit a larger recoverable
-  high-frequency residual.
+- evaluate step 39000 on a separate user-facing/detail-focused image set;
+- add LPIPS/DISTS-style perceptual metrics alongside the existing SSIM and
+  explicit detail metrics;
+- add a degradation-aware gate or strong-input guardrail for the lower-win
+  `photo_v2` and `photo_v3_noise_mix` tails;
+- compare the selected refiner as a deterministic final output and as a Stage 4
+  teacher without extending the same continuation further.

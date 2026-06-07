@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from infer_residual_refiner import resolve_checkpoint
+from eval_residual_refiner import resolve_checkpoint as resolve_eval_checkpoint
+from infer_residual_refiner import resolve_checkpoint as resolve_inference_checkpoint
 
 
 def test_resolve_checkpoint_uses_config_relative_path(tmp_path: Path) -> None:
@@ -17,4 +18,5 @@ def test_resolve_checkpoint_uses_config_relative_path(tmp_path: Path) -> None:
         "inference": {"checkpoint": "../../checkpoints/refiner.pt"},
     }
 
-    assert resolve_checkpoint(config, None) == checkpoint
+    assert resolve_inference_checkpoint(config, None) == checkpoint
+    assert resolve_eval_checkpoint(config, None) == checkpoint

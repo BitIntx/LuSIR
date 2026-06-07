@@ -208,21 +208,21 @@ the visible change is small. The best next use is therefore as a safe residual
 teacher/warm start, not as the final detail generator by itself.
 
 Residual refiner v2 increased model capacity and added decoded-image and
-decoded-highpass supervision while training on `photo_detail_mix`. The
-12000-step run selected step 11000:
+decoded-highpass supervision while training on `photo_detail_mix`. A lower-LR
+continuation completed 40000 micro-steps and selected step 39000:
 
 ```text
-Residual refiner v2, selected step 11000:
-  photo_detail_mix: condition 25.3103, refined 25.4420, +0.1318, wins 90/100
-  mild:             condition 25.0449, refined 25.1627, +0.1178, wins 87/100
-  photo_v2:         condition 22.9271, refined 23.0257, +0.0986, wins 84/100
-  photo_v3_noise_mix: condition 22.9014, refined 23.0174, +0.1160, wins 88/100
+Residual refiner v2, selected step 39000:
+  photo_detail_mix: condition 25.3103, refined 25.6410, +0.3307, wins 94/100
+  mild:             condition 25.0449, refined 25.3161, +0.2712, wins 91/100
+  photo_v2:         condition 22.9271, refined 23.0419, +0.1148, wins 81/100
+  photo_v3_noise_mix: condition 22.9014, refined 23.0787, +0.1773, wins 81/100
 ```
 
-Compared with the original sparse-gate refiner, the cross-preset PSNR gain is
-roughly doubled without introducing visible white artifacts, fake texture, or
-destructive edits. The result is still conservative: it improves local
-contrast and boundaries but does not reconstruct the full GT fine texture.
+The continuation substantially improved the training curriculum and mild/noisy
+cross-preset averages. The stronger `photo_v2` and `photo_v3_noise_mix` presets
+also improved on average, but their win counts fell versus step 11000, showing
+that the larger correction is less uniformly conservative on strong inputs.
 Download the selected artifacts with:
 
 ```bash

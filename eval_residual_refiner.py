@@ -11,6 +11,7 @@ import torch
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "src"))
 
+from infer_diffusion import resolve_path
 from train_residual_refiner import BoundedResidualRefiner, evaluate, load_autoencoder, load_condition_encoder, make_eval_loader
 from sr_diffusion.utils import get_device, load_config, seed_everything
 
@@ -48,11 +49,9 @@ def resolve_checkpoint(config: dict[str, Any], requested: Path | None) -> Path:
         candidates.append(Path(project_output) / "checkpoints" / "best_eval_refined.pt")
 
     for candidate in candidates:
-        path = candidate.expanduser()
-        if not path.is_absolute():
-            path = ROOT / path
+        path = resolve_path(config, candidate.expanduser())
         if path.exists():
-            return path
+            return path.resolve()
     formatted = "\n".join(f"- {candidate}" for candidate in candidates)
     raise FileNotFoundError(f"Could not find residual refiner checkpoint. Checked:\n{formatted}")
 
