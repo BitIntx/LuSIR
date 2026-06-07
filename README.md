@@ -161,7 +161,8 @@ Stage 2 multiscale config: configs/latent_pretrain_photo100k_multiscale_hqmix_lo
 model params:              55.50M
 training mix:              100,000 COCO / 103,500 DIV2K+Flickr2K rows
 effective batch:           8 x grad_accum 4 = 32
-planned micro-steps:       50,000
+max micro-steps:           50,000
+W&B:                       https://wandb.ai/jwheo/sr-diffusion/runs/6zt2do4v
 ```
 
 A direct Stage 2 residual diagnostic confirmed that the missing signal is

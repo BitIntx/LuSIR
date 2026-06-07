@@ -842,3 +842,11 @@ max micro-steps: 50,000
 L40S smoke 결과 batch 8 forward/backward와 val100 eval이 정상 통과했다.
 GPU util은 `100%`, VRAM은 약 `34.8/46.1GB`였고 batch 4와 micro-step 속도가
 거의 같아 batch 8을 선택했다. 전체 테스트는 `25 passed`.
+
+장기 run:
+
+```text
+W&B: https://wandb.ai/jwheo/sr-diffusion/runs/6zt2do4v
+initial val100: decoded PSNR 23.7387, detail ratio 0.28167
+steady: about 1.25 micro-step/s, GPU util 100%, VRAM 34.8/46.1GB
+```

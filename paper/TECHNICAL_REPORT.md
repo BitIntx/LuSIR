@@ -421,7 +421,8 @@ The design is informed by broad-context and multiscale restoration findings in
 emphasis of [Real-ESRGAN](https://arxiv.org/abs/2107.10833). The resulting
 55.50M-parameter model passed a full batch-8 forward/backward and val100 smoke
 test on one L40S at approximately `34.8/46.1GB` VRAM and `100%` GPU
-utilization.
+utilization. The 50,000-micro-step long run is tracked at
+<https://wandb.ai/jwheo/sr-diffusion/runs/6zt2do4v>.
 
 ## Public Artifacts
 

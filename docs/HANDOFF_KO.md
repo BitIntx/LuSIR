@@ -7,6 +7,22 @@
 
 ## 2026-06-07 최신 실험 요약
 
+- 현재 실행 중: Stage 2 multiscale-context + HQ-balanced long run.
+- 목표: decoded loss만으로 해결되지 않은 condition smoothing을 넓은 문맥과
+  고품질 데이터 노출 비율 교정으로 해결.
+- config:
+  `configs/latent_pretrain_photo100k_multiscale_hqmix_long.yaml`
+- W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/6zt2do4v>
+- tmux: `stage2-multiscale`
+- log:
+  `/home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo100k_multiscale_hqmix_long/train.log`
+- 초기 val100: decoded PSNR `23.7387`, detail ratio `0.28167`. Zero-init context
+  분기 때문에 기존 Stage 2 step 72000 출력과 정확히 같은 시작점이다.
+- L40S 한 장: batch `8`, grad accumulation `4`, VRAM 약 `34.8/46.1GB`,
+  steady 약 `1.25 micro-step/s`, GPU util `100%`.
+- max `50,000` micro steps. 학습 중 고정 sample과 detail ratio를 함께 보고,
+  PSNR만 오른 채 다시 smoothing되면 조기 중단한다.
+
 - residual refiner v2 lower-LR continuation과 cross-preset 평가 완료.
 - 완료: `40000` micro steps, best decoded PSNR step `39000`.
 - W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/3v6wmf5o>
