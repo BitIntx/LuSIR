@@ -350,8 +350,12 @@ balanced public default.
 The continuation improved mean PSNR on every tested degradation. However, the
 strong `photo_v2` and `photo_v3_noise_mix` win counts fell versus step 11000,
 indicating that the larger correction has a less conservative failure tail.
-Future work should prioritize user-facing/detail-focused evaluation and a
-strong-input guardrail rather than continuing the same training indefinitely.
+A post-training residual-strength guardrail provides an explicit trade-off:
+strength `1.0` gives the best average quality, `0.75` preserves most of the
+gain with fewer regressions, and `0.5` raises strong-preset wins from `81/100`
+to `86/100` while keeping positive mean gains. These modes are exposed in the
+inference CLI and Colab. Future work should prioritize user-facing evaluation
+and a learned degradation-aware gate rather than continuing indefinitely.
 
 ## Systems Notes
 
@@ -390,6 +394,7 @@ metrics/stage4_photo100k_xl_teacher_residual_photo_v3_step2000_val100_t25_32step
 metrics/stage4_photo100k_xl_teacher_residual_photo_v3_step2000_val100_t50_32step_summary.json
 metrics/stage4_photo100k_xl_teacher_residual_photo_detail_best8000_val100_t25_summary.json
 metrics/residual_refiner_stage2_xl_photo_detail_v2_long_summary.json
+metrics/residual_refiner_v2_best39000_strength_sweep_summary.json
 metrics/eval_residual_refiner_v2_best39000_stage2_xl_mild_val100_summary.json
 metrics/eval_residual_refiner_v2_best39000_stage2_xl_photo_v2_val100_summary.json
 metrics/eval_residual_refiner_v2_best39000_stage2_xl_photo_v3_noise_mix_val100_summary.json

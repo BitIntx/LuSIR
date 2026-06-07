@@ -33,3 +33,4 @@ train:
 
 inference:
   checkpoint: ../../checkpoints/residual_refiner_stage2_xl_photo_detail_v2_best39000.pt
+  residual_strength: 1.0

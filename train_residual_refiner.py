@@ -49,6 +49,17 @@ def charbonnier(prediction: torch.Tensor, target: torch.Tensor, eps: float) -> t
     return torch.sqrt((prediction.float() - target.float()).pow(2) + float(eps) ** 2).mean()
 
 
+def apply_residual_strength(
+    condition: torch.Tensor,
+    residual: torch.Tensor,
+    strength: float,
+) -> torch.Tensor:
+    strength = float(strength)
+    if strength < 0.0:
+        raise ValueError(f"residual_strength must be non-negative, got {strength}")
+    return condition + strength * residual
+
+
 def lowpass(x: torch.Tensor, kernel_size: int) -> torch.Tensor:
     kernel_size = int(kernel_size)
     if kernel_size <= 1:
@@ -354,6 +365,7 @@ def evaluate(
     dtype_name: str,
     output_dir: Path | None = None,
     sample_count: int = 0,
+    residual_strength: float = 1.0,
 ) -> dict[str, float]:
     was_training = model.training
     model.eval()
@@ -392,7 +404,9 @@ def evaluate(
         with autocast_context(device, dtype_name):
             target_latent, _ = vae.encode(target)
             condition = condition_encoder(lr_input, domain_id)
-            refined, residual, gate = model(condition, lr_input, domain_id)
+            _, residual, gate = model(condition, lr_input, domain_id)
+            applied_residual = residual * float(residual_strength)
+            refined = apply_residual_strength(condition, residual, residual_strength)
             decoded_condition = denormalize(vae.decode(condition)).float()
             decoded_refined = denormalize(vae.decode(refined)).float()
             decoded_oracle = denormalize(vae.decode(target_latent)).float()
@@ -440,7 +454,7 @@ def evaluate(
         totals["latent_mse"] += float(F.mse_loss(refined.float(), target_latent.float(), reduction="sum").cpu()) / float(
             refined.shape[1] * refined.shape[2] * refined.shape[3]
         )
-        totals["residual_l1"] += float(residual.detach().float().abs().mean().cpu()) * batch_size
+        totals["residual_l1"] += float(applied_residual.detach().float().abs().mean().cpu()) * batch_size
         totals["gate_mean"] += float(gate.detach().float().mean().cpu()) * batch_size
         totals["wins_vs_condition"] += float((refined_mse_per < condition_mse_per).float().sum().cpu())
         if output_dir is not None and len(grid_rows) < sample_count:
@@ -483,6 +497,7 @@ def evaluate(
         "eval/condition_laplacian_energy_ratio": totals["condition_laplacian_energy_ratio"] / count,
         "eval/refined_laplacian_energy_ratio": totals["refined_laplacian_energy_ratio"] / count,
         "eval/detail_wins_vs_condition": totals["detail_wins_vs_condition"],
+        "eval/residual_strength": float(residual_strength),
     }
     metrics["eval/condition_decoded_psnr"] = psnr_from_mse(metrics["eval/condition_decoded_mse"])
     metrics["eval/refined_decoded_psnr"] = psnr_from_mse(metrics["eval/refined_decoded_mse"])

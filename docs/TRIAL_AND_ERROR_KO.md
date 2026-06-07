@@ -726,5 +726,15 @@ sampled `photo_detail_mix` val100, condition init, t25, 32 steps:
   기본값으로는 step 39000이 더 균형적이다.
 - 모든 preset에서 평균 PSNR 이득은 증가했다. 다만 strong preset의 승률은 step 11000보다
   낮아져 더 큰 correction이 일부 샘플을 악화시키는 tail risk가 확인됐다.
-- 다음 작업은 같은 설정의 추가 continuation보다 실사용/detail-focused set 평가와 strong-tail
-  guardrail 또는 degradation-aware gate 개선이 우선이다.
+- residual strength sweep으로 재학습 없는 guardrail을 검증했다.
+
+| strength | photo-detail mean/wins | mild mean/wins | photo_v2 mean/wins | photo_v3 mean/wins |
+| ---: | ---: | ---: | ---: | ---: |
+| `1.00` | +0.3307 / 94 | +0.2712 / 91 | +0.1148 / 81 | +0.1773 / 81 |
+| `0.90` | +0.3227 / 95 | +0.2648 / 93 | +0.1133 / 83 | +0.1755 / 81 |
+| `0.75` | +0.2997 / 95 | +0.2460 / 94 | +0.1077 / 83 | +0.1661 / 83 |
+| `0.50` | +0.2290 / 97 | +0.1882 / 95 | +0.0840 / 86 | +0.1269 / 86 |
+
+- `1.0`은 평균 품질 최고, `0.75`는 balanced, `0.5`는 strong-tail 승률 우선 모드로
+  추론 CLI와 Colab에 노출한다. 자동 degradation 판별기는 아직 신뢰 근거가 없어 넣지 않는다.
+- 다음 작업은 실사용/detail-focused set 평가와 degradation-aware gate 개선이다.

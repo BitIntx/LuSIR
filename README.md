@@ -223,6 +223,10 @@ The continuation substantially improved the training curriculum and mild/noisy
 cross-preset averages. The stronger `photo_v2` and `photo_v3_noise_mix` presets
 also improved on average, but their win counts fell versus step 11000, showing
 that the larger correction is less uniformly conservative on strong inputs.
+Inference therefore exposes `--residual-strength`: use `1.0` for the best
+average quality, `0.75` for a balanced guardrail, or `0.5` for the safest
+correction. On the two strong presets, `0.5` raises wins from `81/100` to
+`86/100` while retaining positive mean gains.
 Download the selected artifacts with:
 
 ```bash

@@ -109,6 +109,7 @@ RESIDUAL_REFINER_V2_FILES = [
     "configs/residual_refiner_stage2_xl_photo_detail_v2_continue_40k.yaml",
     "configs/hf/residual_refiner_stage2_xl_photo_detail_v2.yaml",
     "metrics/residual_refiner_stage2_xl_photo_detail_v2_long_summary.json",
+    "metrics/residual_refiner_v2_best39000_strength_sweep_summary.json",
     "metrics/eval_residual_refiner_v2_best39000_stage2_xl_mild_val100_summary.json",
     "metrics/eval_residual_refiner_v2_best39000_stage2_xl_photo_v2_val100_summary.json",
     "metrics/eval_residual_refiner_v2_best39000_stage2_xl_photo_v3_noise_mix_val100_summary.json",

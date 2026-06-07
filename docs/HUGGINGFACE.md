@@ -234,6 +234,7 @@ Upload the selected decoded-detail residual refiner v2 step 39000 and cross-pres
   --artifact configs/residual_refiner_stage2_xl_photo_detail_v2_continue_40k.yaml=configs/residual_refiner_stage2_xl_photo_detail_v2_continue_40k.yaml \
   --artifact configs/hf/residual_refiner_stage2_xl_photo_detail_v2.yaml=configs/hf/residual_refiner_stage2_xl_photo_detail_v2.yaml \
   --artifact /home/jwheojjang/scratch/sr-diffusion/runs/residual_refiner_stage2_xl_photo_detail_v2_long/summary.json=metrics/residual_refiner_stage2_xl_photo_detail_v2_long_summary.json \
+  --artifact /home/jwheojjang/scratch/sr-diffusion/runs/residual_refiner_v2_best39000_strength_sweep_summary.json=metrics/residual_refiner_v2_best39000_strength_sweep_summary.json \
   --artifact /home/jwheojjang/scratch/sr-diffusion/runs/eval_residual_refiner_v2_best39000_stage2_xl_mild_val100/summary.json=metrics/eval_residual_refiner_v2_best39000_stage2_xl_mild_val100_summary.json \
   --artifact /home/jwheojjang/scratch/sr-diffusion/runs/eval_residual_refiner_v2_best39000_stage2_xl_photo_v2_val100/summary.json=metrics/eval_residual_refiner_v2_best39000_stage2_xl_photo_v2_val100_summary.json \
   --artifact /home/jwheojjang/scratch/sr-diffusion/runs/eval_residual_refiner_v2_best39000_stage2_xl_photo_v3_noise_mix_val100/summary.json=metrics/eval_residual_refiner_v2_best39000_stage2_xl_photo_v3_noise_mix_val100_summary.json \

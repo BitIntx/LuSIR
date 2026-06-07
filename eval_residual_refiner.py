@@ -33,6 +33,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--device", default=None)
     parser.add_argument("--dtype", default=None)
+    parser.add_argument("--residual-strength", type=float, default=1.0)
     return parser.parse_args()
 
 
@@ -106,6 +107,7 @@ def main() -> None:
         dtype_name=dtype_name,
         output_dir=output_dir,
         sample_count=int(args.sample_count),
+        residual_strength=float(args.residual_strength),
     )
     summary = {
         "config": str(args.config),
@@ -115,6 +117,7 @@ def main() -> None:
         "split": args.split,
         "limit": int(args.limit),
         "seed": seed,
+        "residual_strength": float(args.residual_strength),
         "output_dir": str(output_dir),
         "grid": str(output_dir / "eval_grid_lr_bicubic_condition_refined_oracle_gt.png"),
         "metrics": metrics,
@@ -126,6 +129,7 @@ def main() -> None:
         f"preset={preset} refined_mean_psnr={metrics['eval/refined_mean_psnr']:.4f} "
         f"condition_mean_psnr={metrics['eval/condition_mean_psnr']:.4f} "
         f"mean_delta={metrics['eval/refined_vs_condition_mean_psnr']:+.4f} "
+        f"strength={float(args.residual_strength):.2f} "
         f"wins={metrics['eval/wins_vs_condition']:.0f}/{metrics['eval/num_images']:.0f} "
         f"summary={summary_path}",
         flush=True,

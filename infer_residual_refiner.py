@@ -25,7 +25,7 @@ from infer_diffusion import (
     tile_blend_mask,
     tile_positions,
 )
-from train_residual_refiner import BoundedResidualRefiner, denormalize, normalize_image
+from train_residual_refiner import BoundedResidualRefiner, apply_residual_strength, denormalize, normalize_image
 from sr_diffusion.utils import autocast_context, get_device, load_config, seed_everything
 
 
@@ -49,6 +49,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tile", action="store_true", help="Run tiled refiner inference for arbitrary-size LR input.")
     parser.add_argument("--tile-overlap", type=int, default=32, help="LR-pixel overlap between 128x128 tiles.")
     parser.add_argument("--tile-batch-size", type=int, default=4, help="Number of LR tiles to refine at once.")
+    parser.add_argument(
+        "--residual-strength",
+        type=float,
+        default=None,
+        help="Scale the predicted residual correction. 1.0 is full correction; lower values are more conservative.",
+    )
     return parser.parse_args()
 
 
@@ -89,12 +95,14 @@ def refine_batch(
     lr: torch.Tensor,
     domain_id: torch.Tensor,
     dtype_name: str,
+    residual_strength: float,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     device = lr.device
     lr_input = normalize_image(lr)
     with autocast_context(device, dtype_name):
         condition = condition_encoder(lr_input, domain_id)
-        refined, _, _ = refiner(condition, lr_input, domain_id)
+        _, residual, _ = refiner(condition, lr_input, domain_id)
+        refined = apply_residual_strength(condition, residual, residual_strength)
         decoded_condition = denormalize(vae.decode(condition)).float()
         decoded_refined = denormalize(vae.decode(refined)).float()
     return decoded_condition, decoded_refined
@@ -137,6 +145,7 @@ def tiled_refine(
     tile_batch_size: int,
     dtype_name: str,
     device: torch.device,
+    residual_strength: float,
 ) -> tuple[Image.Image, Image.Image]:
     if tile_batch_size <= 0:
         raise ValueError(f"tile_batch_size must be positive: {tile_batch_size}")
@@ -175,6 +184,7 @@ def tiled_refine(
             lr=lr_tensor,
             domain_id=domain_ids,
             dtype_name=dtype_name,
+            residual_strength=residual_strength,
         )
         for condition_tile, refined_tile, (x, y) in zip(decoded_condition, decoded_refined, batch_coords, strict=True):
             left_edge = x == 0
@@ -215,6 +225,11 @@ def main() -> None:
     seed_everything(args.seed)
     device = get_device(args.device)
     dtype_name = str(args.dtype or config.get("train", {}).get("dtype", "bf16"))
+    residual_strength = float(
+        args.residual_strength
+        if args.residual_strength is not None
+        else config.get("inference", {}).get("residual_strength", 1.0)
+    )
     data_config = config["data"]
     domains = data_config.get("domains", {"photo": 0, "anime": 1})
     if args.domain not in domains:
@@ -227,7 +242,10 @@ def main() -> None:
     vae = load_autoencoder(config, device, dtype_name)
     condition_encoder = load_condition_encoder(config, device, dtype_name)
     refiner, checkpoint_step = load_refiner(config, checkpoint_path, device)
-    print(f"checkpoint={checkpoint_path} step={checkpoint_step} device={device}", flush=True)
+    print(
+        f"checkpoint={checkpoint_path} step={checkpoint_step} device={device} residual_strength={residual_strength:.2f}",
+        flush=True,
+    )
 
     scale = int(data_config.get("scale", 4))
     tile_lr_size = int(data_config["hr_size"]) // scale
@@ -248,6 +266,7 @@ def main() -> None:
             tile_batch_size=int(args.tile_batch_size),
             dtype_name=dtype_name,
             device=device,
+            residual_strength=residual_strength,
         )
         bicubic_image = lr_image.resize(refined_image.size, Image.Resampling.BICUBIC)
         bicubic_image.save(args.output_dir / "bicubic.png")
@@ -274,6 +293,7 @@ def main() -> None:
         lr=lr_tensor,
         domain_id=domain_id,
         dtype_name=dtype_name,
+        residual_strength=residual_strength,
     )
     condition_image = tensor_to_pil(decoded_condition[0])
     refined_image = tensor_to_pil(decoded_refined[0])

@@ -24,6 +24,11 @@
   `+0.1160 -> +0.1773 dB`로 상승했다.
 - strong preset도 평균은 개선됐지만 `photo_v2`/`photo_v3_noise_mix` 승률은 각각
   `84 -> 81`, `88 -> 81`로 낮아져 더 공격적인 보정의 tail risk가 있다.
+- 추론 guardrail:
+  - full `1.0`: 평균 품질 최고.
+  - balanced `0.75`: 평균 이득 대부분 유지, strong preset 승률 `83/100`.
+  - conservative `0.5`: strong preset 승률 `86/100`, 평균 이득은 감소.
+  - CLI `--residual-strength`, Colab `CORRECTION_STYLE`로 선택 가능.
 - 공식 선택 checkpoint:
   `checkpoints/residual_refiner_stage2_xl_photo_detail_v2_best39000.pt`
 - HF preset:
