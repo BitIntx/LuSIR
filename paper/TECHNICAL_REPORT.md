@@ -436,6 +436,14 @@ recovering missing fur, text, fabric, or distant texture. The experiment is a
 successful base-reconstruction redesign but not a solution to perceptual
 fine-detail recovery.
 
+An optional continuation is prepared from step 46000 using frozen ImageNet
+VGG16 features at shallow and intermediate layers. This explicitly introduces
+pretrained vision feature supervision, while still avoiding pretrained
+text-to-image or generative models. A CUDA smoke test passed at batch 4 with
+approximately `20.6/46.1GB` VRAM and `2.62` micro-steps/s. The continuation has
+not been started; checkpoint selection will combine decoded PSNR and detail
+energy instead of optimizing PSNR alone.
+
 ## Public Artifacts
 
 The latest public artifacts are stored in `jwheo/sr-diffusion` on Hugging Face:

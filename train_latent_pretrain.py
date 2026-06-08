@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "src"))
 
 from sr_diffusion.datasets import ManifestImageDataset
+from sr_diffusion.losses import FrozenVGGFeatureLoss
 from sr_diffusion.losses.reconstruction import (
     charbonnier_loss,
     laplacian_loss,
@@ -109,13 +110,21 @@ def compute_stage2_loss(
     reference_image: torch.Tensor,
     vae: AutoencoderKL,
     loss_config: dict[str, Any],
+    perceptual_model: torch.nn.Module | None = None,
 ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
     latent = latent_loss(prediction, target_latent, str(loss_config.get("latent", "charbonnier")))
     decoded_weight = float(loss_config.get("decoded_weight", 0.0))
     edge_weight = float(loss_config.get("edge_weight", 0.0))
     highpass_weight = float(loss_config.get("highpass_weight", 0.0))
     highpass_magnitude_weight = float(loss_config.get("highpass_magnitude_weight", 0.0))
-    if decoded_weight > 0.0 or edge_weight > 0.0 or highpass_weight > 0.0 or highpass_magnitude_weight > 0.0:
+    perceptual_weight = float(loss_config.get("perceptual_weight", 0.0))
+    if (
+        decoded_weight > 0.0
+        or edge_weight > 0.0
+        or highpass_weight > 0.0
+        or highpass_magnitude_weight > 0.0
+        or perceptual_weight > 0.0
+    ):
         decoded = vae.decode(prediction)
         eps = float(loss_config.get("charbonnier_eps", 1e-3))
         pixel = charbonnier_loss(decoded, target_image, eps=eps)
@@ -127,18 +136,26 @@ def compute_stage2_loss(
             reference_image,
             eps=eps,
         )
+        if perceptual_weight > 0.0:
+            if perceptual_model is None:
+                raise ValueError("loss.perceptual_weight requires a perceptual model")
+            perceptual = perceptual_model(decoded, target_image)
+        else:
+            perceptual = prediction.new_zeros(())
     else:
         decoded = prediction.new_empty(0)
         pixel = prediction.new_zeros(())
         edge = prediction.new_zeros(())
         highpass = prediction.new_zeros(())
         highpass_magnitude = prediction.new_zeros(())
+        perceptual = prediction.new_zeros(())
     total = (
         float(loss_config.get("latent_weight", 1.0)) * latent
         + decoded_weight * pixel
         + edge_weight * edge
         + highpass_weight * highpass
         + highpass_magnitude_weight * highpass_magnitude
+        + perceptual_weight * perceptual
     )
     return total, {
         "latent": latent,
@@ -146,8 +163,26 @@ def compute_stage2_loss(
         "edge": edge,
         "highpass": highpass,
         "highpass_magnitude": highpass_magnitude,
+        "perceptual": perceptual,
         "decoded_image": decoded,
     }
+
+
+def make_perceptual_model(loss_config: dict[str, Any], device: torch.device) -> torch.nn.Module | None:
+    if float(loss_config.get("perceptual_weight", 0.0)) <= 0.0:
+        return None
+    perceptual_config = loss_config.get("perceptual", {})
+    model = FrozenVGGFeatureLoss(
+        resize=int(perceptual_config.get("resize", 256)),
+        layer_indices=perceptual_config.get("layer_indices", [3, 8, 15]),
+        layer_weights=perceptual_config.get("layer_weights", [1.0, 1.0, 1.0]),
+    ).to(device)
+    model.eval()
+    print(
+        "perceptual_model=vgg16_imagenet_features "
+        f"resize={model.resize} layers={list(model.layer_indices)} weights={list(model.layer_weights)}"
+    )
+    return model
 
 
 def make_dataset(config: dict[str, Any], split: str, seed: int, deterministic: bool | None = None) -> ManifestImageDataset:
@@ -294,6 +329,7 @@ def evaluate(
     device: torch.device,
     dtype_name: str,
     loss_config: dict[str, Any],
+    perceptual_model: torch.nn.Module | None = None,
 ) -> dict[str, float]:
     was_training = model.training
     model.eval()
@@ -304,6 +340,7 @@ def evaluate(
         "decoded_mse": 0.0,
         "decoded_edge": 0.0,
         "decoded_highpass": 0.0,
+        "perceptual": 0.0,
         "laplacian_energy_ratio": 0.0,
         "oracle_decoded_mse": 0.0,
         "oracle_laplacian_energy_ratio": 0.0,
@@ -321,7 +358,15 @@ def evaluate(
             with autocast_context(device, dtype_name):
                 target_latent, _ = vae.encode(target)
                 prediction = model(lr_input, domain_id)
-                loss, components = compute_stage2_loss(prediction, target_latent, target, reference, vae, loss_config)
+                loss, components = compute_stage2_loss(
+                    prediction,
+                    target_latent,
+                    target,
+                    reference,
+                    vae,
+                    loss_config,
+                    perceptual_model,
+                )
                 latent_mse = F.mse_loss(prediction, target_latent)
                 decoded = components["decoded_image"] if components["decoded_image"].numel() > 0 else vae.decode(prediction)
                 decoded_mse = F.mse_loss(decoded, target)
@@ -339,6 +384,7 @@ def evaluate(
             totals["decoded_mse"] += float(decoded_mse.detach().cpu()) * batch_size
             totals["decoded_edge"] += float(sobel_edge_loss(decoded, target).detach().cpu()) * batch_size
             totals["decoded_highpass"] += float(laplacian_loss(decoded, target).detach().cpu()) * batch_size
+            totals["perceptual"] += float(components["perceptual"].detach().cpu()) * batch_size
             totals["laplacian_energy_ratio"] += float(decoded_energy_ratio.sum().cpu())
             totals["oracle_decoded_mse"] += float(oracle_decoded_mse.detach().cpu()) * batch_size
             totals["oracle_laplacian_energy_ratio"] += float(oracle_energy_ratio.sum().cpu())
@@ -347,7 +393,7 @@ def evaluate(
         model.train()
     count = max(1, count)
     decoded_mse = totals["decoded_mse"] / count
-    return {
+    metrics = {
         "eval/loss": totals["loss"] / count,
         "eval/latent_loss": totals["latent_loss"] / count,
         "eval/latent_mse": totals["latent_mse"] / count,
@@ -355,11 +401,17 @@ def evaluate(
         "eval/decoded_psnr": psnr_from_mse(decoded_mse),
         "eval/decoded_edge": totals["decoded_edge"] / count,
         "eval/decoded_highpass": totals["decoded_highpass"] / count,
+        "eval/perceptual": totals["perceptual"] / count,
         "eval/laplacian_energy_ratio": totals["laplacian_energy_ratio"] / count,
         "eval/oracle_decoded_psnr": psnr_from_mse(totals["oracle_decoded_mse"] / count),
         "eval/oracle_laplacian_energy_ratio": totals["oracle_laplacian_energy_ratio"] / count,
         "eval/num_images": float(count),
     }
+    detail_score_weight = float(loss_config.get("detail_score_weight", 0.0))
+    metrics["eval/psnr_detail_score"] = metrics["eval/decoded_psnr"] + detail_score_weight * metrics[
+        "eval/laplacian_energy_ratio"
+    ]
+    return metrics
 
 
 def main() -> None:
@@ -442,6 +494,7 @@ def main() -> None:
         )
 
     vae = load_autoencoder(config, device=device)
+    perceptual_model = make_perceptual_model(loss_config, device=device)
     model = LRToLatentPredictor.from_config(config["model"]).to(device)
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -508,6 +561,7 @@ def main() -> None:
                     reference,
                     vae,
                     loss_config,
+                    perceptual_model,
                 )
                 scaled_loss = loss / grad_accum_steps
 
@@ -529,6 +583,7 @@ def main() -> None:
                     f"edge={float(loss_components['edge'].detach().cpu()):.5f} "
                     f"highpass={float(loss_components['highpass'].detach().cpu()):.5f} "
                     f"highpass_mag={float(loss_components['highpass_magnitude'].detach().cpu()):.5f} "
+                    f"perceptual={float(loss_components['perceptual'].detach().cpu()):.5f} "
                     f"latent_mse={float(latent_mse.detach().cpu()):.5f} "
                     f"steps_per_sec={interval_steps / elapsed:.2f}"
                 )
@@ -541,6 +596,7 @@ def main() -> None:
                         "train/edge": float(loss_components["edge"].detach().cpu()),
                         "train/highpass": float(loss_components["highpass"].detach().cpu()),
                         "train/highpass_magnitude": float(loss_components["highpass_magnitude"].detach().cpu()),
+                        "train/perceptual": float(loss_components["perceptual"].detach().cpu()),
                         "train/latent_mse": float(latent_mse.detach().cpu()),
                         "train/lr": optimizer.param_groups[0]["lr"],
                         "system/steps_per_sec": interval_steps / elapsed,
@@ -555,7 +611,7 @@ def main() -> None:
                 and (step % eval_every == 0 or (step == 1 and eval_run_at_start))
             )
             if should_eval:
-                metrics = evaluate(model, vae, eval_loader, device, dtype_name, loss_config)
+                metrics = evaluate(model, vae, eval_loader, device, dtype_name, loss_config, perceptual_model)
                 (eval_dir / f"step_{step:07d}_metrics.json").write_text(
                     json.dumps({"step": step, "metrics": metrics}, indent=2, sort_keys=True) + "\n",
                     encoding="utf-8",
@@ -563,7 +619,9 @@ def main() -> None:
                 print(
                     f"eval step={step} latent_loss={metrics['eval/latent_loss']:.5f} "
                     f"decoded_psnr={metrics['eval/decoded_psnr']:.2f} "
-                    f"detail_ratio={metrics['eval/laplacian_energy_ratio']:.3f}"
+                    f"detail_ratio={metrics['eval/laplacian_energy_ratio']:.3f} "
+                    f"perceptual={metrics['eval/perceptual']:.5f} "
+                    f"psnr_detail_score={metrics['eval/psnr_detail_score']:.3f}"
                 )
                 wandb_log(run, metrics, step=step)
                 metric_value = float(metrics[best_metric_name])

@@ -889,3 +889,35 @@ metrics:
 W&B:
   https://wandb.ai/jwheo/sr-diffusion/runs/6zt2do4v
 ```
+
+### 다음 continuation 준비: frozen VGG feature supervision
+
+같은 pixel/edge/highpass weight 조정만 반복하지 않고, ImageNet pretrained
+VGG16의 얕은/중간 feature를 비교하는 optional perceptual loss를 구현했다.
+pretrained T2I나 생성 모델은 사용하지 않지만, 외부 pretrained vision feature
+supervision을 도입하는 실험이라는 점은 명시한다.
+
+```text
+config:
+  configs/latent_pretrain_photo100k_multiscale_hqmix_perceptual_continue.yaml
+initialization:
+  selected multiscale Stage 2 step 46000
+feature layers:
+  VGG16 indices 3 / 8 / 15, resized to 256
+batch:
+  4 x grad_accum 8 = effective 32
+lr:
+  5e-6
+max:
+  12000 micro steps
+selection:
+  eval/decoded_psnr + 5 * eval/laplacian_energy_ratio
+```
+
+CUDA smoke:
+
+- batch 4 forward/backward와 val100 eval 정상 통과.
+- VRAM 약 `20.6/46.1GB`, GPU util `99~100%`.
+- steady 약 `2.62 micro-step/s`.
+- perceptual loss는 초기 약 `0.0394`이며 전체 loss를 압도하지 않았다.
+- 장기 학습은 아직 시작하지 않았다.

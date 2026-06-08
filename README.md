@@ -5,6 +5,16 @@
 [![Code License](https://img.shields.io/badge/code_license-PolyForm_Noncommercial_1.0.0-orange)](LICENSE)
 [![Checkpoint License](https://img.shields.io/badge/checkpoints-CC_BY--NC_4.0-orange)](CHECKPOINT_LICENSE.md)
 
+## Current Demo
+
+![Representative deterministic x4 Stage 2 results](docs/assets/stage2_multiscale_demo.jpg)
+
+Representative `photo_detail_mix` validation examples from the selected
+multiscale Stage 2 step 46000 checkpoint. The model restores stable structure,
+color, and large boundaries from degraded x4 inputs, but remains visibly softer
+than ground truth on text, fur, fabric, and distant texture. This is the current
+deterministic condition output, not a cherry-picked generative result.
+
 Vision-only x4 latent diffusion super-resolution experiments.
 Report source: [paper/main.tex](paper/main.tex), with a plain Markdown snapshot
 in [paper/TECHNICAL_REPORT.md](paper/TECHNICAL_REPORT.md).
@@ -172,6 +182,20 @@ energy. On stronger `photo_v2` and `photo_v3_noise_mix` inputs it still improves
 PSNR by about `0.94-0.97 dB`, but detail energy drops substantially. The new
 condition model is therefore a strong base-reconstruction/denoising candidate,
 not a solution to perceptual fine-detail recovery.
+
+The next continuation is prepared but not started:
+
+```text
+config:         configs/latent_pretrain_photo100k_multiscale_hqmix_perceptual_continue.yaml
+initialization: selected Stage 2 step 46000
+supervision:    existing reconstruction/detail losses + frozen ImageNet VGG16 features
+batch:          4 x grad_accum 8 = effective 32
+max steps:      12,000
+best metric:    decoded PSNR + 5 x detail ratio
+```
+
+This optional experiment introduces pretrained vision feature supervision, but
+does not use a pretrained text-to-image or generative model.
 
 A direct Stage 2 residual diagnostic confirmed that the missing signal is
 mostly high-frequency detail rather than lowpass structure. On mild val100,

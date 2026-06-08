@@ -1,0 +1,92 @@
+project:
+  name: latent_pretrain_photo100k_multiscale_hqmix_perceptual_continue
+  output_dir: /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo100k_multiscale_hqmix_perceptual_continue
+
+logging:
+  wandb:
+    enabled: true
+    project: sr-diffusion
+    name: latent_pretrain_photo100k_multiscale_hqmix_perceptual_continue
+    mode: online
+    dir: /home/ubuntu/scratch/sr-diffusion/wandb
+    tags: [stage2, latent-pretrain, multiscale-context, hq-mix, perceptual, vgg16, continuation]
+    watch: false
+  samples:
+    enabled: true
+    split: val
+    fallback_split: train
+    count: 8
+    indices: [0, 1, 2, 3, 4, 5, 6, 7]
+
+seed: 1337
+
+autoencoder:
+  config: configs/autoencoder_photo10k.yaml
+  checkpoint: /home/ubuntu/scratch/sr-diffusion/runs/autoencoder_photo10k_b16_eval_online/checkpoints/best_eval_recon.pt
+
+initialization:
+  checkpoint: /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo100k_multiscale_hqmix_long/checkpoints/step_0046000.pt
+  partial: false
+
+data:
+  manifest: /home/ubuntu/scratch/sr-diffusion/data/manifest_photo_hqmix.csv
+  split: train
+  hr_size: 512
+  scale: 4
+  degradation_preset: photo_detail_mix
+  domains:
+    photo: 0
+    anime: 1
+  num_workers: 4
+
+model:
+  type: lr_to_latent_predictor
+  architecture: multiscale_context
+  in_channels: 3
+  latent_channels: 16
+  base_channels: 256
+  num_blocks: 16
+  norm_groups: 32
+  num_domains: 2
+  context_channels: [320, 448]
+  context_blocks: [4, 6]
+  context_scale: 1.0
+
+loss:
+  latent: charbonnier
+  latent_weight: 0.15
+  decoded_weight: 0.5
+  edge_weight: 0.5
+  highpass_weight: 1.0
+  highpass_magnitude_weight: 0.5
+  perceptual_weight: 1.0
+  perceptual:
+    resize: 256
+    layer_indices: [3, 8, 15]
+    layer_weights: [1.0, 1.0, 1.0]
+  detail_score_weight: 5.0
+  charbonnier_eps: 0.001
+
+train:
+  device: auto
+  dtype: bf16
+  batch_size: 4
+  max_steps: 12000
+  lr: 0.000005
+  weight_decay: 0.0
+  grad_accum_steps: 8
+  log_every: 25
+  save_every: 1000
+  sample_every: 500
+
+eval:
+  enabled: true
+  split: val
+  limit: 100
+  batch_size: 4
+  num_workers: 4
+  every: 500
+  run_at_start: true
+  best_metric: eval/psnr_detail_score
+  best_mode: max
+  best_checkpoint: best_eval_psnr_detail.pt

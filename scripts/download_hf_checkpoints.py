@@ -123,6 +123,7 @@ STAGE2_MULTISCALE_HQMIX_FILES = [
     *PHOTO100K_XL_CANDIDATE_FILES,
     "checkpoints/stage2_photo100k_multiscale_hqmix_step_0046000.pt",
     "configs/latent_pretrain_photo100k_multiscale_hqmix_long.yaml",
+    "configs/latent_pretrain_photo100k_multiscale_hqmix_perceptual_continue.yaml",
     "metrics/stage2_multiscale_hqmix_step46000_cross_preset_summary.json",
     "samples/stage2_multiscale_hqmix_checkpoint_comparison.png",
 ]

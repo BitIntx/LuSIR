@@ -66,6 +66,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--indices", type=int, nargs="+", default=list(range(8)))
+    parser.add_argument("--gt-last", action="store_true", help="Place GT after candidate outputs in the contact sheet.")
     parser.add_argument("--device", default="auto")
     parser.add_argument("--dtype", default=None)
     return parser.parse_args()
@@ -206,6 +207,7 @@ def render_samples(
     indices: list[int],
     device: torch.device,
     dtype_name: str,
+    gt_last: bool = False,
 ) -> list[list[tuple[str, Image.Image]]]:
     rows = []
     for index in indices:
@@ -214,16 +216,17 @@ def render_samples(
         lr = item["lr"].unsqueeze(0).to(device)
         domain_id = item["domain_id"].unsqueeze(0).to(device)
         lr_display = F.interpolate(item["lr"].unsqueeze(0), size=item["hr"].shape[-2:], mode="nearest").squeeze(0)
-        row: list[tuple[str, Image.Image]] = [
-            (f"idx {index} LR", tensor_to_pil(lr_display)),
-            ("GT", tensor_to_pil(item["hr"])),
-        ]
+        row: list[tuple[str, Image.Image]] = [(f"idx {index} LR", tensor_to_pil(lr_display))]
+        if not gt_last:
+            row.append(("GT", tensor_to_pil(item["hr"])))
         lr_input = normalize_image(lr)
         with autocast_context(device, dtype_name):
             for label, model in candidates:
                 prediction = model(lr_input, domain_id)
                 decoded = denormalize(vae.decode(prediction)).squeeze(0)
                 row.append((label, tensor_to_pil(decoded)))
+        if gt_last:
+            row.append(("GT", tensor_to_pil(item["hr"])))
         rows.append(row)
     return rows
 
@@ -274,7 +277,7 @@ def main() -> None:
         }
         loaded_candidates.append((label, model))
 
-    rows = render_samples(loaded_candidates, vae, dataset, args.indices, device, dtype_name)
+    rows = render_samples(loaded_candidates, vae, dataset, args.indices, device, dtype_name, gt_last=args.gt_last)
     contact_sheet_path = args.output_dir / "stage2_xl_candidate_contact_sheet.png"
     make_contact_sheet(rows, contact_sheet_path)
     results["contact_sheet"] = str(contact_sheet_path)
