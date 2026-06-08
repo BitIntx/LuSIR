@@ -8,7 +8,7 @@
 
 \title{Vision-Only Latent Diffusion Super-Resolution without T2I Pretraining}
 \author{sr-diffusion contributors}
-\date{Experiment snapshot through active perceptual Stage 2 continuation}
+\date{Experiment snapshot through completed perceptual Stage 2 continuation}
 
 \begin{document}
 \maketitle
@@ -38,8 +38,9 @@ condition baseline. A decoded-detail residual refiner v2 then became the public
 Colab default, reaching 25.6410 PSNR on the photo-detail validation mix. The
 latest Stage 2 redesign adds multiscale context and balanced high-quality data;
 its selected step-46000 checkpoint improves the previous condition encoder
-across all tested presets. A VGG-feature-supervised continuation of that
-checkpoint is currently running.
+across all tested presets. A VGG-feature-supervised continuation completed with
+small metric gains but no meaningful visible fine-detail improvement, so it was
+not promoted.
 \end{abstract}
 
 \section{Objective}
@@ -608,13 +609,13 @@ Degradation & PSNR gain vs previous Stage 2 & Detail behavior \\
 \end{table}
 
 The selected model improves structure, color, and denoising but remains soft on
-fine texture. A continuation using frozen ImageNet VGG16 features is currently
-running from step 46,000. At continuation step 3000 it reached decoded PSNR
-24.49, detail ratio 0.301, perceptual loss 0.03144, and a shortlist score of
-26.000 versus the initial score of 25.937. This score is not a final promotion
-criterion because artificial high-frequency noise can increase detail energy.
-Promotion requires cross-preset distortion checks, perceptual metrics,
-artifact review, and fixed-sample blind A/B.
+fine texture. A continuation using frozen ImageNet VGG16 features completed
+12,000 micro-steps from step 46,000. Step 8000 had the best shortlist score,
+26.0092, and improved decoded PSNR over initialization by 0.0101 to 0.0256 dB
+across four presets. Step 11,000 was strongest on cleaner presets but regressed
+the strongest noise mix by 0.0063 dB. Fixed contact sheets showed almost no
+visible difference from initialization, and missing fine texture remained
+smoothed. The continuation was therefore not promoted.
 
 \section{Limitations}
 
@@ -628,8 +629,9 @@ but the selected output remains conservative and does not recover all visible
 fine detail. The highest-signal next directions are a separate user-facing
 detail evaluation set, perceptual/detail metrics, and separation of the rare
 strong degradation tail into a robustness curriculum or evaluation slice.
-The current VGG-feature continuation is still active and has not yet been
-promoted into the public Colab default.
+The completed VGG-feature continuation was not promoted into the public Colab
+default because its small metric gains did not translate into visible detail
+recovery.
 
 \begin{thebibliography}{9}
 \bibitem{rombach2022latent}

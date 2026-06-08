@@ -29,7 +29,7 @@ generative:
 - 현재 사용자용 public deterministic 기본값은 residual refiner v2이고,
   최신 연구용 condition 후보는 multiscale Stage 2 step `46000`이다.
 
-### 실행 중 실험
+### 최신 완료 실험
 
 - 완료: Stage 2 multiscale-context + HQ-balanced long run, `50000` micro steps.
 - 목표: decoded loss만으로 해결되지 않은 condition smoothing을 넓은 문맥과
@@ -51,7 +51,7 @@ generative:
 - 결론: base reconstruction/denoising 개선에는 성공했지만 perceptual detail
   복원과 strong-input smoothing 문제는 해결하지 못했다.
 - HF preset: `python scripts/download_hf_checkpoints.py --preset stage2_multiscale_hqmix`
-- 실행 중: perceptual Stage 2 continuation:
+- 완료: perceptual Stage 2 continuation, `12000` micro steps:
   `configs/latent_pretrain_photo100k_multiscale_hqmix_perceptual_continue.yaml`
 - selected step 46000에서 frozen ImageNet VGG16 feature loss로 이어 학습한다.
 - W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/nrqhw05u>
@@ -62,12 +62,18 @@ generative:
   steady 약 `2.62 micro-step/s`, GPU util `99~100%`.
 - best checkpoint는 PSNR 단독이 아니라
   `decoded_psnr + 5 * laplacian_energy_ratio`로 선택한다.
-- 2026-06-08 step `3000` snapshot:
-  decoded PSNR `24.49`, detail ratio `0.301`, perceptual `0.03144`,
-  shortlist score `26.000`.
-- 위 score는 checkpoint 후보를 고르는 용도일 뿐 최종 승격 기준이 아니다.
-  최종 선택은 cross-preset distortion, perceptual metric, artifact, blind A/B를
-  함께 확인해야 한다.
+- 자동 best: step `8000`, shortlist score `26.0092`.
+- step 8000은 초기 step46000 대비 네 preset PSNR이 모두 소폭 상승:
+  `photo_detail +0.0101`, `mild +0.0121`, `photo_v2 +0.0136`,
+  `photo_v3 +0.0256 dB`.
+- step 11000은 clean/mild/photo_v2에서 약 `+0.024~0.025 dB`로 가장 높지만
+  `photo_v3_noise_mix`에서 `-0.0063 dB` 후퇴했다.
+- 시각적으로 초기/step8000/step11000/step12000 차이는 거의 보이지 않고,
+  missing fine detail과 smoothing은 해결되지 않았다.
+- 결론: step8000을 안전한 실험 후보로 보존하되 public/default Stage2로는
+  승격하지 않는다.
+- HF preset:
+  `python scripts/download_hf_checkpoints.py --preset stage2_multiscale_perceptual`
 
 - residual refiner v2 lower-LR continuation과 cross-preset 평가 완료.
 - 완료: `40000` micro steps, best decoded PSNR step `39000`.
@@ -699,8 +705,8 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
   Stage 3과 Stage 4는 직렬 모듈이 아니라 서로 교체해서 쓰는 diffusion
   checkpoint다.
 - 사용자 체감 병목은 여전히 missing fine detail과 strong-input smoothing이다.
-- 현재 실행 중인 학습은 multiscale Stage 2 step 46000에서 이어가는 frozen
-  VGG feature-supervised perceptual continuation이다.
+- 현재 실행 중인 학습은 없다. frozen VGG feature-supervised perceptual
+  continuation은 12000 step에서 정상 완료됐지만 시각적 detail 목표에는 실패했다.
 - `decoded_psnr + 5 * detail_ratio`는 shortlist score다. detail energy만
   높이는 인공 고주파/노이즈를 보상할 수 있으므로 이것만으로 승격하지 않는다.
 
@@ -708,18 +714,12 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
 
 우선순위:
 
-1. 현재 perceptual Stage 2 continuation을 계획된 `12000` micro steps까지
-   모니터링하되 중간 후보도 보존한다.
-2. 동일 val100의 `photo_detail_mix`, `mild`, `photo_v2`,
-   `photo_v3_noise_mix`에서 초기 step 46000과 후보 checkpoint를 비교한다.
-3. 승격 판단:
-   - clean/mild PSNR과 detail ratio가 초기값 대비 후퇴하지 않을 것.
-   - strong preset의 detail collapse와 cyan/white artifact가 악화되지 않을 것.
-   - LPIPS/DISTS 계열 metric과 고정 sample blind A/B가 개선될 것.
-   - shortlist score 상승만으로는 승격하지 않을 것.
-4. 통과하면 최신 Stage 2를 residual refiner/Stage 4와 다시 결합 평가한다.
-5. 실패하면 같은 objective 장기 continuation보다 degradation-aware gate,
-   별도 detail synthesis 경로, 외부 perceptual 평가를 우선한다.
+1. perceptual Stage2 step8000은 비승격 실험 후보로 보존한다.
+2. 같은 Stage2 regression continuation은 더 길게 돌리지 않는다.
+3. 다음 구조 후보는 degradation-aware high-frequency/detail synthesis branch다.
+4. 새 구조 전에는 LPIPS/DISTS 및 고정 sample blind A/B 평가를 구현해
+   작은 metric 상승과 실제 사용자 체감을 분리한다.
+5. public Colab 기본 경로는 기존 residual refiner v2를 유지한다.
 
 ## 새 VM에서 Codex에게 줄 짧은 프롬프트
 
@@ -728,9 +728,9 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
 docs/HANDOFF_KO.md 와 docs/VM_RECOVERY_KO.md 를 먼저 읽고 이어서 작업해줘.
 Stage 번호는 학습 순서이며 추론 직렬 경로가 아니다. Colab 기본은
 LR -> Stage2 XL step72000 -> residual refiner v2 step39000 -> Stage1 decoder다.
-현재 연구 run은 multiscale Stage2 step46000에서 시작한 VGG perceptual
-continuation이며 W&B는 https://wandb.ai/jwheo/sr-diffusion/runs/nrqhw05u 다.
-학습 로그와 HANDOFF 상단 상태를 확인하고, 학습 종료 후 cross-preset metric,
-artifact, blind A/B를 함께 평가해 승격 여부를 결정해줘.
+multiscale Stage2 step46000에서 시작한 VGG perceptual continuation은 12000
+step에서 완료됐고 시각적 detail 개선이 없어 승격하지 않았다. step8000은
+네 preset에서 모두 소폭 개선한 비승격 후보로 보존한다. 다음은 같은 continuation이
+아니라 detail synthesis/high-frequency 구조와 perceptual 평가를 검토해줘.
 상업적 이용은 금지이고, raw dataset은 GitHub/HF에 올리지 않는다.
 ```

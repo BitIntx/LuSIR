@@ -128,6 +128,17 @@ STAGE2_MULTISCALE_HQMIX_FILES = [
     "samples/stage2_multiscale_hqmix_checkpoint_comparison.png",
 ]
 
+STAGE2_MULTISCALE_PERCEPTUAL_FILES = [
+    *STAGE2_MULTISCALE_HQMIX_FILES,
+    "checkpoints/stage2_photo100k_multiscale_hqmix_perceptual_step_0008000.pt",
+    "metrics/stage2_multiscale_perceptual_photo_detail_mix_candidates.json",
+    "metrics/stage2_multiscale_perceptual_mild_candidates.json",
+    "metrics/stage2_multiscale_perceptual_photo_v2_candidates.json",
+    "metrics/stage2_multiscale_perceptual_photo_v3_noise_mix_candidates.json",
+    "samples/stage2_multiscale_perceptual_photo_detail_mix_candidates.png",
+    "samples/stage2_multiscale_perceptual_photo_v3_noise_mix_candidates.png",
+]
+
 PRESETS = {
     "prototype": PROTOTYPE_FILES,
     "photo100k": PHOTO100K_FILES,
@@ -138,6 +149,7 @@ PRESETS = {
     "stage4_photo_detail": STAGE4_PHOTO_DETAIL_FILES,
     "residual_refiner_v2": RESIDUAL_REFINER_V2_FILES,
     "stage2_multiscale_hqmix": STAGE2_MULTISCALE_HQMIX_FILES,
+    "stage2_multiscale_perceptual": STAGE2_MULTISCALE_PERCEPTUAL_FILES,
 }
 
 
@@ -160,7 +172,8 @@ def parse_args() -> argparse.Namespace:
             "teacher-supervised Stage 4 probe checkpoint and sampled eval artifacts; "
             "'stage4_photo_detail' includes the selected detail-preserving Stage 4 checkpoint; "
             "'residual_refiner_v2' includes the selected decoded-detail residual refiner and cross-preset evals; "
-            "'stage2_multiscale_hqmix' includes the selected multiscale Stage 2 condition checkpoint."
+            "'stage2_multiscale_hqmix' includes the selected multiscale Stage 2 condition checkpoint; "
+            "'stage2_multiscale_perceptual' includes the non-promoted VGG continuation step 8000 and comparisons."
         ),
     )
     parser.add_argument(

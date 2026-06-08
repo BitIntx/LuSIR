@@ -62,6 +62,7 @@ def parse_args() -> argparse.Namespace:
         default=Path("/home/jwheojjang/scratch/sr-diffusion/runs/compare_stage2_xl_candidates"),
     )
     parser.add_argument("--split", default="val")
+    parser.add_argument("--degradation-preset", default=None)
     parser.add_argument("--limit", type=int, default=100)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--num-workers", type=int, default=4)
@@ -234,6 +235,8 @@ def render_samples(
 def main() -> None:
     args = parse_args()
     config = load_config(args.config)
+    if args.degradation_preset is not None:
+        config["data"]["degradation_preset"] = args.degradation_preset
     seed_everything(int(config.get("seed", 0)))
     device = get_device(args.device)
     dtype_name = str(args.dtype or config.get("train", {}).get("dtype", "bf16"))
@@ -255,6 +258,7 @@ def main() -> None:
     loaded_candidates: list[tuple[str, LRToLatentPredictor]] = []
     results: dict[str, Any] = {
         "config": str(args.config),
+        "degradation_preset": str(config["data"].get("degradation_preset", "mild")),
         "split": args.split,
         "limit": len(eval_indices),
         "indices": args.indices,

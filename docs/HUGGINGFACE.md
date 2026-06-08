@@ -244,6 +244,26 @@ Upload the selected decoded-detail residual refiner v2 step 39000 and cross-pres
   --artifact /home/jwheojjang/scratch/sr-diffusion/runs/eval_residual_refiner_v2_best39000_stage2_xl_photo_v3_noise_mix_val100/eval_grid_lr_bicubic_condition_refined_oracle_gt.png=samples/eval_residual_refiner_v2_best39000_stage2_xl_photo_v3_noise_mix_val100_grid.png
 ```
 
+Upload the completed, non-promoted Stage 2 perceptual continuation candidate:
+
+```bash
+/home/ubuntu/venvs/cuda/bin/python scripts/upload_hf_artifact.py \
+  --repo-id jwheo/sr-diffusion \
+  --repo-type model \
+  --message "Upload Stage2 perceptual continuation comparison" \
+  --artifact /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo100k_multiscale_hqmix_perceptual_continue/checkpoints/step_0008000.pt=checkpoints/stage2_photo100k_multiscale_hqmix_perceptual_step_0008000.pt \
+  --artifact configs/latent_pretrain_photo100k_multiscale_hqmix_perceptual_continue.yaml=configs/latent_pretrain_photo100k_multiscale_hqmix_perceptual_continue.yaml \
+  --artifact /home/ubuntu/scratch/sr-diffusion/runs/compare_stage2_perceptual_candidates/photo_detail_mix/stage2_xl_candidate_metrics.json=metrics/stage2_multiscale_perceptual_photo_detail_mix_candidates.json \
+  --artifact /home/ubuntu/scratch/sr-diffusion/runs/compare_stage2_perceptual_candidates/mild/stage2_xl_candidate_metrics.json=metrics/stage2_multiscale_perceptual_mild_candidates.json \
+  --artifact /home/ubuntu/scratch/sr-diffusion/runs/compare_stage2_perceptual_candidates/photo_v2/stage2_xl_candidate_metrics.json=metrics/stage2_multiscale_perceptual_photo_v2_candidates.json \
+  --artifact /home/ubuntu/scratch/sr-diffusion/runs/compare_stage2_perceptual_candidates/photo_v3_noise_mix/stage2_xl_candidate_metrics.json=metrics/stage2_multiscale_perceptual_photo_v3_noise_mix_candidates.json \
+  --artifact /home/ubuntu/scratch/sr-diffusion/runs/compare_stage2_perceptual_candidates/photo_detail_mix/stage2_xl_candidate_contact_sheet.png=samples/stage2_multiscale_perceptual_photo_detail_mix_candidates.png \
+  --artifact /home/ubuntu/scratch/sr-diffusion/runs/compare_stage2_perceptual_candidates/photo_v3_noise_mix/stage2_xl_candidate_contact_sheet.png=samples/stage2_multiscale_perceptual_photo_v3_noise_mix_candidates.png
+```
+
+This checkpoint is preserved for research comparison only. It is not the
+public Colab default and did not produce a meaningful visible detail gain.
+
 Make the Hub repository public after license files and the model card are in
 place:
 

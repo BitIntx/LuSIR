@@ -96,8 +96,8 @@ sampler with a faster one; it would not be appended after Stage 4.
 
 The Colab notebook defaults to the deterministic residual refiner v2 path.
 Users can explicitly select Stage 3/4 diffusion comparisons in the notebook,
-but those are not the recommended default. The latest active research run is a
-VGG-feature-supervised continuation of multiscale Stage 2 step 46000.
+but those are not the recommended default. The latest VGG-feature-supervised
+continuation of multiscale Stage 2 step 46000 is complete but not promoted.
 
 Historical first-pass photo100k Stage 3/4 comparison:
 
@@ -211,7 +211,7 @@ PSNR by about `0.94-0.97 dB`, but detail energy drops substantially. The new
 condition model is therefore a strong base-reconstruction/denoising candidate,
 not a solution to perceptual fine-detail recovery.
 
-The next continuation is running:
+The perceptual continuation completed:
 
 ```text
 config:         configs/latent_pretrain_photo100k_multiscale_hqmix_perceptual_continue.yaml
@@ -221,15 +221,22 @@ batch:          4 x grad_accum 8 = effective 32
 max steps:      12,000
 best metric:    decoded PSNR + 5 x detail ratio
 W&B:            https://wandb.ai/jwheo/sr-diffusion/runs/nrqhw05u
-step 3000:      PSNR 24.49, detail ratio 0.301, perceptual 0.03144
-                shortlist score 26.000
+finished step:  12,000
+auto best:      step 8000, shortlist score 26.0092
+decision:       preserve as an experimental candidate; do not promote
 ```
 
 This optional experiment introduces pretrained vision feature supervision, but
 does not use a pretrained text-to-image or generative model. The shortlist
 score can reward artificial high-frequency energy, so it is not sufficient for
-promotion. Promotion requires cross-preset distortion checks, perceptual
-metrics, artifact review, and fixed-sample blind A/B.
+promotion. Step 8000 improved decoded PSNR by `+0.0101` to `+0.0256 dB` across
+the four tested presets without a measured regression. Step 11000 improved
+cleaner presets by about `+0.024-0.025 dB` but regressed `photo_v3_noise_mix`
+by `-0.0063 dB`. Fixed contact sheets show almost no visible difference from
+the initialization: fine texture remains smoothed. The run is therefore a
+small metric/latent improvement, not a user-facing detail breakthrough.
+The non-promoted checkpoint and comparison sheets are available through
+`python scripts/download_hf_checkpoints.py --preset stage2_multiscale_perceptual`.
 
 A direct Stage 2 residual diagnostic confirmed that the missing signal is
 mostly high-frequency detail rather than lowpass structure. On mild val100,
@@ -1132,8 +1139,9 @@ Stage 1: VAE / Autoencoder
 Stage 2: deterministic LR -> HR latent pretrain
 
 - Baseline, XL, and multiscale photo100k runs are complete.
-- Active work is the VGG-feature-supervised continuation of multiscale step
-  46000.
+- The VGG-feature-supervised continuation of multiscale step 46000 is complete.
+  It produced small metric gains but was not promoted because fixed samples
+  showed no meaningful fine-detail improvement.
 - Freeze the selected Stage 1 VAE.
 - Train an LR-to-latent predictor that maps degraded LR inputs to HR VAE
   encoder means.

@@ -1,6 +1,6 @@
 # Vision-Only Latent Diffusion Super-Resolution without T2I Pretraining
 
-Snapshot: multiscale Stage 2 selected; perceptual Stage 2 continuation active.
+Snapshot: multiscale Stage 2 selected; perceptual Stage 2 continuation complete.
 
 ## Objective
 
@@ -452,17 +452,18 @@ recovering missing fur, text, fabric, or distant texture. The experiment is a
 successful base-reconstruction redesign but not a solution to perceptual
 fine-detail recovery.
 
-An optional continuation is running from step 46000 using frozen ImageNet
+An optional continuation completed from step 46000 using frozen ImageNet
 VGG16 features at shallow and intermediate layers. This explicitly introduces
 pretrained vision feature supervision, while still avoiding pretrained
 text-to-image or generative models. A CUDA smoke test passed at batch 4 with
-approximately `20.6/46.1GB` VRAM and `2.62` micro-steps/s. The continuation has
-reached step 3000 with decoded PSNR `24.49`, detail ratio `0.301`, perceptual
-loss `0.03144`, and a shortlist score of `26.000`, versus the initial score
-`25.937`. Checkpoint shortlisting combines decoded PSNR and detail energy, but
-that score can reward artificial high-frequency noise and is not a final
-promotion criterion. Promotion also requires cross-preset checks, perceptual
-metrics, artifact review, and fixed-sample blind A/B. The active run is tracked at
+approximately `20.6/46.1GB` VRAM and `2.62` micro-steps/s. The run completed
+12,000 micro-steps. Step 8000 had the best shortlist score, `26.0092`, and
+improved decoded PSNR over initialization by `+0.0101` to `+0.0256 dB` across
+the four tested presets. Step 11000 was strongest on cleaner presets but
+regressed `photo_v3_noise_mix` by `-0.0063 dB`. Fixed contact sheets showed
+almost no visible difference from initialization, and missing fine texture
+remained smoothed. The run is preserved as a partial metric/latent success but
+is not promoted into the public path. The completed run is tracked at
 <https://wandb.ai/jwheo/sr-diffusion/runs/nrqhw05u>.
 
 ## Public Artifacts
@@ -476,6 +477,7 @@ checkpoints/stage4_photo100k_xl_teacher_residual_photo_v3_step_0002000.pt
 checkpoints/stage4_photo100k_xl_teacher_residual_photo_detail_best8000.pt
 checkpoints/residual_refiner_stage2_xl_photo_detail_v2_best39000.pt
 checkpoints/stage2_photo100k_multiscale_hqmix_step_0046000.pt
+checkpoints/stage2_photo100k_multiscale_hqmix_perceptual_step_0008000.pt
 metrics/stage4_photo100k_xl_edge_b16_val100_t50_32step_summary.json
 metrics/diagnose_stage2_xl_residuals_mild_val100_summary.json
 metrics/residual_refiner_stage2_xl_mild_probe_early_stop_summary.json
@@ -489,6 +491,10 @@ metrics/eval_residual_refiner_v2_best39000_stage2_xl_mild_val100_summary.json
 metrics/eval_residual_refiner_v2_best39000_stage2_xl_photo_v2_val100_summary.json
 metrics/eval_residual_refiner_v2_best39000_stage2_xl_photo_v3_noise_mix_val100_summary.json
 metrics/stage2_multiscale_hqmix_step46000_cross_preset_summary.json
+metrics/stage2_multiscale_perceptual_photo_detail_mix_candidates.json
+metrics/stage2_multiscale_perceptual_mild_candidates.json
+metrics/stage2_multiscale_perceptual_photo_v2_candidates.json
+metrics/stage2_multiscale_perceptual_photo_v3_noise_mix_candidates.json
 samples/stage4_photo100k_xl_edge_b16_val100_t50_32step_grid_lr_bicubic_sr_gt.png
 samples/diagnose_stage2_xl_residuals_mild_val100_grid.png
 samples/residual_refiner_stage2_xl_mild_probe_step500_grid.png
@@ -501,6 +507,8 @@ samples/eval_residual_refiner_v2_best39000_stage2_xl_mild_val100_grid.png
 samples/eval_residual_refiner_v2_best39000_stage2_xl_photo_v2_val100_grid.png
 samples/eval_residual_refiner_v2_best39000_stage2_xl_photo_v3_noise_mix_val100_grid.png
 samples/stage2_multiscale_hqmix_checkpoint_comparison.png
+samples/stage2_multiscale_perceptual_photo_detail_mix_candidates.png
+samples/stage2_multiscale_perceptual_photo_v3_noise_mix_candidates.png
 configs/diffusion_photo100k_xl_stage4_condition_v3_edge_b16.yaml
 configs/residual_refiner_stage2_xl_mild_probe.yaml
 configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_v3_b8_probe.yaml
@@ -512,18 +520,14 @@ configs/latent_pretrain_photo100k_multiscale_hqmix_perceptual_continue.yaml
 
 ## Next Work
 
-The selected residual refiner remains the public Colab default. The active
-research candidate is the perceptual continuation of multiscale Stage 2 step
-46000. Candidate next steps are:
+The selected residual refiner remains the public Colab default. The completed
+perceptual Stage 2 continuation is not promoted. Candidate next steps are:
 
-- finish and shortlist the active continuation, preserving intermediate
-  checkpoints;
-- compare shortlisted checkpoints against step 46000 on `photo_detail_mix`,
-  `mild`, `photo_v2`, and `photo_v3_noise_mix`;
-- add LPIPS/DISTS-style perceptual metrics and fixed-sample blind A/B, because
-  the current PSNR-detail shortlist score can reward artificial high-frequency
-  energy;
-- only after Stage 2 promotion, re-evaluate its combination with the residual
-  refiner and selected Stage 4 checkpoints;
+- add LPIPS/DISTS-style perceptual metrics and fixed-sample blind A/B before
+  another small metric-focused continuation;
+- design a degradation-aware high-frequency or separate detail-synthesis path,
+  because frozen VGG supervision did not visibly recover missing texture;
+- preserve step 8000 as a non-default research candidate because it avoided
+  cross-preset PSNR regressions;
 - keep a degradation-aware gate or strong-input guardrail as the primary
   response to the remaining strong-preset failure tail.

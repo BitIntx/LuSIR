@@ -958,3 +958,43 @@ generative 비교:
    실제 detail이 아니라 인공 고주파/노이즈 증가에도 상승할 수 있다.
 5. 동일 objective의 장기 continuation은 위 조건을 만족하는 중간 checkpoint가
    있을 때만 정당화한다.
+
+### 2026-06-08 perceptual continuation 완료 및 판단
+
+학습은 계획대로 `12000` micro steps에서 정상 종료됐다. 자동
+`PSNR + 5 * detail ratio` 기준 best는 step `8000`이다.
+
+| checkpoint | photo_detail delta | mild delta | photo_v2 delta | photo_v3 delta |
+| --- | ---: | ---: | ---: | ---: |
+| step 8000 | +0.0101 dB | +0.0121 dB | +0.0136 dB | +0.0256 dB |
+| step 11000 | +0.0244 dB | +0.0243 dB | +0.0255 dB | -0.0063 dB |
+| step 12000 | +0.0180 dB | +0.0170 dB | +0.0208 dB | +0.0107 dB |
+
+`photo_detail_mix` 학습 eval:
+
+| checkpoint | decoded PSNR | detail ratio | VGG perceptual | shortlist score |
+| --- | ---: | ---: | ---: | ---: |
+| 초기 step 46000 | 24.4835 | 0.2907 | 0.03218 | 25.9370 |
+| step 8000 | 24.4936 | 0.3031 | 0.03134 | 26.0092 |
+| step 11000 | 24.5080 | 0.2976 | 0.03127 | 25.9962 |
+| step 12000 | 24.5015 | 0.2998 | 0.03125 | 26.0003 |
+
+시각 판단:
+
+- step 8000/11000/12000과 초기 step46000의 차이를 고정 contact sheet에서
+  거의 구분하기 어렵다.
+- 라임 표면, 털, 잎, 셔츠 패턴, 원거리 구조의 missing detail은 복구되지 않았다.
+- 강한 입력에서 새 artifact가 크게 증가하지는 않았지만 smoothing도 유지됐다.
+
+결론:
+
+- frozen VGG supervision은 latent MSE, PSNR, VGG metric을 작게 개선한
+  부분 성공이다.
+- 사용자 체감 fine-detail 목표는 달성하지 못했으므로 public/default Stage2로
+  승격하지 않는다.
+- step `8000`은 네 preset에서 모두 후퇴하지 않은 가장 안전한 실험 후보로
+  보존한다. step `11000`은 clean/mild PSNR 후보지만 strong preset 후퇴 때문에
+  기본 후보로 선택하지 않는다.
+- 다음에는 같은 Stage2 regression continuation보다 별도 detail synthesis 경로,
+  degradation-aware high-frequency branch, 또는 실제 perceptual/preference
+  objective를 검토해야 한다.
