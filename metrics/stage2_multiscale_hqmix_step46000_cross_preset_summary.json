@@ -1,0 +1,50 @@
+{
+  "checkpoint": "checkpoints/stage2_photo100k_multiscale_hqmix_step_0046000.pt",
+  "comparison_checkpoint": "checkpoints/stage2_photo100k_v3_noise_xl_b64_step_0072000.pt",
+  "model_params": 55495120,
+  "selected_step": 46000,
+  "selection_reason": "Best cross-preset PSNR compromise while preserving clean/mild detail better than step 50000.",
+  "presets": {
+    "mild": {
+      "baseline_detail_ratio": 0.2864260681718588,
+      "baseline_psnr": 25.044934978485106,
+      "detail_ratio": 0.28778591364622114,
+      "mean_psnr_delta": 0.9228170967102051,
+      "psnr": 25.967752075195314,
+      "wins": 97
+    },
+    "photo_detail_mix": {
+      "baseline_detail_ratio": 0.28914115354418757,
+      "baseline_psnr": 25.310254955291747,
+      "detail_ratio": 0.29772041328251364,
+      "mean_psnr_delta": 1.034789390563965,
+      "psnr": 26.34504434585571,
+      "wins": 99
+    },
+    "photo_v2": {
+      "baseline_detail_ratio": 0.2876045210286975,
+      "baseline_psnr": 22.92708879470825,
+      "detail_ratio": 0.22100315913558005,
+      "mean_psnr_delta": 0.9441361331939697,
+      "psnr": 23.871224927902222,
+      "wins": 81
+    },
+    "photo_v3_noise_mix": {
+      "baseline_detail_ratio": 0.2992133591324091,
+      "baseline_psnr": 22.901402978897096,
+      "detail_ratio": 0.2257176313176751,
+      "mean_psnr_delta": 0.965002851486206,
+      "psnr": 23.8664058303833,
+      "wins": 81
+    }
+  },
+  "training": {
+    "batch_size": 8,
+    "effective_batch_size": 32,
+    "finished_micro_steps": 50000,
+    "grad_accum_steps": 4,
+    "steady_micro_steps_per_second": 1.24,
+    "wandb": "https://wandb.ai/jwheo/sr-diffusion/runs/6zt2do4v"
+  },
+  "visual_conclusion": "Large distortion/denoising improvement, but no convincing recovery of missing fur, text, fabric, or distant fine texture. Strong degradations are oversmoothed."
+}

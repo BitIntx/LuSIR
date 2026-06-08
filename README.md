@@ -165,6 +165,14 @@ max micro-steps:           50,000
 W&B:                       https://wandb.ai/jwheo/sr-diffusion/runs/6zt2do4v
 ```
 
+The run completed all 50,000 micro-steps. Step 46000 is selected instead of the
+final checkpoint: on `photo_detail_mix` and `mild` it improves the previous
+Stage 2 by `+1.0348 dB` and `+0.9228 dB` while slightly increasing detail
+energy. On stronger `photo_v2` and `photo_v3_noise_mix` inputs it still improves
+PSNR by about `0.94-0.97 dB`, but detail energy drops substantially. The new
+condition model is therefore a strong base-reconstruction/denoising candidate,
+not a solution to perceptual fine-detail recovery.
+
 A direct Stage 2 residual diagnostic confirmed that the missing signal is
 mostly high-frequency detail rather than lowpass structure. On mild val100,
 injecting only the GT highpass residual into the Stage 2 condition latent gives

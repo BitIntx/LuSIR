@@ -850,3 +850,42 @@ W&B: https://wandb.ai/jwheo/sr-diffusion/runs/6zt2do4v
 initial val100: decoded PSNR 23.7387, detail ratio 0.28167
 steady: about 1.25 micro-step/s, GPU util 100%, VRAM 34.8/46.1GB
 ```
+
+### 50k 완료 결과
+
+학습은 `50000` micro step까지 정상 완료됐다. train eval의 global decoded PSNR은
+`23.7387 -> 24.4870`으로 `+0.7482 dB` 상승했지만, 마지막 Laplacian detail
+ratio는 `0.2817 -> 0.2783`으로 감소했다. 고정 샘플에서도 큰 윤곽, 색, 노이즈
+정리는 개선됐지만 털, 과일 표면, 글자, 천, 먼 구조의 실제 고주파는 복원하지
+못했다.
+
+step 41000/46000/50000을 기존 Stage 2 XL step 72000과 같은 val100에서 직접
+비교한 결과 step 46000을 선택했다. step 50000은 PSNR 이득이 거의 없고
+clean/mild detail ratio가 다시 하락했다.
+
+| degradation | 기존 PSNR | step 46000 PSNR | delta / wins | 기존 detail | step 46000 detail |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `photo_detail_mix` | 25.3103 | 26.3450 | +1.0348 / 99 | 0.2891 | 0.2977 |
+| `mild` | 25.0449 | 25.9678 | +0.9228 / 97 | 0.2864 | 0.2878 |
+| `photo_v2` | 22.9271 | 23.8712 | +0.9441 / 81 | 0.2876 | 0.2210 |
+| `photo_v3_noise_mix` | 22.9014 | 23.8664 | +0.9650 / 81 | 0.2992 | 0.2257 |
+
+판단:
+
+- multiscale context + HQ-balanced data는 clean/mild base reconstruction과
+  denoising 정확도에는 명확히 성공했다.
+- 그러나 강한 degradation에서는 실제 detail까지 노이즈로 판단해 기존보다 더
+  많이 제거한다. 사용자 체감상 smoothing 문제는 해결되지 않았다.
+- 따라서 step 46000은 새 condition 후보로 보존하지만, perceptual detail 목표의
+  완성 모델로 취급하지 않는다.
+- 다음 구조 변경은 deterministic regression loss를 더 조정하는 수준이 아니라
+  perceptual/feature-space supervision 또는 별도 detail synthesis 경로가 필요하다.
+
+```text
+selected checkpoint:
+  checkpoints/stage2_photo100k_multiscale_hqmix_step_0046000.pt
+metrics:
+  metrics/stage2_multiscale_hqmix_step46000_cross_preset_summary.json
+W&B:
+  https://wandb.ai/jwheo/sr-diffusion/runs/6zt2do4v
+```

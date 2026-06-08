@@ -424,6 +424,18 @@ test on one L40S at approximately `34.8/46.1GB` VRAM and `100%` GPU
 utilization. The 50,000-micro-step long run is tracked at
 <https://wandb.ai/jwheo/sr-diffusion/runs/6zt2do4v>.
 
+The run completed normally. Step 46000 was selected over the final checkpoint
+because it provides the best cross-preset distortion/detail compromise. It
+improves the previous Stage 2 by `+1.0348 dB` on `photo_detail_mix` and
+`+0.9228 dB` on `mild`, with `99/100` and `97/100` per-image wins and slightly
+higher detail ratios. On the stronger `photo_v2` and `photo_v3_noise_mix`
+presets it improves PSNR by `+0.9441 dB` and `+0.9650 dB`, but the detail ratio
+drops from roughly `0.29-0.30` to `0.22-0.23`. Visual comparison confirms that
+the model improves color, large boundaries, and denoising without convincingly
+recovering missing fur, text, fabric, or distant texture. The experiment is a
+successful base-reconstruction redesign but not a solution to perceptual
+fine-detail recovery.
+
 ## Public Artifacts
 
 The latest public artifacts are stored in `jwheo/sr-diffusion` on Hugging Face:
@@ -434,6 +446,7 @@ checkpoints/residual_refiner_stage2_xl_mild_best_eval_refined.pt
 checkpoints/stage4_photo100k_xl_teacher_residual_photo_v3_step_0002000.pt
 checkpoints/stage4_photo100k_xl_teacher_residual_photo_detail_best8000.pt
 checkpoints/residual_refiner_stage2_xl_photo_detail_v2_best39000.pt
+checkpoints/stage2_photo100k_multiscale_hqmix_step_0046000.pt
 metrics/stage4_photo100k_xl_edge_b16_val100_t50_32step_summary.json
 metrics/diagnose_stage2_xl_residuals_mild_val100_summary.json
 metrics/residual_refiner_stage2_xl_mild_probe_early_stop_summary.json
@@ -446,6 +459,7 @@ metrics/residual_refiner_v2_best39000_strength_sweep_summary.json
 metrics/eval_residual_refiner_v2_best39000_stage2_xl_mild_val100_summary.json
 metrics/eval_residual_refiner_v2_best39000_stage2_xl_photo_v2_val100_summary.json
 metrics/eval_residual_refiner_v2_best39000_stage2_xl_photo_v3_noise_mix_val100_summary.json
+metrics/stage2_multiscale_hqmix_step46000_cross_preset_summary.json
 samples/stage4_photo100k_xl_edge_b16_val100_t50_32step_grid_lr_bicubic_sr_gt.png
 samples/diagnose_stage2_xl_residuals_mild_val100_grid.png
 samples/residual_refiner_stage2_xl_mild_probe_step500_grid.png
@@ -457,6 +471,7 @@ samples/residual_refiner_stage2_xl_photo_detail_v2_best39000_grid.png
 samples/eval_residual_refiner_v2_best39000_stage2_xl_mild_val100_grid.png
 samples/eval_residual_refiner_v2_best39000_stage2_xl_photo_v2_val100_grid.png
 samples/eval_residual_refiner_v2_best39000_stage2_xl_photo_v3_noise_mix_val100_grid.png
+samples/stage2_multiscale_hqmix_checkpoint_comparison.png
 configs/diffusion_photo100k_xl_stage4_condition_v3_edge_b16.yaml
 configs/residual_refiner_stage2_xl_mild_probe.yaml
 configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_v3_b8_probe.yaml

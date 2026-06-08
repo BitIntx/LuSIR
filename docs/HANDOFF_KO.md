@@ -7,7 +7,7 @@
 
 ## 2026-06-07 최신 실험 요약
 
-- 현재 실행 중: Stage 2 multiscale-context + HQ-balanced long run.
+- 완료: Stage 2 multiscale-context + HQ-balanced long run, `50000` micro steps.
 - 목표: decoded loss만으로 해결되지 않은 condition smoothing을 넓은 문맥과
   고품질 데이터 노출 비율 교정으로 해결.
 - config:
@@ -20,8 +20,14 @@
   분기 때문에 기존 Stage 2 step 72000 출력과 정확히 같은 시작점이다.
 - L40S 한 장: batch `8`, grad accumulation `4`, VRAM 약 `34.8/46.1GB`,
   steady 약 `1.25 micro-step/s`, GPU util `100%`.
-- max `50,000` micro steps. 학습 중 고정 sample과 detail ratio를 함께 보고,
-  PSNR만 오른 채 다시 smoothing되면 조기 중단한다.
+- 선택 checkpoint: step `46000`.
+- clean/mild에서는 기존 Stage 2보다 약 `+0.92~1.03 dB`, `97~99/100` wins이며
+  detail ratio도 소폭 상승했다.
+- strong `photo_v2/photo_v3_noise_mix`에서도 약 `+0.94~0.97 dB`지만 detail
+  ratio는 약 `0.29~0.30 -> 0.22~0.23`으로 크게 감소했다.
+- 결론: base reconstruction/denoising 개선에는 성공했지만 perceptual detail
+  복원과 strong-input smoothing 문제는 해결하지 못했다.
+- HF preset: `python scripts/download_hf_checkpoints.py --preset stage2_multiscale_hqmix`
 
 - residual refiner v2 lower-LR continuation과 cross-preset 평가 완료.
 - 완료: `40000` micro steps, best decoded PSNR step `39000`.

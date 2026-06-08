@@ -119,6 +119,14 @@ RESIDUAL_REFINER_V2_FILES = [
     "samples/eval_residual_refiner_v2_best39000_stage2_xl_photo_v3_noise_mix_val100_grid.png",
 ]
 
+STAGE2_MULTISCALE_HQMIX_FILES = [
+    *PHOTO100K_XL_CANDIDATE_FILES,
+    "checkpoints/stage2_photo100k_multiscale_hqmix_step_0046000.pt",
+    "configs/latent_pretrain_photo100k_multiscale_hqmix_long.yaml",
+    "metrics/stage2_multiscale_hqmix_step46000_cross_preset_summary.json",
+    "samples/stage2_multiscale_hqmix_checkpoint_comparison.png",
+]
+
 PRESETS = {
     "prototype": PROTOTYPE_FILES,
     "photo100k": PHOTO100K_FILES,
@@ -128,6 +136,7 @@ PRESETS = {
     "stage4_teacher_residual_probe": STAGE4_TEACHER_RESIDUAL_PROBE_FILES,
     "stage4_photo_detail": STAGE4_PHOTO_DETAIL_FILES,
     "residual_refiner_v2": RESIDUAL_REFINER_V2_FILES,
+    "stage2_multiscale_hqmix": STAGE2_MULTISCALE_HQMIX_FILES,
 }
 
 
@@ -149,7 +158,8 @@ def parse_args() -> argparse.Namespace:
             "and cross-degradation eval artifacts; 'stage4_teacher_residual_probe' also includes the selected "
             "teacher-supervised Stage 4 probe checkpoint and sampled eval artifacts; "
             "'stage4_photo_detail' includes the selected detail-preserving Stage 4 checkpoint; "
-            "'residual_refiner_v2' includes the selected decoded-detail residual refiner and cross-preset evals."
+            "'residual_refiner_v2' includes the selected decoded-detail residual refiner and cross-preset evals; "
+            "'stage2_multiscale_hqmix' includes the selected multiscale Stage 2 condition checkpoint."
         ),
     )
     parser.add_argument(
