@@ -9,11 +9,11 @@
 
 ![Representative deterministic x4 Stage 2 results](docs/assets/stage2_multiscale_demo.jpg)
 
-Representative `photo_detail_mix` validation examples from the selected
+A representative `photo_detail_mix` validation example from the selected
 multiscale Stage 2 step 46000 checkpoint. The model restores stable structure,
-color, and large boundaries from degraded x4 inputs, but remains visibly softer
-than ground truth on text, fur, fabric, and distant texture. This is the current
-deterministic condition output, not a cherry-picked generative result.
+color, and large boundaries from the degraded x4 input, while remaining softer
+than ground truth on the finest surface texture. This is the current
+deterministic condition output, not a generative result.
 
 Vision-only x4 latent diffusion super-resolution experiments.
 Report source: [paper/main.tex](paper/main.tex), with a plain Markdown snapshot
