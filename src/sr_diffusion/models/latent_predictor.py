@@ -78,9 +78,12 @@ class LRToLatentPredictor(nn.Module):
         context_channels: tuple[int, int] = (256, 384),
         context_blocks: tuple[int, int] = (4, 6),
         context_scale: float = 1.0,
+        extra_context_channels: tuple[int, int] = (384, 512),
+        extra_context_blocks: tuple[int, int] = (8, 12),
+        extra_context_scale: float = 1.0,
     ) -> None:
         super().__init__()
-        if architecture not in {"flat", "multiscale_context"}:
+        if architecture not in {"flat", "multiscale_context", "dual_multiscale_context"}:
             raise ValueError(f"Unsupported LRToLatentPredictor architecture: {architecture}")
         self.input = nn.Conv2d(in_channels, base_channels, kernel_size=3, padding=1)
         self.domain_embedding = nn.Embedding(num_domains, base_channels)
@@ -92,10 +95,21 @@ class LRToLatentPredictor(nn.Module):
                 context_blocks=context_blocks,
                 norm_groups=norm_groups,
             )
-            if architecture == "multiscale_context"
+            if architecture in {"multiscale_context", "dual_multiscale_context"}
             else None
         )
         self.context_scale = float(context_scale)
+        self.extra_context = (
+            MultiScaleContext(
+                base_channels=base_channels,
+                context_channels=extra_context_channels,
+                context_blocks=extra_context_blocks,
+                norm_groups=norm_groups,
+            )
+            if architecture == "dual_multiscale_context"
+            else None
+        )
+        self.extra_context_scale = float(extra_context_scale)
         self.output = nn.Sequential(
             _norm(base_channels, norm_groups),
             nn.SiLU(),
@@ -115,6 +129,9 @@ class LRToLatentPredictor(nn.Module):
             context_channels=tuple(config.get("context_channels", (256, 384))),
             context_blocks=tuple(config.get("context_blocks", (4, 6))),
             context_scale=config.get("context_scale", 1.0),
+            extra_context_channels=tuple(config.get("extra_context_channels", (384, 512))),
+            extra_context_blocks=tuple(config.get("extra_context_blocks", (8, 12))),
+            extra_context_scale=config.get("extra_context_scale", 1.0),
         )
 
     def forward(self, lr: torch.Tensor, domain_id: torch.Tensor | None = None) -> torch.Tensor:
@@ -125,4 +142,6 @@ class LRToLatentPredictor(nn.Module):
         x = self.blocks(x)
         if self.context is not None:
             x = x + self.context_scale * self.context(x)
+        if self.extra_context is not None:
+            x = x + self.extra_context_scale * self.extra_context(x)
         return self.output(x)

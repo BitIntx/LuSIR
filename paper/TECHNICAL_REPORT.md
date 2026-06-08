@@ -1,6 +1,6 @@
 # Vision-Only Latent Diffusion Super-Resolution without T2I Pretraining
 
-Snapshot: multiscale Stage 2 selected; perceptual Stage 2 continuation complete.
+Snapshot: dual-context Stage 2 unique-data scale-up active.
 
 ## Objective
 
@@ -465,6 +465,30 @@ almost no visible difference from initialization, and missing fine texture
 remained smoothed. The run is preserved as a partial metric/latent success but
 is not promoted into the public path. The completed run is tracked at
 <https://wandb.ai/jwheo/sr-diffusion/runs/nrqhw05u>.
+
+## Dual-Context Unique-Data Stage 2 Scale-up
+
+The VGG continuation's `+0.0101` to `+0.0256 dB` cross-preset improvements were
+not visually distinguishable and did not recover missing texture. Capacity and
+data uniqueness are therefore changed together instead of extending the same
+objective again. The previous HQ-balanced manifest had 203,600 rows but only
+103,550 unique images because DIV2K and Flickr2K were repeatedly exposed.
+
+The new manifest adds 30,000 unique LSDIR images for 133,450 unique training
+images plus the unchanged 100-image validation set. The predictor retains the
+selected 55.50M-parameter multiscale model and adds a second zero-output-
+initialized multiscale context branch. Partial initialization exactly preserves
+the selected step 46000 output before training while increasing capacity to
+119.24M parameters.
+
+The one-L40S smoke test reproduced the initial `24.48 dB` decoded PSNR and
+`0.291` detail ratio. Batch 8 with gradient accumulation 4 used approximately
+`37.8/46.1GB` VRAM, reached `99%` GPU utilization, and sustained approximately
+`0.75` micro-step/s. The long run targets 100,000 micro-steps, or 25,000
+optimizer updates. Evaluation remains every 1,000 micro-steps, while ordinary
+milestone checkpoints are limited to every 5,000 micro-steps to stay within the
+disk budget. The active run is tracked at
+<https://wandb.ai/jwheo/sr-diffusion/runs/4akqckxu>.
 
 ## Public Artifacts
 

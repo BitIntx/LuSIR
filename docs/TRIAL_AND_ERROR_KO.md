@@ -998,3 +998,45 @@ generative 비교:
 - 다음에는 같은 Stage2 regression continuation보다 별도 detail synthesis 경로,
   degradation-aware high-frequency branch, 또는 실제 perceptual/preference
   objective를 검토해야 한다.
+
+### 2026-06-08 `+0.01 dB` 판단과 unique-data dual-context 장기 run
+
+perceptual continuation의 cross-preset 개선은 `+0.0101~+0.0256 dB`였지만
+고정 sample에서 거의 구분되지 않았다. 이 정도 변화는 평가 노이즈와 checkpoint
+선택 편차에 가깝고, 사용자 체감 업스케일 품질 개선으로 해석하지 않는다.
+
+데이터 점검 결과:
+
+- HQ-balanced manifest: `203600` rows.
+- 실제 고유 이미지: `103550`장.
+- COCO `100000`, DIV2K `900`, Flickr2K `2650` 고유 이미지이며 HQ 데이터는
+  반복 노출로만 비중을 높였다.
+- 다음 run은 LSDIR 고유 이미지 `30000`장을 받아 최종
+  `133450` unique train + `100` val로 구성한다.
+
+구조 변경:
+
+- selected multiscale Stage2 step `46000`의 55.50M 파라미터를 모두 유지한다.
+- 두 번째 multiscale context branch를 추가해 총 `119238352` 파라미터로 늘린다.
+- 새 branch 출력 convolution은 zero-init이므로 partial init 직후 출력은 기존
+  selected checkpoint와 정확히 같다.
+- 기존 VGG perceptual objective는 시각 효과가 없었으므로 다시 사용하지 않고,
+  decoded/edge/highpass objective를 유지한다.
+
+CUDA smoke:
+
+- config:
+  `configs/latent_pretrain_photo130k_lsdir_dual_multiscale_long.yaml`
+- batch `8`, grad accumulation `4`, effective batch `32`.
+- 초기 val100 decoded PSNR `24.48`, detail ratio `0.291`.
+- L40S VRAM 약 `37.8/46.1GB`, GPU util `99%`, 약 `0.75 micro-step/s`.
+- max `100000` micro steps = `25000` optimizer updates.
+- 일반 checkpoint는 디스크 보호를 위해 `5000` micro-step마다 저장한다.
+- raw LSDIR 데이터는 GitHub/HF에 올리지 않는다.
+- 장기 학습 시작:
+  - tmux: `stage2-lsdir-dual`
+  - W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/4akqckxu>
+  - log:
+    `/home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_multiscale_long/train.log`
+  - 초기 eval 이후 step 50~75 steady 약 `1.15 micro-step/s`, GPU `100%`,
+    VRAM `37.8/46.1GB`, 약 `306W`, `58°C`.

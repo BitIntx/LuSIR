@@ -128,6 +128,24 @@ photo/train: 103450
 photo/val: 100
 ```
 
+현재 dual-multiscale Stage 2 장기 run용 LSDIR 30k subset과 병합 manifest:
+
+```bash
+python scripts/download_lsdir_hf.py \
+  --output-dir /home/$USER/scratch/sr-diffusion/datasets/photo/lsdir \
+  --manifest /home/$USER/scratch/sr-diffusion/data/manifest_lsdir_photo.csv \
+  --target-count 30000
+
+python scripts/merge_manifests.py \
+  --inputs /home/$USER/scratch/sr-diffusion/data/manifest_photo100k.csv \
+           /home/$USER/scratch/sr-diffusion/data/manifest_lsdir_photo.csv \
+  --output /home/$USER/scratch/sr-diffusion/data/manifest_photo130k_lsdir.csv
+```
+
+예상 병합 결과는 `133450` unique train + `100` val이다. 다운로더는 parquet
+shard 하나씩만 보관하고 추출 후 삭제하므로 전체 parquet 복제본이 필요하지
+않다. raw LSDIR 데이터는 GitHub/HF에 업로드하지 않는다.
+
 ## 6. Training config가 기대하는 checkpoint 경로
 
 현재 학습 config들은 기존 scratch 절대경로를 참조한다. 새 VM에서 같은

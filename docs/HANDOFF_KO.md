@@ -29,6 +29,34 @@ generative:
 - 현재 사용자용 public deterministic 기본값은 residual refiner v2이고,
   최신 연구용 condition 후보는 multiscale Stage 2 step `46000`이다.
 
+### 현재 실행 중인 장기 실험
+
+- perceptual continuation의 `+0.01~0.03 dB`는 고정 sample에서 거의 구분되지
+  않아 사용자 체감 개선으로 보지 않는다.
+- 기존 HQ-balanced manifest는 `203600` rows지만 고유 이미지는
+  `103550`장뿐이었다. 반복 노출 대신 LSDIR 고유 이미지 `30000`장을 추가한다.
+- 최종 manifest:
+  `/home/ubuntu/scratch/sr-diffusion/data/manifest_photo130k_lsdir.csv`
+  (`133450` unique train + `100` val).
+- config:
+  `configs/latent_pretrain_photo130k_lsdir_dual_multiscale_long.yaml`
+- W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/4akqckxu>
+- tmux: `stage2-lsdir-dual`
+- log:
+  `/home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_multiscale_long/train.log`
+- 모델은 selected multiscale step `46000`의 55.50M 파라미터를 모두 불러오고,
+  zero-output 초기화된 두 번째 multiscale context branch를 추가한 119.24M
+  Stage 2다. 학습 시작 전 출력은 기존 checkpoint와 동일하다.
+- batch `8`, grad accumulation `4`, effective batch `32`, max `100000`
+  micro steps = `25000` optimizer updates.
+- smoke: 초기 val100 decoded PSNR `24.48`, detail ratio `0.291`, VRAM
+  `37.8/46.1GB`, GPU util `99%`, 약 `0.75 micro-step/s`.
+- 실제 장기 run은 초기 eval 이후 step 50~75에서 약 `1.15 micro-step/s`,
+  GPU util `100%`, VRAM `37.8/46.1GB`, 약 `306W`, `58°C`로 안정화됐다.
+- 일반 milestone은 디스크 보호를 위해 `5000` micro-step마다 저장하고,
+  val100 eval과 best checkpoint 갱신은 `1000` micro-step마다 수행한다.
+- raw LSDIR 데이터는 GitHub/HF에 올리지 않는다.
+
 ### 최신 완료 실험
 
 - 완료: Stage 2 multiscale-context + HQ-balanced long run, `50000` micro steps.
@@ -705,8 +733,10 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
   Stage 3과 Stage 4는 직렬 모듈이 아니라 서로 교체해서 쓰는 diffusion
   checkpoint다.
 - 사용자 체감 병목은 여전히 missing fine detail과 strong-input smoothing이다.
-- 현재 실행 중인 학습은 없다. frozen VGG feature-supervised perceptual
-  continuation은 12000 step에서 정상 완료됐지만 시각적 detail 목표에는 실패했다.
+- frozen VGG feature-supervised perceptual continuation은 12000 step에서
+  정상 완료됐지만 시각적 detail 목표에는 실패했다. 다음 장기 실험은 데이터
+  고유성과 Stage 2 capacity를 함께 늘린 dual-multiscale run이며 현재
+  W&B run `4akqckxu`에서 실행 중이다.
 - `decoded_psnr + 5 * detail_ratio`는 shortlist score다. detail energy만
   높이는 인공 고주파/노이즈를 보상할 수 있으므로 이것만으로 승격하지 않는다.
 
@@ -714,11 +744,10 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
 
 우선순위:
 
-1. perceptual Stage2 step8000은 비승격 실험 후보로 보존한다.
-2. 같은 Stage2 regression continuation은 더 길게 돌리지 않는다.
-3. 다음 구조 후보는 degradation-aware high-frequency/detail synthesis branch다.
-4. 새 구조 전에는 LPIPS/DISTS 및 고정 sample blind A/B 평가를 구현해
-   작은 metric 상승과 실제 사용자 체감을 분리한다.
+1. dual-multiscale LSDIR 장기 run의 val100과 고정 sample을 함께 감시한다.
+2. perceptual Stage2 step8000은 비승격 실험 후보로 보존한다.
+3. `+0.01 dB` 수준 변화는 시각 개선 근거 없이 승격하지 않는다.
+4. 다음 구조 후보는 degradation-aware high-frequency/detail synthesis branch다.
 5. public Colab 기본 경로는 기존 residual refiner v2를 유지한다.
 
 ## 새 VM에서 Codex에게 줄 짧은 프롬프트
@@ -729,8 +758,9 @@ docs/HANDOFF_KO.md 와 docs/VM_RECOVERY_KO.md 를 먼저 읽고 이어서 작업
 Stage 번호는 학습 순서이며 추론 직렬 경로가 아니다. Colab 기본은
 LR -> Stage2 XL step72000 -> residual refiner v2 step39000 -> Stage1 decoder다.
 multiscale Stage2 step46000에서 시작한 VGG perceptual continuation은 12000
-step에서 완료됐고 시각적 detail 개선이 없어 승격하지 않았다. step8000은
-네 preset에서 모두 소폭 개선한 비승격 후보로 보존한다. 다음은 같은 continuation이
-아니라 detail synthesis/high-frequency 구조와 perceptual 평가를 검토해줘.
+step에서 완료됐고 시각적 detail 개선이 없어 승격하지 않았다. 현재는 LSDIR
+고유 이미지 30000장과 zero-init 두 번째 context branch를 추가한 119.24M
+dual-multiscale Stage2 장기 run을 진행한다. `+0.01 dB`만으로 승격하지 말고
+val100과 고정 sample을 함께 확인해줘.
 상업적 이용은 금지이고, raw dataset은 GitHub/HF에 올리지 않는다.
 ```

@@ -9,6 +9,7 @@ description = "Vision-only latent diffusion super-resolution experiments."
 requires-python = ">=3.12"
 dependencies = [
   "numpy",
+  "pyarrow",
   "pillow",
   "pyyaml",
   "torch",

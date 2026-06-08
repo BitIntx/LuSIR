@@ -8,7 +8,7 @@
 
 \title{Vision-Only Latent Diffusion Super-Resolution without T2I Pretraining}
 \author{sr-diffusion contributors}
-\date{Experiment snapshot through completed perceptual Stage 2 continuation}
+\date{Experiment snapshot through active dual-context Stage 2 scale-up}
 
 \begin{document}
 \maketitle
@@ -586,7 +586,7 @@ encoder and before the Stage 1 decoder; it does not use Stage 3 or Stage 4.
 Residual strengths 1.0, 0.75, and 0.5 expose an average-quality versus
 failure-tail trade-off.
 
-\section{Multiscale Stage 2 and Active Perceptual Continuation}
+\section{Multiscale Stage 2 and Dual-Context Scale-up}
 
 The latest Stage 2 redesign preserves the selected XL predictor through partial
 initialization, then adds a zero-output-initialized multiscale context branch.
@@ -616,6 +616,21 @@ across four presets. Step 11,000 was strongest on cleaner presets but regressed
 the strongest noise mix by 0.0063 dB. Fixed contact sheets showed almost no
 visible difference from initialization, and missing fine texture remained
 smoothed. The continuation was therefore not promoted.
+
+The next scale-up changes capacity and data uniqueness together. The previous
+HQ-balanced manifest contained 203,600 rows but only 103,550 unique images.
+The new manifest adds 30,000 unique LSDIR training images, giving 133,450
+unique training images plus the unchanged 100-image validation set. A second
+zero-output-initialized multiscale context branch preserves the selected step
+46,000 output before training and increases predictor capacity from 55.50M to
+119.24M parameters.
+
+A one-L40S smoke test reproduced the initial 24.48 dB decoded PSNR and 0.291
+detail ratio. Batch 8 with gradient accumulation 4 used approximately
+37.8/46.1GB VRAM at 99\% GPU utilization and approximately 0.75 micro-steps/s.
+The long run targets 100,000 micro-steps, or 25,000 optimizer updates.
+Validation remains every 1,000 micro-steps, while ordinary milestones are
+stored every 5,000 micro-steps to remain within disk budget.
 
 \section{Limitations}
 

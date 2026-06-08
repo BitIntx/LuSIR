@@ -238,6 +238,35 @@ small metric/latent improvement, not a user-facing detail breakthrough.
 The non-promoted checkpoint and comparison sheets are available through
 `python scripts/download_hf_checkpoints.py --preset stage2_multiscale_perceptual`.
 
+The next Stage 2 scale-up addresses the clearer bottlenecks exposed by that
+result: the HQ-balanced manifest contained 203,600 rows but only 103,550 unique
+images, and the 55.50M model still smoothed missing texture. It adds 30,000
+unique LSDIR training images and a second zero-output-initialized multiscale
+context branch. Partial initialization from selected step 46000 therefore
+preserves the existing output before training while increasing capacity to
+119.24M parameters.
+
+```text
+config:          configs/latent_pretrain_photo130k_lsdir_dual_multiscale_long.yaml
+training data:   133,450 unique train / 100 val images
+initialization:  multiscale Stage 2 step 46000
+batch:           8 x grad_accum 4 = effective 32
+max steps:       100,000 micro-steps = 25,000 optimizer updates
+selection:       eval/decoded_psnr plus fixed-sample visual review
+W&B:             https://wandb.ai/jwheo/sr-diffusion/runs/4akqckxu
+```
+
+The L40S smoke test reproduced the initialization at `24.48 dB` decoded PSNR
+and `0.291` detail ratio. Batch 8 used about `37.8/46.1GB` VRAM at `99%` GPU
+utilization and sustained approximately `0.75` micro-step/s. Checkpoint
+milestones are saved every 5,000 micro-steps to keep the long run within disk
+budget; val100 evaluation still runs every 1,000 micro-steps.
+The active tmux session is `stage2-lsdir-dual`, with the log at
+`/home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_multiscale_long/train.log`.
+After startup evaluation, the active run stabilized at approximately
+`1.15 micro-step/s`, `100%` GPU utilization, `37.8/46.1GB` VRAM, and about
+`306W`.
+
 A direct Stage 2 residual diagnostic confirmed that the missing signal is
 mostly high-frequency detail rather than lowpass structure. On mild val100,
 injecting only the GT highpass residual into the Stage 2 condition latent gives
@@ -1142,6 +1171,8 @@ Stage 2: deterministic LR -> HR latent pretrain
 - The VGG-feature-supervised continuation of multiscale step 46000 is complete.
   It produced small metric gains but was not promoted because fixed samples
   showed no meaningful fine-detail improvement.
+- A 119.24M dual-multiscale Stage 2 scale-up on 30,000 additional unique LSDIR
+  images is the active long run. It starts exactly from selected step 46000.
 - Freeze the selected Stage 1 VAE.
 - Train an LR-to-latent predictor that maps degraded LR inputs to HR VAE
   encoder means.
