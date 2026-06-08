@@ -13,7 +13,14 @@ A representative `photo_detail_mix` validation example from the selected
 multiscale Stage 2 step 46000 checkpoint. The model restores stable structure,
 color, and large boundaries from the degraded x4 input, while remaining softer
 than ground truth on the finest surface texture. This is the current
-deterministic condition output, not a generative result.
+deterministic Stage 2 research candidate, not a generative result or the current
+Colab default.
+
+Reproducibility: the source is the deterministic val100 contact sheet
+`samples/stage2_multiscale_hqmix_checkpoint_comparison.png`, generated from
+`checkpoints/stage2_photo100k_multiscale_hqmix_step_0046000.pt` with
+`photo_detail_mix`. The README image is a crop of that public sheet; the exact
+row index was not preserved when the crop was made.
 
 Vision-only x4 latent diffusion super-resolution experiments.
 Report source: [paper/main.tex](paper/main.tex), with a plain Markdown snapshot
@@ -67,11 +74,32 @@ Constraints:
 
 ## Current Status
 
-We finished the first **Stage 1: VAE / Autoencoder**, **Stage 2:
-deterministic LR -> HR latent pretraining**, and **Stage 3: conditional latent
-diffusion** passes. The photo100k scale-up has completed through Stage 4
-condition-start, and the current best sampled photo100k checkpoint is the
-Stage 4 condition-start checkpoint initialized from Stage 3:
+The stage numbers describe the **training sequence**, not a runtime chain that
+always executes Stage 1 -> 2 -> 3 -> 4. Current inference paths are:
+
+```text
+Colab default / public deterministic:
+  LR -> Stage 2 XL step 72000 -> residual refiner v2 step 39000
+     -> Stage 1 VAE decoder -> SR
+
+Research deterministic candidate:
+  LR -> multiscale Stage 2 step 46000 -> Stage 1 VAE decoder -> SR
+
+Generative comparison:
+  LR -> Stage 2 condition encoder -> Stage 3 OR Stage 4 diffusion U-Net
+     -> Stage 1 VAE decoder -> SR
+```
+
+Stage 4 is a Stage 3-derived replacement checkpoint, not a module applied after
+Stage 3. The planned Stage 5 distillation would replace the slower Stage 3/4
+sampler with a faster one; it would not be appended after Stage 4.
+
+The Colab notebook defaults to the deterministic residual refiner v2 path.
+Users can explicitly select Stage 3/4 diffusion comparisons in the notebook,
+but those are not the recommended default. The latest active research run is a
+VGG-feature-supervised continuation of multiscale Stage 2 step 46000.
+
+Historical first-pass photo100k Stage 3/4 comparison:
 
 ```text
 Stage 2 photo100k: latent_pretrain_photo100k_b64, finished step 30000
@@ -193,10 +221,15 @@ batch:          4 x grad_accum 8 = effective 32
 max steps:      12,000
 best metric:    decoded PSNR + 5 x detail ratio
 W&B:            https://wandb.ai/jwheo/sr-diffusion/runs/nrqhw05u
+step 3000:      PSNR 24.49, detail ratio 0.301, perceptual 0.03144
+                shortlist score 26.000
 ```
 
 This optional experiment introduces pretrained vision feature supervision, but
-does not use a pretrained text-to-image or generative model.
+does not use a pretrained text-to-image or generative model. The shortlist
+score can reward artificial high-frequency energy, so it is not sufficient for
+promotion. Promotion requires cross-preset distortion checks, perceptual
+metrics, artifact review, and fixed-sample blind A/B.
 
 A direct Stage 2 residual diagnostic confirmed that the missing signal is
 mostly high-frequency detail rather than lowpass structure. On mild val100,
@@ -528,7 +561,7 @@ best eval/x0_mse: step 5000, eval/x0_mse 0.01186
 best decoded PSNR diagnostic: step 4500, eval/decoded_psnr 32.74
 sampled val32 SR PSNR: 25.5493
 sampled val32 delta vs Stage 3: -0.0037 dB
-decision: do not promote; keep Stage 3 as current best sampled checkpoint
+historical decision: do not promote over its Stage 3 baseline
 ```
 
 Stage 4 condition-start fine-tune result:
@@ -544,7 +577,7 @@ best sampled setting: --init condition --start-timestep 25 --steps 32
 sampled val32 SR PSNR: 25.660
 sampled val100 SR PSNR: 25.293
 sampled val100 delta vs Stage 3: +0.071 dB
-decision: promote as current best sampled checkpoint
+historical decision: promote over its paired Stage 3 baseline
 ```
 
 This trains the low-timestep path from the Stage 2 condition latent instead of
@@ -1086,20 +1119,21 @@ Stage 0: scaffold and data pipeline
 
 Stage 1: VAE / Autoencoder
 
-- Done for the first pass.
+- First selected checkpoint complete and shared.
 - Train factor-4 VAE on 512 HR crops.
 - Select checkpoint using fixed visual samples plus `eval/recon`, `eval/psnr`,
   and residual qualitative checks.
-- Possible improvements before moving on:
+- Future Stage 1-specific improvements:
   - LPIPS/perceptual eval.
-  - perceptual training loss.
   - KL weight sweep.
   - larger or domain-balanced data.
   - rename `samples/HR` to `samples/Recon` for clarity.
 
 Stage 2: deterministic LR -> HR latent pretrain
 
-- Done for the first 10k pass; photo100k scale-up is the next active pass.
+- Baseline, XL, and multiscale photo100k runs are complete.
+- Active work is the VGG-feature-supervised continuation of multiscale step
+  46000.
 - Freeze the selected Stage 1 VAE.
 - Train an LR-to-latent predictor that maps degraded LR inputs to HR VAE
   encoder means.
@@ -1123,8 +1157,8 @@ Run the photo100k Stage 2 scale-up:
 
 Stage 3: conditional latent diffusion
 
-- First pass complete. It is the baseline for the current Stage 4 condition
-  checkpoint.
+- First passes complete. Stage 3 is a diffusion baseline and initialization
+  source for Stage 4, not a runtime module that must execute before Stage 4.
 - Train diffusion U-Net over HR latents.
 - Conditioning:
   - frozen Stage 2 LR-to-latent condition encoder
@@ -1135,14 +1169,15 @@ Stage 3: conditional latent diffusion
 
 Stage 4: perceptual / GAN fine-tune
 
-- Current stage.
+- Multiple condition-start, XL edge, role-split, gated-residual, teacher, and
+  photo-detail adaptations are complete.
 - First conservative Stage 4-lite low-timestep fine-tune is complete. It
   improved one-step diagnostics but not the fixed 32-step sampled eval, so it
   is not promoted over Stage 3.
-- Condition-start fine-tuning, initialized from the Stage 3 best checkpoint,
-  is the current best sampled SR checkpoint. It trains low timesteps `25..100`,
-  but starts the training noisy latent from the Stage 2 condition latent so the
-  train path better matches `tools/infer/infer_diffusion.py --init condition`.
+- Condition-start fine-tuning is initialized from Stage 3, but its checkpoint
+  replaces Stage 3 during inference. It trains low timesteps `25..100` and
+  starts the training noisy latent from the Stage 2 condition latent so the
+  train path matches `tools/infer/infer_diffusion.py --init condition`.
 - It uses a small effective-noise loss plus a stronger x0 latent reconstruction
   loss to preserve fidelity. The best sampled setting so far is
   `--start-timestep 25`.
@@ -1187,7 +1222,10 @@ Run the Stage 4 condition-start fine-tune:
 
 Stage 5: few-step distillation
 
-- Distill the diffusion model for faster inference.
+- Planned, not implemented.
+- Distill a selected Stage 3/4 diffusion sampler for faster inference.
+- A distilled checkpoint would replace the slower diffusion sampler; it would
+  not run after Stage 4 as another serial enhancement module.
 
 Stage 6: preference eval
 
@@ -1248,8 +1286,8 @@ Run a tiny Stage 3 smoke test:
   --limit-steps 1
 ```
 
-Run current best Stage 4 condition-start sampling from an HR image by creating
-a controlled LR input first:
+Run the historical Stage 4 condition-start comparison from an HR image by
+creating a controlled LR input first:
 
 ```bash
 /home/jwheojjang/venvs/rocm/bin/python tools/infer/infer_diffusion.py \
@@ -1261,9 +1299,8 @@ a controlled LR input first:
   --seed 123
 ```
 
-The Stage 4 condition config sets `sampling.start_timestep: 25`, so the command
-above uses the best sampled setting found so far unless `--start-timestep` is
-passed explicitly.
+The Stage 4 condition config sets `sampling.start_timestep: 25`. This is a
+diffusion comparison path, not the Colab default deterministic path.
 
 Run Stage 3 baseline sampling from an HR image by creating a controlled LR input first:
 

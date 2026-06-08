@@ -5,7 +5,31 @@
 
 최신 실패/부분 성공/다음 가설 기록은 `docs/TRIAL_AND_ERROR_KO.md`에 누적합니다.
 
-## 2026-06-07 최신 실험 요약
+## 2026-06-08 현재 상태
+
+### 학습 단계와 실제 추론 경로
+
+Stage 번호는 학습 순서를 뜻하며, 추론 때 Stage 1부터 Stage 4까지 모두
+직렬로 실행한다는 뜻이 아니다.
+
+```text
+deterministic:
+  LR -> Stage 2 condition encoder -> optional residual refiner -> Stage 1 VAE decoder -> SR
+
+generative:
+  LR -> Stage 2 condition encoder -> Stage 3 또는 Stage 4 diffusion U-Net -> Stage 1 VAE decoder -> SR
+```
+
+- Stage 1은 공통 latent 공간과 최종 decoder를 제공한다.
+- Stage 2는 LR에서 condition latent를 만든다.
+- Stage 3과 Stage 4는 동시에 통과하지 않는다. Stage 4는 Stage 3에서 이어
+  학습한 대체 diffusion checkpoint다.
+- Stage 5 few-step distillation도 구현되면 Stage 3/4 sampling을 더 짧은
+  sampler로 대체하는 단계이지, 뒤에 추가되는 직렬 모듈이 아니다.
+- 현재 사용자용 public deterministic 기본값은 residual refiner v2이고,
+  최신 연구용 condition 후보는 multiscale Stage 2 step `46000`이다.
+
+### 실행 중 실험
 
 - 완료: Stage 2 multiscale-context + HQ-balanced long run, `50000` micro steps.
 - 목표: decoded loss만으로 해결되지 않은 condition smoothing을 넓은 문맥과
@@ -13,8 +37,7 @@
 - config:
   `configs/latent_pretrain_photo100k_multiscale_hqmix_long.yaml`
 - W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/6zt2do4v>
-- tmux: `stage2-multiscale`
-- log:
+- 완료된 run log:
   `/home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo100k_multiscale_hqmix_long/train.log`
 - 초기 val100: decoded PSNR `23.7387`, detail ratio `0.28167`. Zero-init context
   분기 때문에 기존 Stage 2 step 72000 출력과 정확히 같은 시작점이다.
@@ -39,6 +62,12 @@
   steady 약 `2.62 micro-step/s`, GPU util `99~100%`.
 - best checkpoint는 PSNR 단독이 아니라
   `decoded_psnr + 5 * laplacian_energy_ratio`로 선택한다.
+- 2026-06-08 step `3000` snapshot:
+  decoded PSNR `24.49`, detail ratio `0.301`, perceptual `0.03144`,
+  shortlist score `26.000`.
+- 위 score는 checkpoint 후보를 고르는 용도일 뿐 최종 승격 기준이 아니다.
+  최종 선택은 cross-preset distortion, perceptual metric, artifact, blind A/B를
+  함께 확인해야 한다.
 
 - residual refiner v2 lower-LR continuation과 cross-preset 평가 완료.
 - 완료: `40000` micro steps, best decoded PSNR step `39000`.
@@ -661,62 +690,47 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
 
 ## 현재 관찰 / 판단
 
-- 기본 x4 복원력은 잡혔다.
-- Stage4 condition-start는 Stage3 sampled eval 대비 소폭 개선됐다.
-- 디노이즈와 선명화 능력은 아직 `mild` degradation 기준으로 제한적이다.
-- `photo_v2` degradation과 Stage2 v2 condition encoder는 구현 및 20k
-  fine-tune까지 완료됐다.
-- Stage3/Stage4 v2 fine-tune과 sampled eval까지 완료됐다.
-- Stage4 v2는 Stage3 v2보다 낫지만, 사용자가 체감할 artifact 억제가 아직
-  남아 있다.
-- 강한 noise/color-noise curriculum을 가진 Stage2 v3 small run은 step
-  12700에서 중단했다. eval이 9k~12k에서 `eval/latent_loss` 약 0.282로
-  횡보해, 더 태우는 것보다 500M급 확장으로 넘어가는 판단을 했다.
-- Stage2 XL condition encoder는 80k step까지 완료됐고 small v3를 넘었다.
-- 현재 실행 중인 학습은 없다. Stage4 XL은 아직 시작하지 않았다.
-- 다음 개선축은 Stage2 XL 후보 비교 후 Stage4 XL condition-start diffusion
-  U-Net이다.
+- 현재 Colab 기본 추론은 생성형 Stage 3/4가 아니라
+  `LR -> Stage 2 XL step 72000 -> residual refiner v2 step 39000
+  -> Stage 1 decoder` 경로다.
+- 최신 multiscale Stage 2 step 46000은 기존 Stage 2보다 구조/색/PSNR이
+  개선됐지만 public Colab 기본 경로로 아직 승격하지 않았다.
+- 생성형 경로의 현재 선택 후보는 photo-detail Stage 4 step 8000이다.
+  Stage 3과 Stage 4는 직렬 모듈이 아니라 서로 교체해서 쓰는 diffusion
+  checkpoint다.
+- 사용자 체감 병목은 여전히 missing fine detail과 strong-input smoothing이다.
+- 현재 실행 중인 학습은 multiscale Stage 2 step 46000에서 이어가는 frozen
+  VGG feature-supervised perceptual continuation이다.
+- `decoded_psnr + 5 * detail_ratio`는 shortlist score다. detail energy만
+  높이는 인공 고주파/노이즈를 보상할 수 있으므로 이것만으로 승격하지 않는다.
 
 ## 다음 작업
 
 우선순위:
 
-1. Stage2 XL condition encoder 후보 비교:
-   - `best_eval_latent.pt`: step 66000, latent loss 최선
-   - `step_0072000.pt`: decoded PSNR proxy 최선
-   - `latest.pt`: step 80000, final eval PSNR proxy가 높고 latent MSE가 낮음
-   - 같은 val 이미지에서 LR / GT / decoded condition output contact sheet를 만든다.
-2. Stage4 photo100k XL condition-start:
-   - config: `configs/diffusion_photo100k_xl_stage4_condition_v3.yaml`
-   - params: U-Net 469.618M, full path 509.658M
-   - init diffusion: Stage4 v2 `best_eval_condition_decoded.pt`
-   - use `--partial-init` because architecture is deeper/wider
-   - condition encoder: Stage2 XL 후보 비교 후 선택
-   - 아직 시작하지 않았음
-3. A/B review sheet 정리:
-   - mild Stage4 vs Stage3 v2 vs Stage4 v2
-   - denoise, sharpening, artifact, naturalness 기준
-4. artifact 억제 실험:
-   - cyan/green dot artifact를 줄이는 sampled eval 기준 마련
-   - color/contrast overshoot penalty 또는 lower start timestep 검토
-5. perceptual/fidelity fine-tune:
-   - `x0_weight`를 켠 condition-start training
-   - LPIPS/VGG perceptual loss 검토
-   - GAN은 나중에, A/B eval 기반으로 조심스럽게
-6. few-step distillation.
-7. A/B Elo preference eval.
+1. 현재 perceptual Stage 2 continuation을 계획된 `12000` micro steps까지
+   모니터링하되 중간 후보도 보존한다.
+2. 동일 val100의 `photo_detail_mix`, `mild`, `photo_v2`,
+   `photo_v3_noise_mix`에서 초기 step 46000과 후보 checkpoint를 비교한다.
+3. 승격 판단:
+   - clean/mild PSNR과 detail ratio가 초기값 대비 후퇴하지 않을 것.
+   - strong preset의 detail collapse와 cyan/white artifact가 악화되지 않을 것.
+   - LPIPS/DISTS 계열 metric과 고정 sample blind A/B가 개선될 것.
+   - shortlist score 상승만으로는 승격하지 않을 것.
+4. 통과하면 최신 Stage 2를 residual refiner/Stage 4와 다시 결합 평가한다.
+5. 실패하면 같은 objective 장기 continuation보다 degradation-aware gate,
+   별도 detail synthesis 경로, 외부 perceptual 평가를 우선한다.
 
 ## 새 VM에서 Codex에게 줄 짧은 프롬프트
 
 ```text
 이 repo는 /home/.../sr-diffusion 의 x4 latent diffusion SR 프로젝트다.
 docs/HANDOFF_KO.md 와 docs/VM_RECOVERY_KO.md 를 먼저 읽고 이어서 작업해줘.
-현재 Stage4 photo100k condition-start와 Stage2/Stage3/Stage4 photo100k
-degradation v2 fine-tune 및 sampled eval까지 완료됐고, Stage2 photo100k
-v3 noise XL condition encoder도 80k step까지 완료됐다. Stage4 XL은 아직
-시작하지 않았다. 다음은 Stage2 XL 후보(best/step72000/latest)를 같은 val
-이미지에서 condition-only decoded output으로 비교한 뒤,
-configs/diffusion_photo100k_xl_stage4_condition_v3.yaml 을 Stage4 v2
-checkpoint에서 --partial-init으로 시작할지 결정하는 것이다.
+Stage 번호는 학습 순서이며 추론 직렬 경로가 아니다. Colab 기본은
+LR -> Stage2 XL step72000 -> residual refiner v2 step39000 -> Stage1 decoder다.
+현재 연구 run은 multiscale Stage2 step46000에서 시작한 VGG perceptual
+continuation이며 W&B는 https://wandb.ai/jwheo/sr-diffusion/runs/nrqhw05u 다.
+학습 로그와 HANDOFF 상단 상태를 확인하고, 학습 종료 후 cross-preset metric,
+artifact, blind A/B를 함께 평가해 승격 여부를 결정해줘.
 상업적 이용은 금지이고, raw dataset은 GitHub/HF에 올리지 않는다.
 ```

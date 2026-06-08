@@ -1,6 +1,6 @@
 # Vision-Only Latent Diffusion Super-Resolution without T2I Pretraining
 
-Snapshot: detail-preserving Stage 4 curriculum adaptation complete.
+Snapshot: multiscale Stage 2 selected; perceptual Stage 2 continuation active.
 
 ## Objective
 
@@ -19,6 +19,22 @@ LR image -> condition encoder -> condition latent
 noisy HR latent + condition latent + timestep + domain id -> conditional U-Net
 denoised latent -> VAE decoder -> SR output
 ```
+
+The numbered stages describe training order, not a mandatory Stage 1 -> 2 -> 3
+-> 4 runtime chain. The current runtime choices are:
+
+```text
+public Colab default:
+  LR -> Stage 2 XL condition encoder -> residual refiner v2 -> Stage 1 decoder
+
+generative comparison:
+  LR -> Stage 2 condition encoder -> Stage 3 OR Stage 4 diffusion U-Net
+     -> Stage 1 decoder
+```
+
+Stage 4 is a Stage 3-derived replacement diffusion checkpoint. It does not run
+after Stage 3. Planned Stage 5 distillation would similarly replace the slower
+diffusion sampler rather than append another serial module.
 
 ## Data
 
@@ -436,13 +452,17 @@ recovering missing fur, text, fabric, or distant texture. The experiment is a
 successful base-reconstruction redesign but not a solution to perceptual
 fine-detail recovery.
 
-An optional continuation is prepared from step 46000 using frozen ImageNet
+An optional continuation is running from step 46000 using frozen ImageNet
 VGG16 features at shallow and intermediate layers. This explicitly introduces
 pretrained vision feature supervision, while still avoiding pretrained
 text-to-image or generative models. A CUDA smoke test passed at batch 4 with
 approximately `20.6/46.1GB` VRAM and `2.62` micro-steps/s. The continuation has
-not been started; checkpoint selection will combine decoded PSNR and detail
-energy instead of optimizing PSNR alone. The active run is tracked at
+reached step 3000 with decoded PSNR `24.49`, detail ratio `0.301`, perceptual
+loss `0.03144`, and a shortlist score of `26.000`, versus the initial score
+`25.937`. Checkpoint shortlisting combines decoded PSNR and detail energy, but
+that score can reward artificial high-frequency noise and is not a final
+promotion criterion. Promotion also requires cross-preset checks, perceptual
+metrics, artifact review, and fixed-sample blind A/B. The active run is tracked at
 <https://wandb.ai/jwheo/sr-diffusion/runs/nrqhw05u>.
 
 ## Public Artifacts
@@ -487,18 +507,23 @@ configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_v3_b8_
 configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_detail_b8_long.yaml
 configs/residual_refiner_stage2_xl_photo_detail_v2_continue_40k.yaml
 configs/hf/residual_refiner_stage2_xl_photo_detail_v2.yaml
+configs/latent_pretrain_photo100k_multiscale_hqmix_perceptual_continue.yaml
 ```
 
 ## Next Work
 
-The selected residual refiner is now the strongest public deterministic path.
-Candidate next steps are:
+The selected residual refiner remains the public Colab default. The active
+research candidate is the perceptual continuation of multiscale Stage 2 step
+46000. Candidate next steps are:
 
-- evaluate step 39000 on a separate user-facing/detail-focused image set;
-- run same-input blind A/B against practical and generative public SR models;
-- add LPIPS/DISTS-style perceptual metrics alongside the existing SSIM and
-  explicit detail metrics;
-- add a degradation-aware gate or strong-input guardrail for the lower-win
-  `photo_v2` and `photo_v3_noise_mix` tails;
-- compare the selected refiner as a deterministic final output and as a Stage 4
-  teacher without extending the same continuation further.
+- finish and shortlist the active continuation, preserving intermediate
+  checkpoints;
+- compare shortlisted checkpoints against step 46000 on `photo_detail_mix`,
+  `mild`, `photo_v2`, and `photo_v3_noise_mix`;
+- add LPIPS/DISTS-style perceptual metrics and fixed-sample blind A/B, because
+  the current PSNR-detail shortlist score can reward artificial high-frequency
+  energy;
+- only after Stage 2 promotion, re-evaluate its combination with the residual
+  refiner and selected Stage 4 checkpoints;
+- keep a degradation-aware gate or strong-input guardrail as the primary
+  response to the remaining strong-preset failure tail.

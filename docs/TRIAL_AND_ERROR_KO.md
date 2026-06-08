@@ -925,3 +925,36 @@ CUDA smoke:
   - 초기 val100: decoded PSNR `24.4835`, detail ratio `0.2907`,
     perceptual `0.03218`, PSNR-detail score `25.937`.
   - steady 약 `2.62 micro-step/s`, GPU util `99~100%`, VRAM 약 `20.6GB`.
+
+### 2026-06-08 perceptual continuation 판단 프로토콜
+
+Stage 번호는 학습 순서이며 실제 추론 직렬 경로가 아니다.
+
+```text
+Colab 기본 deterministic:
+  LR -> Stage2 XL step72000 -> residual refiner v2 step39000 -> Stage1 decoder
+
+generative 비교:
+  LR -> Stage2 -> Stage3 또는 Stage4 중 하나 -> Stage1 decoder
+```
+
+현재 perceptual continuation은 public Colab 기본 모델을 즉시 교체하는 학습이
+아니라, multiscale Stage2 step46000을 새 condition 후보로 검증하는 실험이다.
+
+- step `2500`: decoded PSNR `24.50`, detail ratio `0.292`, perceptual
+  `0.03148`, shortlist score `25.966`.
+- step `3000`: decoded PSNR `24.49`, detail ratio `0.301`, perceptual
+  `0.03144`, shortlist score `26.000`.
+- 초기 score `25.937`보다 상승했지만 아직 승격 근거로는 부족하다.
+
+최종 승격 조건:
+
+1. `photo_detail_mix`와 `mild`에서 초기 step46000 대비 PSNR/detail이 함께
+   유지 또는 개선될 것.
+2. `photo_v2`와 `photo_v3_noise_mix`에서 기존 detail collapse와
+   cyan/white artifact가 악화되지 않을 것.
+3. LPIPS/DISTS 계열 perceptual metric과 고정 sample blind A/B가 개선될 것.
+4. `decoded_psnr + 5 * detail_ratio`는 shortlist에만 사용한다. 이 score는
+   실제 detail이 아니라 인공 고주파/노이즈 증가에도 상승할 수 있다.
+5. 동일 objective의 장기 continuation은 위 조건을 만족하는 중간 checkpoint가
+   있을 때만 정당화한다.

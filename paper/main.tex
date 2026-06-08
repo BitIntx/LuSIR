@@ -8,7 +8,7 @@
 
 \title{Vision-Only Latent Diffusion Super-Resolution without T2I Pretraining}
 \author{sr-diffusion contributors}
-\date{Completed-experiment snapshot through detail-preserving Stage 4 adaptation}
+\date{Experiment snapshot through active perceptual Stage 2 continuation}
 
 \begin{document}
 \maketitle
@@ -34,7 +34,12 @@ from 25.0449 to 25.1178 with 86/100 wins over condition-only. A subsequent
 detail-preserving curriculum adaptation produced the first sampled
 gated-residual Stage 4 result to beat condition-only on both mean PSNR and a
 clear majority of samples: 25.3406 PSNR and 71/100 wins versus 25.3103 for the
-condition baseline.
+condition baseline. A decoded-detail residual refiner v2 then became the public
+Colab default, reaching 25.6410 PSNR on the photo-detail validation mix. The
+latest Stage 2 redesign adds multiscale context and balanced high-quality data;
+its selected step-46000 checkpoint improves the previous condition encoder
+across all tested presets. A VGG-feature-supervised continuation of that
+checkpoint is currently running.
 \end{abstract}
 
 \section{Objective}
@@ -70,6 +75,20 @@ The VAE decoder maps the denoised latent back to the 512px HR output. Domain IDs
 are implemented for photo and anime/illustration data, although the completed
 large-scale runs reported here use the photo split.
 
+The stage numbers describe training order, not a mandatory serial inference
+chain. The public Colab default is
+\[
+\mathrm{LR} \rightarrow \mathrm{Stage\ 2} \rightarrow
+\mathrm{residual\ refiner} \rightarrow \mathrm{Stage\ 1\ decoder}.
+\]
+For generative comparison, the runtime path is
+\[
+\mathrm{LR} \rightarrow \mathrm{Stage\ 2} \rightarrow
+\mathrm{Stage\ 3\ or\ Stage\ 4} \rightarrow \mathrm{Stage\ 1\ decoder}.
+\]
+Stage 4 is a Stage-3-derived replacement checkpoint, not a module applied after
+Stage 3.
+
 \section{Training Stages}
 
 The project is organized as staged training rather than a single end-to-end run:
@@ -80,6 +99,8 @@ The project is organized as staged training rather than a single end-to-end run:
         from degraded LR inputs.
   \item Stage 3 trains a conditional diffusion U-Net in latent space.
   \item Stage 4 fine-tunes diffusion from the condition latent at low timesteps.
+  \item Stage 5 is planned few-step distillation. If implemented, it will
+        replace the slower Stage 3/4 sampler rather than run after Stage 4.
   \item XL variants widen and deepen the condition encoder or diffusion U-Net
         while using partial checkpoint initialization where tensor shapes match.
 \end{enumerate}
@@ -538,6 +559,63 @@ so the improvement comes primarily from more accurate bounded corrections
 rather than strong new texture synthesis. Rare strong-tail samples can still
 exhibit bright artifacts.
 
+\section{Decoded-Detail Residual Refiner v2}
+
+The deterministic residual refiner was expanded to 192 hidden channels and 12
+residual blocks, with decoded-image and highpass supervision through the frozen
+Stage 1 decoder. A lower-learning-rate continuation completed 40,000
+micro-steps, and step 39,000 was selected as the public default.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lrrr}
+\toprule
+Degradation & Condition PSNR & Refined PSNR & Gain \\
+\midrule
+\texttt{photo\_detail\_mix} & 25.3103 & 25.6410 & +0.3307 \\
+\texttt{mild} & 25.0449 & 25.3161 & +0.2712 \\
+\texttt{photo\_v2} & 22.9271 & 23.0419 & +0.1148 \\
+\texttt{photo\_v3\_noise\_mix} & 22.9014 & 23.0787 & +0.1773 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+This model is the default Colab path. It runs after the Stage 2 condition
+encoder and before the Stage 1 decoder; it does not use Stage 3 or Stage 4.
+Residual strengths 1.0, 0.75, and 0.5 expose an average-quality versus
+failure-tail trade-off.
+
+\section{Multiscale Stage 2 and Active Perceptual Continuation}
+
+The latest Stage 2 redesign preserves the selected XL predictor through partial
+initialization, then adds a zero-output-initialized multiscale context branch.
+Training exposure balances 100,000 COCO rows against 103,500 repeated
+DIV2K/Flickr2K rows. The 55.50M-parameter model completed 50,000 micro-steps,
+and step 46,000 was selected.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lrr}
+\toprule
+Degradation & PSNR gain vs previous Stage 2 & Detail behavior \\
+\midrule
+\texttt{photo\_detail\_mix} & +1.0348 & slightly improved \\
+\texttt{mild} & +0.9228 & slightly improved \\
+\texttt{photo\_v2} & +0.9441 & reduced on strong input \\
+\texttt{photo\_v3\_noise\_mix} & +0.9650 & reduced on strong input \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The selected model improves structure, color, and denoising but remains soft on
+fine texture. A continuation using frozen ImageNet VGG16 features is currently
+running from step 46,000. At continuation step 3000 it reached decoded PSNR
+24.49, detail ratio 0.301, perceptual loss 0.03144, and a shortlist score of
+26.000 versus the initial score of 25.937. This score is not a final promotion
+criterion because artificial high-frequency noise can increase detail energy.
+Promotion requires cross-preset distortion checks, perceptual metrics,
+artifact review, and fixed-sample blind A/B.
+
 \section{Limitations}
 
 This is an engineering report for an active experiment, not a claim of a final
@@ -550,6 +628,8 @@ but the selected output remains conservative and does not recover all visible
 fine detail. The highest-signal next directions are a separate user-facing
 detail evaluation set, perceptual/detail metrics, and separation of the rare
 strong degradation tail into a robustness curriculum or evaluation slice.
+The current VGG-feature continuation is still active and has not yet been
+promoted into the public Colab default.
 
 \begin{thebibliography}{9}
 \bibitem{rombach2022latent}
