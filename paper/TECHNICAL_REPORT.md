@@ -442,7 +442,8 @@ pretrained vision feature supervision, while still avoiding pretrained
 text-to-image or generative models. A CUDA smoke test passed at batch 4 with
 approximately `20.6/46.1GB` VRAM and `2.62` micro-steps/s. The continuation has
 not been started; checkpoint selection will combine decoded PSNR and detail
-energy instead of optimizing PSNR alone.
+energy instead of optimizing PSNR alone. The active run is tracked at
+<https://wandb.ai/jwheo/sr-diffusion/runs/nrqhw05u>.
 
 ## Public Artifacts
 

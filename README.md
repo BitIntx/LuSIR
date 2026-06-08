@@ -183,7 +183,7 @@ PSNR by about `0.94-0.97 dB`, but detail energy drops substantially. The new
 condition model is therefore a strong base-reconstruction/denoising candidate,
 not a solution to perceptual fine-detail recovery.
 
-The next continuation is prepared but not started:
+The next continuation is running:
 
 ```text
 config:         configs/latent_pretrain_photo100k_multiscale_hqmix_perceptual_continue.yaml
@@ -192,6 +192,7 @@ supervision:    existing reconstruction/detail losses + frozen ImageNet VGG16 fe
 batch:          4 x grad_accum 8 = effective 32
 max steps:      12,000
 best metric:    decoded PSNR + 5 x detail ratio
+W&B:            https://wandb.ai/jwheo/sr-diffusion/runs/nrqhw05u
 ```
 
 This optional experiment introduces pretrained vision feature supervision, but

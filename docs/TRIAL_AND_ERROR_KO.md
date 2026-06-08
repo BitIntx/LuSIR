@@ -920,4 +920,8 @@ CUDA smoke:
 - VRAM 약 `20.6/46.1GB`, GPU util `99~100%`.
 - steady 약 `2.62 micro-step/s`.
 - perceptual loss는 초기 약 `0.0394`이며 전체 loss를 압도하지 않았다.
-- 장기 학습은 아직 시작하지 않았다.
+- 장기 학습 시작:
+  - W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/nrqhw05u>
+  - 초기 val100: decoded PSNR `24.4835`, detail ratio `0.2907`,
+    perceptual `0.03218`, PSNR-detail score `25.937`.
+  - steady 약 `2.62 micro-step/s`, GPU util `99~100%`, VRAM 약 `20.6GB`.

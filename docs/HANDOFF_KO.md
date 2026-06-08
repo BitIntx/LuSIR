@@ -28,9 +28,13 @@
 - 결론: base reconstruction/denoising 개선에는 성공했지만 perceptual detail
   복원과 strong-input smoothing 문제는 해결하지 못했다.
 - HF preset: `python scripts/download_hf_checkpoints.py --preset stage2_multiscale_hqmix`
-- 다음 continuation 준비 완료, 아직 시작하지 않음:
+- 실행 중: perceptual Stage 2 continuation:
   `configs/latent_pretrain_photo100k_multiscale_hqmix_perceptual_continue.yaml`
 - selected step 46000에서 frozen ImageNet VGG16 feature loss로 이어 학습한다.
+- W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/nrqhw05u>
+- tmux: `stage2-perceptual`
+- log:
+  `/home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo100k_multiscale_hqmix_perceptual_continue/train.log`
 - smoke: batch `4`, grad accumulation `8`, VRAM 약 `20.6/46.1GB`,
   steady 약 `2.62 micro-step/s`, GPU util `99~100%`.
 - best checkpoint는 PSNR 단독이 아니라
