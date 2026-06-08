@@ -6,7 +6,7 @@ from pathlib import Path
 
 import torch
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from sr_diffusion.eval import evaluate_autoencoder, make_eval_loader, save_eval_metrics

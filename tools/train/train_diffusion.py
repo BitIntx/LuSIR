@@ -19,7 +19,7 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel
 from torchvision.utils import save_image
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
@@ -44,7 +44,7 @@ from sr_diffusion.utils import (
     seed_everything,
     seed_worker,
 )
-from train_residual_refiner import BoundedResidualRefiner
+from tools.train.train_residual_refiner import BoundedResidualRefiner
 
 
 def parse_args() -> argparse.Namespace:

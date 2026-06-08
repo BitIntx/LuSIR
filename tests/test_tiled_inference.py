@@ -1,7 +1,7 @@
 import numpy as np
 from PIL import Image
 
-from infer_diffusion import edge_pad_image, tile_blend_mask, tile_positions
+from tools.infer.infer_diffusion import edge_pad_image, tile_blend_mask, tile_positions
 
 
 def test_tile_positions_cover_edges() -> None:

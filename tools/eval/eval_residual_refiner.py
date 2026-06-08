@@ -8,11 +8,19 @@ from typing import Any
 
 import torch
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from infer_diffusion import resolve_path
-from train_residual_refiner import BoundedResidualRefiner, evaluate, load_autoencoder, load_condition_encoder, make_eval_loader
+sys.path.insert(0, str(ROOT))
+
+from tools.infer.infer_diffusion import resolve_path
+from tools.train.train_residual_refiner import (
+    BoundedResidualRefiner,
+    evaluate,
+    load_autoencoder,
+    load_condition_encoder,
+    make_eval_loader,
+)
 from sr_diffusion.utils import get_device, load_config, seed_everything
 
 

@@ -51,7 +51,7 @@ Stage2 condition encoder를 직접 decode해서 같은 val100/seed에서 평가�
 평가 스크립트:
 
 ```bash
-python eval_condition_samples.py \
+python tools/eval/eval_condition_samples.py \
   --config configs/diffusion_photo100k_xl_stage4_condition_v3_resdetail_photo_v2_b8.yaml \
   --output-dir /home/ubuntu/scratch/sr-diffusion/runs/eval_stage2_xl_condition_only_${preset}_val100 \
   --degradation-preset ${preset} \
@@ -326,12 +326,12 @@ sampled val100 결과, 같은 `mild` 기준:
 
 추가된 스크립트:
 
-- `diagnose_stage2_residuals.py`
+- `tools/analysis/diagnose_stage2_residuals.py`
 
 실행:
 
 ```bash
-python diagnose_stage2_residuals.py \
+python tools/analysis/diagnose_stage2_residuals.py \
   --config configs/diffusion_photo100k_xl_stage4_condition_v3_gated_residual_mild_b8_probe.yaml \
   --output-dir /home/jwheojjang/scratch/sr-diffusion/runs/diagnose_stage2_xl_residuals_mild_val100 \
   --split val \
@@ -382,7 +382,7 @@ python diagnose_stage2_residuals.py \
 
 추가된 스크립트/config:
 
-- `train_residual_refiner.py`
+- `tools/train/train_residual_refiner.py`
 - `configs/residual_refiner_stage2_xl_mild_probe.yaml`
 - `configs/residual_refiner_stage2_xl_mild_open_gate_probe.yaml`
 
@@ -478,13 +478,13 @@ samples/residual_refiner_stage2_xl_mild_open_gate_probe_step500_grid.png
 
 추가된 스크립트:
 
-- `eval_residual_refiner.py`
-- `infer_residual_refiner.py`
+- `tools/eval/eval_residual_refiner.py`
+- `tools/infer/infer_residual_refiner.py`
 
 실행:
 
 ```bash
-python eval_residual_refiner.py \
+python tools/eval/eval_residual_refiner.py \
   --degradation-preset photo_v3_noise_mix \
   --output-dir /home/jwheojjang/scratch/sr-diffusion/runs/eval_residual_refiner_stage2_xl_photo_v3_noise_mix_val100 \
   --limit 100 \
@@ -611,7 +611,7 @@ one-step decoded proxy는 step `2000` 이후 개선되지 않았다:
 - `configs/degradation_presets.yaml`
   - `photo_detail`
   - `photo_detail_mix`: clean `35%`, photo_detail `48%`, mild `15%`, photo_v2 `2%`
-- `analyze_degradation_presets.py`
+- `tools/analysis/analyze_degradation_presets.py`
 - `configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_detail_b8_long.yaml`
 
 val100 degradation audit:

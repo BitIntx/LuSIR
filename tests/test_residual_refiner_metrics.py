@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import torch
 
-from train_residual_refiner import apply_residual_strength, laplacian_response, metric_highpass, ssim_per_image
+from tools.train.train_residual_refiner import apply_residual_strength, laplacian_response, metric_highpass, ssim_per_image
 
 
 def test_ssim_is_one_for_identical_images() -> None:

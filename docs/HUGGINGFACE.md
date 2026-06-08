@@ -51,7 +51,7 @@ This creates the local `checkpoints/` files expected by
 Run the default Stage 4 condition-start prototype:
 
 ```bash
-python infer_diffusion.py \
+python tools/infer/infer_diffusion.py \
   --input-lr /path/to/lr_128.png \
   --output-dir outputs/demo
 ```
@@ -59,14 +59,14 @@ python infer_diffusion.py \
 Run the same checkpoint in tiled mode for larger LR images:
 
 ```bash
-python infer_diffusion.py \
+python tools/infer/infer_diffusion.py \
   --input-lr /path/to/larger_lr.png \
   --output-dir outputs/tiled_demo \
   --tile \
   --tile-overlap 32
 ```
 
-The default `infer_diffusion.py` config is the HF-friendly Stage 4 config. It
+The default `tools/infer/infer_diffusion.py` config is the HF-friendly Stage 4 config. It
 uses relative checkpoint paths, so it works outside the original training VM.
 
 ## Upload Selected Artifacts

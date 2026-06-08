@@ -10,7 +10,7 @@ import torch
 import torch.nn.functional as F
 from PIL import Image
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from sr_diffusion.datasets.manifest import crop_square, pil_to_tensor

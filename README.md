@@ -741,7 +741,7 @@ python scripts/download_hf_checkpoints.py --preset stage4_teacher_residual_probe
 Evaluate the residual refiner on a fixed validation preset:
 
 ```bash
-python eval_residual_refiner.py \
+python tools/eval/eval_residual_refiner.py \
   --degradation-preset photo_v3_noise_mix \
   --output-dir outputs/eval_residual_refiner_photo_v3
 ```
@@ -749,7 +749,7 @@ python eval_residual_refiner.py \
 Run deterministic residual-refiner inference from an LR image:
 
 ```bash
-python infer_residual_refiner.py \
+python tools/infer/infer_residual_refiner.py \
   --input-lr /path/to/lr_128.png \
   --output-dir outputs/residual_refiner_demo
 ```
@@ -757,7 +757,7 @@ python infer_residual_refiner.py \
 Run the same path on a larger LR image with tiled blending:
 
 ```bash
-python infer_residual_refiner.py \
+python tools/infer/infer_residual_refiner.py \
   --input-lr /path/to/larger_lr.png \
   --output-dir outputs/residual_refiner_tiled \
   --tile \
@@ -768,7 +768,7 @@ Run x4 SR from an LR image. The default HF config expects a 128x128 LR crop and
 writes a 512x512 output:
 
 ```bash
-python infer_diffusion.py \
+python tools/infer/infer_diffusion.py \
   --input-lr /path/to/lr_128.png \
   --output-dir outputs/demo
 ```
@@ -776,7 +776,7 @@ python infer_diffusion.py \
 Run tiled x4 SR from a larger LR image:
 
 ```bash
-python infer_diffusion.py \
+python tools/infer/infer_diffusion.py \
   --input-lr /path/to/larger_lr.png \
   --output-dir outputs/tiled_demo \
   --tile \
@@ -792,7 +792,7 @@ For a controlled smoke test from an HR image, let the script center-crop HR and
 create the degraded LR input first:
 
 ```bash
-python infer_diffusion.py \
+python tools/infer/infer_diffusion.py \
   --input-hr /path/to/hr_image.png \
   --output-dir outputs/demo_from_hr \
   --seed 123
@@ -810,7 +810,7 @@ checkpoints/stage4_condition_b32_best_eval_condition_decoded.pt
 For the current photo100k Stage 4 checkpoint:
 
 ```bash
-python infer_diffusion.py \
+python tools/infer/infer_diffusion.py \
   --config configs/hf/diffusion_photo100k_stage4_condition.yaml \
   --input-lr /path/to/lr_128.png \
   --output-dir outputs/photo100k_stage4
@@ -819,7 +819,7 @@ python infer_diffusion.py \
 For the current experimental photo100k `photo_v2` Stage 4 checkpoint:
 
 ```bash
-python infer_diffusion.py \
+python tools/infer/infer_diffusion.py \
   --config configs/hf/diffusion_photo100k_stage4_condition_v2.yaml \
   --input-lr /path/to/lr_128.png \
   --output-dir outputs/photo100k_v2_stage4
@@ -829,7 +829,7 @@ For the latest experimental XL `photo_v3_noise_mix` Stage 4 edge-loss
 checkpoint:
 
 ```bash
-python infer_diffusion.py \
+python tools/infer/infer_diffusion.py \
   --config configs/hf/diffusion_photo100k_xl_stage4_condition_v3_edge_b16.yaml \
   --input-lr /path/to/lr_128.png \
   --output-dir outputs/photo100k_xl_edge_b16
@@ -838,7 +838,7 @@ python infer_diffusion.py \
 For the earlier photo100k `photo_v2` Stage 3 checkpoint:
 
 ```bash
-python infer_diffusion.py \
+python tools/infer/infer_diffusion.py \
   --config configs/hf/diffusion_photo100k_v2.yaml \
   --input-lr /path/to/lr_128.png \
   --output-dir outputs/photo100k_v2_stage3
@@ -847,7 +847,7 @@ python infer_diffusion.py \
 To compare the earlier Stage 3 baseline instead:
 
 ```bash
-python infer_diffusion.py \
+python tools/infer/infer_diffusion.py \
   --config configs/hf/diffusion_stage3_baseline.yaml \
   --input-lr /path/to/lr_128.png \
   --output-dir outputs/stage3_demo
@@ -871,7 +871,7 @@ products.
 Run the current Stage 1 VAE training config:
 
 ```bash
-/home/jwheojjang/venvs/rocm/bin/python train_autoencoder.py \
+/home/jwheojjang/venvs/rocm/bin/python tools/train/train_autoencoder.py \
   --config configs/autoencoder_photo10k.yaml
 ```
 
@@ -879,7 +879,7 @@ Recommended long-running launch through tmux:
 
 ```bash
 tmux new-session -d -s sr_ae10k \
-  'cd /home/jwheojjang/sr-diffusion && env PYTHONUNBUFFERED=1 /home/jwheojjang/venvs/rocm/bin/python train_autoencoder.py --config configs/autoencoder_photo10k.yaml > /home/jwheojjang/scratch/sr-diffusion/runs/autoencoder_photo10k_b16_eval_online/train_tmux.log 2>&1'
+  'cd /home/jwheojjang/sr-diffusion && env PYTHONUNBUFFERED=1 /home/jwheojjang/venvs/rocm/bin/python tools/train/train_autoencoder.py --config configs/autoencoder_photo10k.yaml > /home/jwheojjang/scratch/sr-diffusion/runs/autoencoder_photo10k_b16_eval_online/train_tmux.log 2>&1'
 ```
 
 Watch the training log:
@@ -891,14 +891,14 @@ tail -f /home/jwheojjang/scratch/sr-diffusion/runs/autoencoder_photo10k_b16_eval
 Run the current Stage 2 deterministic latent pretraining config:
 
 ```bash
-/home/jwheojjang/venvs/rocm/bin/python train_latent_pretrain.py \
+/home/jwheojjang/venvs/rocm/bin/python tools/train/train_latent_pretrain.py \
   --config configs/latent_pretrain_photo10k.yaml
 ```
 
 Run the photo100k Stage 2 scale-up from the selected 10k checkpoint:
 
 ```bash
-/home/jwheojjang/venvs/rocm/bin/python train_latent_pretrain.py \
+/home/jwheojjang/venvs/rocm/bin/python tools/train/train_latent_pretrain.py \
   --config configs/latent_pretrain_photo100k.yaml \
   --init-checkpoint /home/jwheojjang/scratch/sr-diffusion/runs/latent_pretrain_photo10k_b16/checkpoints/best_eval_latent.pt
 ```
@@ -906,7 +906,7 @@ Run the photo100k Stage 2 scale-up from the selected 10k checkpoint:
 Run the XL photo100k Stage 2 condition encoder for the 500M-class path:
 
 ```bash
-/home/jwheojjang/venvs/cuda/bin/python train_latent_pretrain.py \
+/home/jwheojjang/venvs/cuda/bin/python tools/train/train_latent_pretrain.py \
   --config configs/latent_pretrain_photo100k_v3_noise_xl.yaml
 ```
 
@@ -923,7 +923,7 @@ Recommended Stage 2 tmux launch:
 
 ```bash
 tmux new-session -d -s sr_stage2 \
-  'cd /home/jwheojjang/sr-diffusion && env PYTHONUNBUFFERED=1 /home/jwheojjang/venvs/rocm/bin/python train_latent_pretrain.py --config configs/latent_pretrain_photo10k.yaml > /home/jwheojjang/scratch/sr-diffusion/runs/latent_pretrain_photo10k_b16/train_tmux.log 2>&1'
+  'cd /home/jwheojjang/sr-diffusion && env PYTHONUNBUFFERED=1 /home/jwheojjang/venvs/rocm/bin/python tools/train/train_latent_pretrain.py --config configs/latent_pretrain_photo10k.yaml > /home/jwheojjang/scratch/sr-diffusion/runs/latent_pretrain_photo10k_b16/train_tmux.log 2>&1'
 ```
 
 Watch the Stage 2 log:
@@ -935,14 +935,14 @@ tail -f /home/jwheojjang/scratch/sr-diffusion/runs/latent_pretrain_photo10k_b16/
 Run the current Stage 3 conditional diffusion config:
 
 ```bash
-/home/jwheojjang/venvs/rocm/bin/python train_diffusion.py \
+/home/jwheojjang/venvs/rocm/bin/python tools/train/train_diffusion.py \
   --config configs/diffusion_photo10k_b32.yaml
 ```
 
 After Stage 2 photo100k finishes, run the photo100k Stage 3 config:
 
 ```bash
-/home/jwheojjang/venvs/rocm/bin/python train_diffusion.py \
+/home/jwheojjang/venvs/rocm/bin/python tools/train/train_diffusion.py \
   --config configs/diffusion_photo100k_b32.yaml \
   --init-checkpoint /home/jwheojjang/scratch/sr-diffusion/runs/diffusion_photo10k_b32/checkpoints/best_eval_noise.pt
 ```
@@ -953,7 +953,7 @@ partial initialization. Launch with `torchrun` for two GPUs, or run the same
 script directly for single-GPU fallback:
 
 ```bash
-torchrun --standalone --nproc_per_node=2 train_diffusion.py \
+torchrun --standalone --nproc_per_node=2 tools/train/train_diffusion.py \
   --config configs/diffusion_photo100k_xl_stage4_condition_v3_edge_b16.yaml \
   --init-checkpoint /home/jwheojjang/scratch/sr-diffusion/runs/diffusion_photo100k_b32_stage4_condition_v2/checkpoints/best_eval_condition_decoded.pt \
   --partial-init
@@ -965,7 +965,7 @@ from the role-split mild probe, then stopped at step 2000 after sampled
 validation reached condition-only parity:
 
 ```bash
-python train_diffusion.py \
+python tools/train/train_diffusion.py \
   --config configs/diffusion_photo100k_xl_stage4_condition_v3_gated_residual_mild_b8_probe.yaml \
   --init-checkpoint /home/jwheojjang/scratch/sr-diffusion/runs/diffusion_photo100k_xl_stage4_condition_v3_rolesplit_mild_b8_probe/checkpoints/best_eval_condition_decoded.pt \
   --partial-init
@@ -975,7 +975,7 @@ Recommended Stage 3 tmux launch:
 
 ```bash
 tmux new-session -d -s sr_stage3 \
-  'cd /home/jwheojjang/sr-diffusion && env PYTHONUNBUFFERED=1 /home/jwheojjang/venvs/rocm/bin/python train_diffusion.py --config configs/diffusion_photo10k_b32.yaml > /home/jwheojjang/scratch/sr-diffusion/runs/diffusion_photo10k_b32/train_tmux.log 2>&1'
+  'cd /home/jwheojjang/sr-diffusion && env PYTHONUNBUFFERED=1 /home/jwheojjang/venvs/rocm/bin/python tools/train/train_diffusion.py --config configs/diffusion_photo10k_b32.yaml > /home/jwheojjang/scratch/sr-diffusion/runs/diffusion_photo10k_b32/train_tmux.log 2>&1'
 ```
 
 Watch the Stage 3 log:
@@ -1038,7 +1038,7 @@ checkpoints/best_eval_recon.pt
 Manual checkpoint eval:
 
 ```bash
-/home/jwheojjang/venvs/rocm/bin/python eval_autoencoder.py \
+/home/jwheojjang/venvs/rocm/bin/python tools/eval/eval_autoencoder.py \
   --config configs/autoencoder_photo10k.yaml \
   --checkpoint /home/jwheojjang/scratch/sr-diffusion/runs/autoencoder_photo10k_b16_eval_online/checkpoints/latest.pt \
   --split val \
@@ -1109,14 +1109,14 @@ Stage 2: deterministic LR -> HR latent pretrain
 Run the current Stage 2 pretraining config:
 
 ```bash
-/home/jwheojjang/venvs/rocm/bin/python train_latent_pretrain.py \
+/home/jwheojjang/venvs/rocm/bin/python tools/train/train_latent_pretrain.py \
   --config configs/latent_pretrain_photo10k.yaml
 ```
 
 Run the photo100k Stage 2 scale-up:
 
 ```bash
-/home/jwheojjang/venvs/rocm/bin/python train_latent_pretrain.py \
+/home/jwheojjang/venvs/rocm/bin/python tools/train/train_latent_pretrain.py \
   --config configs/latent_pretrain_photo100k.yaml \
   --init-checkpoint /home/jwheojjang/scratch/sr-diffusion/runs/latent_pretrain_photo10k_b16/checkpoints/best_eval_latent.pt
 ```
@@ -1142,7 +1142,7 @@ Stage 4: perceptual / GAN fine-tune
 - Condition-start fine-tuning, initialized from the Stage 3 best checkpoint,
   is the current best sampled SR checkpoint. It trains low timesteps `25..100`,
   but starts the training noisy latent from the Stage 2 condition latent so the
-  train path better matches `infer_diffusion.py --init condition`.
+  train path better matches `tools/infer/infer_diffusion.py --init condition`.
 - It uses a small effective-noise loss plus a stronger x0 latent reconstruction
   loss to preserve fidelity. The best sampled setting so far is
   `--start-timestep 25`.
@@ -1172,7 +1172,7 @@ Stage 4: perceptual / GAN fine-tune
 Run the Stage 4-lite low-timestep fine-tune:
 
 ```bash
-/home/jwheojjang/venvs/rocm/bin/python train_diffusion.py \
+/home/jwheojjang/venvs/rocm/bin/python tools/train/train_diffusion.py \
   --config configs/diffusion_photo10k_b32_stage4_lowt.yaml \
   --init-checkpoint /home/jwheojjang/scratch/sr-diffusion/runs/diffusion_photo10k_b32/checkpoints/best_eval_noise.pt
 ```
@@ -1180,7 +1180,7 @@ Run the Stage 4-lite low-timestep fine-tune:
 Run the Stage 4 condition-start fine-tune:
 
 ```bash
-/home/jwheojjang/venvs/rocm/bin/python train_diffusion.py \
+/home/jwheojjang/venvs/rocm/bin/python tools/train/train_diffusion.py \
   --config configs/diffusion_photo10k_b32_stage4_condition.yaml \
   --init-checkpoint /home/jwheojjang/scratch/sr-diffusion/runs/diffusion_photo10k_b32/checkpoints/best_eval_noise.pt
 ```
@@ -1208,14 +1208,11 @@ src/sr_diffusion/         package code
   eval/                   eval helpers
   losses/                 reconstruction/KL losses
   models/                 AutoencoderKL, LR predictor, diffusion U-Net
-train_autoencoder.py      Stage 1 training entrypoint
-train_latent_pretrain.py  Stage 2 deterministic latent pretraining entrypoint
-train_diffusion.py        Stage 3 conditional diffusion training entrypoint
-infer_diffusion.py        Stage 3 DDIM/img2img SR sampling entrypoint
-eval_diffusion_samples.py sampled diffusion validation eval
-compare_eval_samples.py   sampled eval comparison contact sheets
-eval_autoencoder.py       standalone VAE eval entrypoint
-infer_reconstruct.py      reconstruction smoke/inference
+tools/                    command-line entrypoints grouped by purpose
+  train/                  Stage 1-4 and refiner training
+  eval/                   checkpoint and sampled-output evaluation
+  infer/                  reconstruction, diffusion, and refiner inference
+  analysis/               degradation and result comparison tools
 tests/                    unit tests
 ```
 
@@ -1232,7 +1229,7 @@ Create a toy dataset:
 Train a tiny autoencoder for a few steps:
 
 ```bash
-/home/jwheojjang/venvs/rocm/bin/python train_autoencoder.py \
+/home/jwheojjang/venvs/rocm/bin/python tools/train/train_autoencoder.py \
   --config configs/autoencoder_tiny.yaml \
   --limit-steps 10
 ```
@@ -1246,7 +1243,7 @@ Run unit tests:
 Run a tiny Stage 3 smoke test:
 
 ```bash
-/home/jwheojjang/venvs/rocm/bin/python train_diffusion.py \
+/home/jwheojjang/venvs/rocm/bin/python tools/train/train_diffusion.py \
   --config configs/diffusion_scratch_tiny.yaml \
   --limit-steps 1
 ```
@@ -1255,7 +1252,7 @@ Run current best Stage 4 condition-start sampling from an HR image by creating
 a controlled LR input first:
 
 ```bash
-/home/jwheojjang/venvs/rocm/bin/python infer_diffusion.py \
+/home/jwheojjang/venvs/rocm/bin/python tools/infer/infer_diffusion.py \
   --config configs/diffusion_photo10k_b32_stage4_condition.yaml \
   --checkpoint /home/jwheojjang/scratch/sr-diffusion/runs/diffusion_photo10k_b32_stage4_condition/checkpoints/best_eval_condition_decoded.pt \
   --input-hr /path/to/hr_image.png \
@@ -1271,7 +1268,7 @@ passed explicitly.
 Run Stage 3 baseline sampling from an HR image by creating a controlled LR input first:
 
 ```bash
-/home/jwheojjang/venvs/rocm/bin/python infer_diffusion.py \
+/home/jwheojjang/venvs/rocm/bin/python tools/infer/infer_diffusion.py \
   --config configs/diffusion_photo10k_b32.yaml \
   --checkpoint /home/jwheojjang/scratch/sr-diffusion/runs/diffusion_photo10k_b32/checkpoints/best_eval_noise.pt \
   --input-hr /path/to/hr_image.png \
@@ -1283,7 +1280,7 @@ Run Stage 3 baseline sampling from an HR image by creating a controlled LR input
 Run Stage 3 baseline sampling from an existing LR image:
 
 ```bash
-/home/jwheojjang/venvs/rocm/bin/python infer_diffusion.py \
+/home/jwheojjang/venvs/rocm/bin/python tools/infer/infer_diffusion.py \
   --config configs/diffusion_photo10k_b32.yaml \
   --checkpoint /home/jwheojjang/scratch/sr-diffusion/runs/diffusion_photo10k_b32/checkpoints/best_eval_noise.pt \
   --input-lr /path/to/lr_128.png \
@@ -1301,7 +1298,7 @@ the current checkpoints are more stable in condition-initialized mode.
 Run a small sampled validation sweep and compare against bicubic:
 
 ```bash
-/home/jwheojjang/venvs/rocm/bin/python eval_diffusion_samples.py \
+/home/jwheojjang/venvs/rocm/bin/python tools/eval/eval_diffusion_samples.py \
   --config configs/diffusion_photo10k_b32_stage4_condition.yaml \
   --checkpoint /home/jwheojjang/scratch/sr-diffusion/runs/diffusion_photo10k_b32_stage4_condition/checkpoints/best_eval_condition_decoded.pt \
   --output-dir /home/jwheojjang/scratch/sr-diffusion/runs/eval_diffusion_stage4_condition_val8_32step \
@@ -1317,7 +1314,7 @@ this order: LR nearest, bicubic, SR, GT.
 Compare two sampled eval directories and create top win/loss contact sheets:
 
 ```bash
-/home/jwheojjang/venvs/rocm/bin/python compare_eval_samples.py \
+/home/jwheojjang/venvs/rocm/bin/python tools/analysis/compare_eval_samples.py \
   --baseline-dir /home/jwheojjang/scratch/sr-diffusion/runs/eval_diffusion_stage3_val100_t50_32step \
   --candidate-dir /home/jwheojjang/scratch/sr-diffusion/runs/eval_diffusion_stage4_condition_val100_t25_32step \
   --output-dir /home/jwheojjang/scratch/sr-diffusion/runs/compare_stage3_vs_stage4_condition_val100 \
@@ -1328,7 +1325,7 @@ Compare two sampled eval directories and create top win/loss contact sheets:
 Reconstruct one image:
 
 ```bash
-/home/jwheojjang/venvs/rocm/bin/python infer_reconstruct.py \
+/home/jwheojjang/venvs/rocm/bin/python tools/infer/infer_reconstruct.py \
   --config configs/autoencoder_tiny.yaml \
   --checkpoint runs/autoencoder_tiny/checkpoints/latest.pt \
   --input runs/toy_data/images/0000.png \

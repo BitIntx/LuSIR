@@ -15,7 +15,7 @@ from PIL import Image
 from torch.utils.data import DataLoader
 from torchvision.utils import save_image
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from sr_diffusion.datasets import ManifestImageDataset

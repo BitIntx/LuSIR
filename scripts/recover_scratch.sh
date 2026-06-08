@@ -206,7 +206,7 @@ fi
 
 if [[ "${RUN_SMOKE}" -eq 1 ]]; then
   echo "[7/7] run scratch smoke train"
-  python train_autoencoder.py \
+  python tools/train/train_autoencoder.py \
     --config configs/autoencoder_scratch_tiny.yaml \
     --limit-steps 1
 else
@@ -227,5 +227,5 @@ Photo manifests:
   photo: ${PHOTO_MANIFEST_PATH}
 
 Next train command:
-  python train_autoencoder.py --config configs/autoencoder_photo10k.yaml
+  python tools/train/train_autoencoder.py --config configs/autoencoder_photo10k.yaml
 EOF

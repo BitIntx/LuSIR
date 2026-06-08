@@ -10,10 +10,12 @@ import torch
 import torch.nn.functional as F
 from PIL import Image, ImageDraw, ImageFont
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from infer_diffusion import (
+sys.path.insert(0, str(ROOT))
+
+from tools.infer.infer_diffusion import (
     edge_pad_image,
     float_array_to_pil,
     load_autoencoder,
@@ -25,7 +27,7 @@ from infer_diffusion import (
     tile_blend_mask,
     tile_positions,
 )
-from train_residual_refiner import BoundedResidualRefiner, apply_residual_strength, denormalize, normalize_image
+from tools.train.train_residual_refiner import BoundedResidualRefiner, apply_residual_strength, denormalize, normalize_image
 from sr_diffusion.utils import autocast_context, get_device, load_config, seed_everything
 
 

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from eval_residual_refiner import resolve_checkpoint as resolve_eval_checkpoint
-from infer_residual_refiner import resolve_checkpoint as resolve_inference_checkpoint
+from tools.eval.eval_residual_refiner import resolve_checkpoint as resolve_eval_checkpoint
+from tools.infer.infer_residual_refiner import resolve_checkpoint as resolve_inference_checkpoint
 
 
 def test_resolve_checkpoint_uses_config_relative_path(tmp_path: Path) -> None:

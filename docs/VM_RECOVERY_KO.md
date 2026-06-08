@@ -72,7 +72,7 @@ refiner checkpoint, diagnostic metrics, sample grids를 포함한다.
 단일 128x128 LR 입력:
 
 ```bash
-python infer_diffusion.py \
+python tools/infer/infer_diffusion.py \
   --input-lr /path/to/lr_128.png \
   --output-dir outputs/demo
 ```
@@ -80,7 +80,7 @@ python infer_diffusion.py \
 큰 LR 입력 타일 추론:
 
 ```bash
-python infer_diffusion.py \
+python tools/infer/infer_diffusion.py \
   --input-lr /path/to/larger_lr.png \
   --output-dir outputs/tiled_demo \
   --tile \
@@ -190,7 +190,7 @@ Stage4 XL condition-start를 시작할지 결정하는 것이다. Stage4 v2 samp
 eval 재현은 baseline 확인용으로 필요할 때만 실행한다:
 
 ```bash
-python eval_diffusion_samples.py \
+python tools/eval/eval_diffusion_samples.py \
   --config configs/diffusion_photo100k_b32_stage4_condition_v2.yaml \
   --checkpoint /home/$USER/scratch/sr-diffusion/runs/diffusion_photo100k_b32_stage4_condition_v2/checkpoints/best_eval_condition_decoded.pt \
   --output-dir /home/$USER/scratch/sr-diffusion/runs/eval_diffusion_photo100k_stage4_condition_v2_val100_t25_32step \
@@ -212,7 +212,7 @@ cyan/green dot artifact and color/contrast overshoot mitigation experiments
 Stage4 XL 시작 명령 예시:
 
 ```bash
-python train_diffusion.py \
+python tools/train/train_diffusion.py \
   --config configs/diffusion_photo100k_xl_stage4_condition_v3.yaml \
   --init-checkpoint /home/$USER/scratch/sr-diffusion/runs/diffusion_photo100k_b32_stage4_condition_v2/checkpoints/best_eval_condition_decoded.pt \
   --partial-init
@@ -226,7 +226,7 @@ condition encoder 후보 비교를 하는 것이 권장된다.
 학습 실행:
 
 ```bash
-tmux new-session -d -s sr_stage3_photo100k 'cd /path/to/sr-diffusion && env PYTHONUNBUFFERED=1 python train_diffusion.py --config configs/diffusion_photo100k_b32.yaml > /path/to/train_tmux.log 2>&1'
+tmux new-session -d -s sr_stage3_photo100k 'cd /path/to/sr-diffusion && env PYTHONUNBUFFERED=1 python tools/train/train_diffusion.py --config configs/diffusion_photo100k_b32.yaml > /path/to/train_tmux.log 2>&1'
 ```
 
 로그:

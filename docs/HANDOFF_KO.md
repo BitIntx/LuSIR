@@ -140,8 +140,8 @@
   `python scripts/download_hf_checkpoints.py --preset stage4_teacher_residual_probe`
 
 - residual refiner standalone eval/inference 도구 추가:
-  - `eval_residual_refiner.py`
-  - `infer_residual_refiner.py`
+  - `tools/eval/eval_residual_refiner.py`
+  - `tools/infer/infer_residual_refiner.py`
 - 같은 frozen sparse-gate refiner checkpoint step `500`으로 cross-degradation val100 평가 완료.
 
 | degradation | bicubic PSNR | condition PSNR | refined PSNR | refined-condition | wins |

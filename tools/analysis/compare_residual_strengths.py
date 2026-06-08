@@ -10,11 +10,13 @@ from typing import Any
 import torch
 import torch.nn.functional as F
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from eval_residual_refiner import resolve_checkpoint
-from train_residual_refiner import (
+sys.path.insert(0, str(ROOT))
+
+from tools.eval.eval_residual_refiner import resolve_checkpoint
+from tools.train.train_residual_refiner import (
     BoundedResidualRefiner,
     apply_residual_strength,
     denormalize,

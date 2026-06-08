@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from train_latent_pretrain import compute_stage2_loss
+from tools.train.train_latent_pretrain import compute_stage2_loss
 
 
 class IdentityDecoder(nn.Module):

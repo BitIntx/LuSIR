@@ -6,7 +6,7 @@
 Full / GT` 순서로 비교한다. 각 이미지를 클릭하면 원본 크기로 열린다.
 
 ```bash
-python compare_residual_strengths.py \
+python tools/analysis/compare_residual_strengths.py \
   --config configs/residual_refiner_stage2_xl_photo_detail_v2_continue_40k.yaml \
   --checkpoint /path/to/residual_refiner_stage2_xl_photo_detail_v2_best39000.pt \
   --output-dir outputs/residual_strength_visual_review \
