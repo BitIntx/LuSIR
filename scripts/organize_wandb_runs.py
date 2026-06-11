@@ -9,7 +9,7 @@ STAGES = ("stage1", "stage2", "stage3", "stage4")
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Organize existing W&B runs by training stage.")
-    parser.add_argument("--project", default="jwheo/sr-diffusion")
+    parser.add_argument("--project", default="jwheo/LuSIR")
     parser.add_argument("--apply", action="store_true", help="Apply updates. The default is a dry run.")
     return parser.parse_args()
 

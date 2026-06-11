@@ -5,7 +5,7 @@ project:
 logging:
   wandb:
     enabled: true
-    project: sr-diffusion
+    project: LuSIR
     name: diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_detail_b8_long
     mode: online
     dir: /home/jwheojjang/scratch/sr-diffusion/wandb

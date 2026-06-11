@@ -5,7 +5,7 @@ project:
 logging:
   wandb:
     enabled: false
-    project: sr-diffusion
+    project: LuSIR
     name: autoencoder_tiny
     mode: offline
     dir: runs/wandb

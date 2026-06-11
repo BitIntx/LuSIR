@@ -5,7 +5,7 @@ project:
 logging:
   wandb:
     enabled: true
-    project: sr-diffusion
+    project: LuSIR
     name: residual_refiner_stage2_xl_photo_detail_v2_continue_40k
     mode: online
     dir: /home/jwheojjang/scratch/sr-diffusion/wandb

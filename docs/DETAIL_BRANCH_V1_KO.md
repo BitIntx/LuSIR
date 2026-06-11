@@ -140,7 +140,7 @@ v1b augmentation run은 `40000` micro-steps에서 정상 종료됐다.
 ```text
 run:       detail_branch_v1b_aug_photo130k_lsdir
 config:    configs/detail_branch_v1b_aug_photo130k_lsdir.yaml
-W&B:       https://wandb.ai/jwheo/sr-diffusion/runs/1o3aavi9
+W&B:       https://wandb.ai/jwheo/LuSIR/runs/1o3aavi9
 selected:  step 39500, eval/detail_score best
 local ckpt:
   /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v1b_aug_photo130k_lsdir/checkpoints/best_eval_detail.pt

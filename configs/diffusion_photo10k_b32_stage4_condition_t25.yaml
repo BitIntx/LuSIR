@@ -5,7 +5,7 @@ project:
 logging:
   wandb:
     enabled: true
-    project: sr-diffusion
+    project: LuSIR
     name: diffusion_photo10k_b32_stage4_condition_t25
     mode: online
     dir: /home/jwheojjang/scratch/sr-diffusion/wandb

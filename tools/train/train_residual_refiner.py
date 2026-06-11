@@ -142,7 +142,7 @@ def init_wandb(config: dict[str, Any], output_dir: Path, model: nn.Module) -> An
     if "stage2" not in tags:
         tags.append("stage2")
     run = wandb.init(
-        project=wandb_cfg.get("project", "sr-diffusion"),
+        project=wandb_cfg.get("project", "LuSIR"),
         entity=wandb_cfg.get("entity"),
         name=wandb_cfg.get("name", config.get("project", {}).get("name")),
         dir=str(wandb_dir),

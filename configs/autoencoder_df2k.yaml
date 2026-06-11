@@ -5,7 +5,7 @@ project:
 logging:
   wandb:
     enabled: true
-    project: sr-diffusion
+    project: LuSIR
     name: autoencoder_df2k
     mode: offline
     dir: /home/jwheojjang/scratch/sr-diffusion/wandb

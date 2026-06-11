@@ -5,7 +5,7 @@ project:
 logging:
   wandb:
     enabled: true
-    project: sr-diffusion
+    project: LuSIR
     name: latent_pretrain_photo130k_lsdir_dual_multiscale_long
     mode: online
     dir: /home/ubuntu/scratch/sr-diffusion/wandb

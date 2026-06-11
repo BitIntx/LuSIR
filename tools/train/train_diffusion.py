@@ -202,7 +202,7 @@ def init_wandb(config: dict[str, Any], output_dir: Path, model: torch.nn.Module)
     tags = list(wandb_cfg.get("tags") or [])
     default_group = next((stage for stage in ("stage4", "stage3") if stage in tags), "stage3")
     run = wandb.init(
-        project=wandb_cfg.get("project", "sr-diffusion"),
+        project=wandb_cfg.get("project", "LuSIR"),
         entity=wandb_cfg.get("entity"),
         name=wandb_cfg.get("name", config.get("project", {}).get("name")),
         dir=str(wandb_dir),

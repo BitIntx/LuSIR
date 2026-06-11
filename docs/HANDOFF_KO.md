@@ -50,7 +50,7 @@ generative:
   (`133450` unique train + `100` val).
 - config:
   `configs/latent_pretrain_photo130k_lsdir_dual_multiscale_long.yaml`
-- W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/4akqckxu>
+- W&B: <https://wandb.ai/jwheo/LuSIR/runs/4akqckxu>
 - tmux: `stage2-lsdir-dual`
 - log:
   `/home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_multiscale_long/train.log`
@@ -84,7 +84,7 @@ generative:
 
 - run: `detail_branch_v1b_aug_photo130k_lsdir`
 - config: `configs/detail_branch_v1b_aug_photo130k_lsdir.yaml`
-- W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/1o3aavi9>
+- W&B: <https://wandb.ai/jwheo/LuSIR/runs/1o3aavi9>
 - 완료: `40000` micro-steps = `10000` optimizer updates, 약 `1.199 epoch`
   over train `133450`.
 - selected: step `39500`, `eval/detail_score` best.
@@ -111,7 +111,7 @@ generative:
   고품질 데이터 노출 비율 교정으로 해결.
 - config:
   `configs/latent_pretrain_photo100k_multiscale_hqmix_long.yaml`
-- W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/6zt2do4v>
+- W&B: <https://wandb.ai/jwheo/LuSIR/runs/6zt2do4v>
 - 완료된 run log:
   `/home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo100k_multiscale_hqmix_long/train.log`
 - 초기 val100: decoded PSNR `23.7387`, detail ratio `0.28167`. Zero-init context
@@ -129,7 +129,7 @@ generative:
 - 완료: perceptual Stage 2 continuation, `12000` micro steps:
   `configs/latent_pretrain_photo100k_multiscale_hqmix_perceptual_continue.yaml`
 - selected step 46000에서 frozen ImageNet VGG16 feature loss로 이어 학습한다.
-- W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/nrqhw05u>
+- W&B: <https://wandb.ai/jwheo/LuSIR/runs/nrqhw05u>
 - tmux: `stage2-perceptual`
 - log:
   `/home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo100k_multiscale_hqmix_perceptual_continue/train.log`
@@ -152,7 +152,7 @@ generative:
 
 - residual refiner v2 lower-LR continuation과 cross-preset 평가 완료.
 - 완료: `40000` micro steps, best decoded PSNR step `39000`.
-- W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/3v6wmf5o>
+- W&B: <https://wandb.ai/jwheo/LuSIR/runs/3v6wmf5o>
 - 병목 없음: L40S util `99-100%`, VRAM 약 `41.8/46.1GB`, steady `0.87~0.91 step/s`.
 
 | degradation | condition mean PSNR | refined mean PSNR | condition 대비 | wins |
@@ -192,7 +192,7 @@ generative:
 - Stage4 long run:
   - config:
     `configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_detail_b8_long.yaml`
-  - W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/so0lbyte>
+  - W&B: <https://wandb.ai/jwheo/LuSIR/runs/so0lbyte>
   - 완료: `12000` micro steps = `3000` optimizer updates
   - 병목 없음: L40S util `99-100%`, VRAM 약 `45.0/46.1GB`, steady `0.856 step/s`
 
@@ -228,8 +228,8 @@ generative:
 - config:
   `configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_v3_b8_probe.yaml`
 - W&B:
-  - <https://wandb.ai/jwheo/sr-diffusion/runs/6h0124us>
-  - <https://wandb.ai/jwheo/sr-diffusion/runs/0p3lfqt7>
+  - <https://wandb.ai/jwheo/LuSIR/runs/6h0124us>
+  - <https://wandb.ai/jwheo/LuSIR/runs/0p3lfqt7>
 - `photo_v3_noise_mix` sampled val100, condition init, 32 steps:
 
 | checkpoint | start timestep | SR PSNR | bicubic 대비 | condition 대비 | condition wins |
@@ -305,7 +305,7 @@ generative:
 ## 2026-06-05 최신 실험 요약
 
 - `diffusion_photo100k_xl_stage4_condition_v3_rolesplit_mild_b8_probe` 학습 완료.
-- W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/lrb6nco9>
+- W&B: <https://wandb.ai/jwheo/LuSIR/runs/lrb6nco9>
 - 완료 step: `8000` micro steps = `2000` optimizer updates (`grad_accum_steps=4`)
 - best checkpoint: step `7500`, `best_eval_condition_decoded.pt`
 - `mild` val100 sampled eval 결과:
@@ -331,7 +331,7 @@ forward/backward까지 통과했다. 자세한 가설과 평가 기준은
 
 실험 3 중간 결과:
 
-- W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/edfko8e8>
+- W&B: <https://wandb.ai/jwheo/LuSIR/runs/edfko8e8>
 - step `2000`에서 중단하고 sampled eval 완료.
 - one-step decoded PSNR은 step `500` 이후 `23.47-23.48`로 보합.
 - best one-step checkpoint: step `1000`

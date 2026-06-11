@@ -5,7 +5,7 @@ project:
 logging:
   wandb:
     enabled: true
-    project: sr-diffusion
+    project: LuSIR
     name: latent_pretrain_photo100k_xl_stage2_detail_loss_probe
     mode: online
     dir: /home/ubuntu/scratch/sr-diffusion/wandb

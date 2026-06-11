@@ -84,7 +84,7 @@ v1b augmentation run은 `40000` micro-steps에서 정상 종료됐다.
 ```text
 run:    detail_branch_v1b_aug_photo130k_lsdir
 config: configs/detail_branch_v1b_aug_photo130k_lsdir.yaml
-W&B:    https://wandb.ai/jwheo/sr-diffusion/runs/1o3aavi9
+W&B:    https://wandb.ai/jwheo/LuSIR/runs/1o3aavi9
 local:
   /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v1b_aug_photo130k_lsdir
 best:
@@ -140,7 +140,7 @@ augmentation + 장기 학습은 수치상 진전이 있었다. 특히 wins가 fi
 
 - config: `configs/diffusion_photo100k_xl_stage4_condition_v3_edge_b16.yaml`
 - checkpoint step: `4250`
-- W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/nog04fwr>
+- W&B: <https://wandb.ai/jwheo/LuSIR/runs/nog04fwr>
 
 `photo_v3_noise_mix` val100 sampled eval:
 
@@ -213,7 +213,7 @@ python tools/eval/eval_condition_samples.py \
 - micro steps: `20000`
 - 실제 optimizer update: `5000`
 - start/sample timestep: `50`, 추가 sampled eval은 `25`도 확인
-- W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/xyvqg0n6>
+- W&B: <https://wandb.ai/jwheo/LuSIR/runs/xyvqg0n6>
 
 추가한 loss:
 
@@ -279,7 +279,7 @@ sampled val100 결과, 같은 `photo_v2` 기준:
 
 학습 결과:
 
-- W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/lrb6nco9>
+- W&B: <https://wandb.ai/jwheo/LuSIR/runs/lrb6nco9>
 - 정상 종료: `finished step=8000`
 - micro steps: `8000`
 - 실제 optimizer update: `2000`
@@ -377,7 +377,7 @@ sampled val100 결과, 같은 `mild` 기준:
 
 학습 결과:
 
-- W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/edfko8e8>
+- W&B: <https://wandb.ai/jwheo/LuSIR/runs/edfko8e8>
 - step `2000`에서 중단.
   - 원래 config는 `8000` micro steps였지만 one-step decoded proxy가 step `500` 이후
     보합이라 step `2000` checkpoint를 확보한 뒤 sampled eval을 먼저 보기로 했다.
@@ -669,8 +669,8 @@ samples/compare_residual_refiner_vs_stage4_edge_0801_photo_v3.png
 - batch `8`, grad accumulation `4`
 - 완료: `8000` micro steps = `2000` optimizer updates
 - W&B:
-  - step 0-2000: <https://wandb.ai/jwheo/sr-diffusion/runs/6h0124us>
-  - step 2000-8000: <https://wandb.ai/jwheo/sr-diffusion/runs/0p3lfqt7>
+  - step 0-2000: <https://wandb.ai/jwheo/LuSIR/runs/6h0124us>
+  - step 2000-8000: <https://wandb.ai/jwheo/LuSIR/runs/0p3lfqt7>
 - GPU 병목 없음: L40S util `97-100%`, steady speed 약 `0.85 micro-step/s`
 
 one-step decoded proxy는 step `2000` 이후 개선되지 않았다:
@@ -764,7 +764,7 @@ Stage4 장기 적응:
 - batch `8`, grad accumulation `4`
 - lr `1e-6`
 - 완료 `12000` micro steps = `3000` optimizer updates
-- W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/so0lbyte>
+- W&B: <https://wandb.ai/jwheo/LuSIR/runs/so0lbyte>
 - L40S util `99-100%`, VRAM 약 `45.0/46.1GB`, steady `0.856 micro-step/s`
 
 sampled `photo_detail_mix` val100, condition init, t25, 32 steps:
@@ -814,7 +814,7 @@ sampled `photo_detail_mix` val100, condition init, t25, 32 steps:
 - Stage1/Stage2 frozen, hidden channels `192`, residual blocks `12`
 - batch `12`, grad accumulation `2`, effective batch `24`
 - continuation LR `2.5e-5`, 완료 `40000` micro steps
-- W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/3v6wmf5o>
+- W&B: <https://wandb.ai/jwheo/LuSIR/runs/3v6wmf5o>
 - L40S util `99-100%`, VRAM 약 `41.8/46.1GB`, steady `0.87~0.91 step/s`
 
 `photo_detail_mix` val100 주요 checkpoint:
@@ -887,7 +887,7 @@ loss: latent 0.25 + decoded 1.0 + edge 1.0 + highpass 2.0
       + highpass residual magnitude 1.0
 data: photo_detail_mix
 effective batch: 8 x grad_accum 4 = 32
-W&B: https://wandb.ai/jwheo/sr-diffusion/runs/hgr8ilhk
+W&B: https://wandb.ai/jwheo/LuSIR/runs/hgr8ilhk
 ```
 
 초기 실행은 L40S 한 장에서 VRAM 약 `32.9/46.1GB`, GPU util `100%`,
@@ -964,7 +964,7 @@ GPU util은 `100%`, VRAM은 약 `34.8/46.1GB`였고 batch 4와 micro-step 속도
 장기 run:
 
 ```text
-W&B: https://wandb.ai/jwheo/sr-diffusion/runs/6zt2do4v
+W&B: https://wandb.ai/jwheo/LuSIR/runs/6zt2do4v
 initial val100: decoded PSNR 23.7387, detail ratio 0.28167
 steady: about 1.25 micro-step/s, GPU util 100%, VRAM 34.8/46.1GB
 ```
@@ -1005,7 +1005,7 @@ selected checkpoint:
 metrics:
   metrics/stage2_multiscale_hqmix_step46000_cross_preset_summary.json
 W&B:
-  https://wandb.ai/jwheo/sr-diffusion/runs/6zt2do4v
+  https://wandb.ai/jwheo/LuSIR/runs/6zt2do4v
 ```
 
 ### 다음 continuation 준비: frozen VGG feature supervision
@@ -1039,7 +1039,7 @@ CUDA smoke:
 - steady 약 `2.62 micro-step/s`.
 - perceptual loss는 초기 약 `0.0394`이며 전체 loss를 압도하지 않았다.
 - 장기 학습 시작:
-  - W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/nrqhw05u>
+  - W&B: <https://wandb.ai/jwheo/LuSIR/runs/nrqhw05u>
   - 초기 val100: decoded PSNR `24.4835`, detail ratio `0.2907`,
     perceptual `0.03218`, PSNR-detail score `25.937`.
   - steady 약 `2.62 micro-step/s`, GPU util `99~100%`, VRAM 약 `20.6GB`.
@@ -1153,7 +1153,7 @@ CUDA smoke:
 - raw LSDIR 데이터는 GitHub/HF에 올리지 않는다.
 - 장기 학습 시작:
   - tmux: `stage2-lsdir-dual`
-  - W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/4akqckxu>
+  - W&B: <https://wandb.ai/jwheo/LuSIR/runs/4akqckxu>
   - log:
     `/home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_multiscale_long/train.log`
   - 초기 eval 이후 step 50~75 steady 약 `1.15 micro-step/s`, GPU `100%`,

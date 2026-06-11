@@ -259,7 +259,7 @@ def init_wandb(config: dict[str, Any], output_dir: Path, model: nn.Module) -> An
     if "detail-branch" not in tags:
         tags.append("detail-branch")
     run = wandb.init(
-        project=wandb_cfg.get("project", "sr-diffusion"),
+        project=wandb_cfg.get("project", "LuSIR"),
         entity=wandb_cfg.get("entity"),
         name=wandb_cfg.get("name", config.get("project", {}).get("name")),
         dir=str(wandb_dir),

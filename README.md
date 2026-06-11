@@ -176,7 +176,7 @@ finished step:          5000
 selected checkpoint:    step 4250, best eval/decoded_mse
 training eval proxy:    decoded_psnr 21.9872
 sampled val100:         SR 23.0793 PSNR, bicubic 22.3599 PSNR, delta +0.7195
-W&B:                    https://wandb.ai/jwheo/sr-diffusion/runs/nog04fwr
+W&B:                    https://wandb.ai/jwheo/LuSIR/runs/nog04fwr
 ```
 
 This is better than the previous v3-noise XL condition-only path and beats the
@@ -197,7 +197,7 @@ baseline on average:
 Stage 2 XL condition-only mild val100: 25.0449 PSNR
 Stage 4 role-split mild t25:          24.5747 PSNR, condition wins 3/100
 Stage 4 gated residual step2000 t25:  25.0445 PSNR, condition wins 34/100
-W&B gated residual probe:             https://wandb.ai/jwheo/sr-diffusion/runs/edfko8e8
+W&B gated residual probe:             https://wandb.ai/jwheo/LuSIR/runs/edfko8e8
 ```
 
 The current research conclusion is that Stage 4 must receive a more direct
@@ -219,7 +219,7 @@ model params:              55.50M
 training mix:              100,000 COCO / 103,500 DIV2K+Flickr2K rows
 effective batch:           8 x grad_accum 4 = 32
 max micro-steps:           50,000
-W&B:                       https://wandb.ai/jwheo/sr-diffusion/runs/6zt2do4v
+W&B:                       https://wandb.ai/jwheo/LuSIR/runs/6zt2do4v
 ```
 
 The run completed all 50,000 micro-steps. Step 46000 is selected instead of the
@@ -239,7 +239,7 @@ supervision:    existing reconstruction/detail losses + frozen ImageNet VGG16 fe
 batch:          4 x grad_accum 8 = effective 32
 max steps:      12,000
 best metric:    decoded PSNR + 5 x detail ratio
-W&B:            https://wandb.ai/jwheo/sr-diffusion/runs/nrqhw05u
+W&B:            https://wandb.ai/jwheo/LuSIR/runs/nrqhw05u
 finished step:  12,000
 auto best:      step 8000, shortlist score 26.0092
 decision:       preserve as an experimental candidate; do not promote
@@ -272,7 +272,7 @@ initialization:  multiscale Stage 2 step 46000
 batch:           8 x grad_accum 4 = effective 32
 max steps:       100,000 micro-steps = 25,000 optimizer updates
 selection:       eval/decoded_psnr plus fixed-sample visual review
-W&B:             https://wandb.ai/jwheo/sr-diffusion/runs/4akqckxu
+W&B:             https://wandb.ai/jwheo/LuSIR/runs/4akqckxu
 ```
 
 The L40S smoke test reproduced the initialization at `24.48 dB` decoded PSNR
@@ -446,7 +446,7 @@ gated-residual Stage 4 was adapted for 12000 micro-steps:
 ```text
 Photo-detail Stage4 long run:
   config: configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_detail_b8_long.yaml
-  W&B: https://wandb.ai/jwheo/sr-diffusion/runs/so0lbyte
+  W&B: https://wandb.ai/jwheo/LuSIR/runs/so0lbyte
   condition-only:       25.3103 PSNR
   teacher init:         25.3187 PSNR, +0.0084 vs condition, wins 46/100
   selected step 8000:   25.3406 PSNR, +0.0303 vs condition, wins 71/100
@@ -1204,7 +1204,7 @@ The current config logs to W&B online:
 ```yaml
 logging:
   wandb:
-    project: sr-diffusion
+    project: LuSIR
     name: autoencoder_photo10k_b16_eval_online
     mode: online
 ```

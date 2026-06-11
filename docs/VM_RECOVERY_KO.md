@@ -231,7 +231,7 @@ cp checkpoints/stage4_photo100k_condition_v2_b32_best_eval_condition_decoded.pt 
 ```text
 best checkpoint: checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt
 final local checkpoint: latest.pt at step 100000
-W&B: https://wandb.ai/jwheo/sr-diffusion/runs/4akqckxu
+W&B: https://wandb.ai/jwheo/LuSIR/runs/4akqckxu
 ```
 
 같은 compare tool 기준 selected multiscale step46000 대비:

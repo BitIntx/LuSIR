@@ -144,7 +144,7 @@ decoded losses:
 ```text
 config: configs/diffusion_photo100k_xl_stage4_condition_v3_rolesplit_mild_b8_probe.yaml
 run: diffusion_photo100k_xl_stage4_condition_v3_rolesplit_mild_b8_probe
-W&B: https://wandb.ai/jwheo/sr-diffusion/runs/lrb6nco9
+W&B: https://wandb.ai/jwheo/LuSIR/runs/lrb6nco9
 finished step: 8000 micro-steps, 2000 optimizer updates
 best one-step checkpoint: step 7500, decoded PSNR 23.2515
 ```
@@ -179,7 +179,7 @@ reached condition-only parity:
 ```text
 config: configs/diffusion_photo100k_xl_stage4_condition_v3_gated_residual_mild_b8_probe.yaml
 run: diffusion_photo100k_xl_stage4_condition_v3_gated_residual_mild_b8_probe
-W&B: https://wandb.ai/jwheo/sr-diffusion/runs/edfko8e8
+W&B: https://wandb.ai/jwheo/LuSIR/runs/edfko8e8
 best one-step checkpoint: step 1000
 final checkpoint: step 2000
 ```
@@ -317,7 +317,7 @@ gated-residual Stage 4 was adapted from its selected step-2000 checkpoint:
 ```text
 config: configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_detail_b8_long.yaml
 run: diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_detail_b8_long
-W&B: https://wandb.ai/jwheo/sr-diffusion/runs/so0lbyte
+W&B: https://wandb.ai/jwheo/LuSIR/runs/so0lbyte
 train batch size: 8
 gradient accumulation: 4
 learning rate: 1e-6
@@ -443,7 +443,7 @@ emphasis of [Real-ESRGAN](https://arxiv.org/abs/2107.10833). The resulting
 55.50M-parameter model passed a full batch-8 forward/backward and val100 smoke
 test on one L40S at approximately `34.8/46.1GB` VRAM and `100%` GPU
 utilization. The 50,000-micro-step long run is tracked at
-<https://wandb.ai/jwheo/sr-diffusion/runs/6zt2do4v>.
+<https://wandb.ai/jwheo/LuSIR/runs/6zt2do4v>.
 
 The run completed normally. Step 46000 was selected over the final checkpoint
 because it provides the best cross-preset distortion/detail compromise. It
@@ -469,7 +469,7 @@ regressed `photo_v3_noise_mix` by `-0.0063 dB`. Fixed contact sheets showed
 almost no visible difference from initialization, and missing fine texture
 remained smoothed. The run is preserved as a partial metric/latent success but
 is not promoted into the public path. The completed run is tracked at
-<https://wandb.ai/jwheo/sr-diffusion/runs/nrqhw05u>.
+<https://wandb.ai/jwheo/LuSIR/runs/nrqhw05u>.
 
 ## Dual-Context Unique-Data Stage 2 Scale-up
 
@@ -493,7 +493,7 @@ The one-L40S smoke test reproduced the initial `24.48 dB` decoded PSNR and
 25,000 optimizer updates. Evaluation ran every 1,000 micro-steps, while
 ordinary milestone checkpoints were limited to every 5,000 micro-steps to stay
 within the disk budget. The run is tracked at
-<https://wandb.ai/jwheo/sr-diffusion/runs/4akqckxu>.
+<https://wandb.ai/jwheo/LuSIR/runs/4akqckxu>.
 
 The run completed all 100,000 micro-steps. Step 98,000 is the automatic
 `eval/decoded_psnr` best checkpoint on `photo_detail_mix`; step 100,000 is
