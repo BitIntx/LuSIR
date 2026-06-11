@@ -490,6 +490,16 @@ milestone checkpoints are limited to every 5,000 micro-steps to stay within the
 disk budget. The active run is tracked at
 <https://wandb.ai/jwheo/sr-diffusion/runs/4akqckxu>.
 
+The run completed all 100,000 micro-steps. Step 98,000 is the automatic
+`eval/decoded_psnr` best checkpoint on `photo_detail_mix`; step 100,000 is
+slightly better on stronger degradations. Re-evaluated with the same comparison
+tool against selected step 46,000, the gains are `+0.1362 dB` on
+`photo_detail_mix`, `+0.1086 dB` on `mild`, `+0.0540 dB` on `photo_v2`, and
+`-0.0356 dB` on `photo_v3_noise_mix` for the best checkpoint. The final
+checkpoint changes those to `+0.1256`, `+0.1025`, `+0.0668`, and `+0.0132 dB`.
+This is a modest reconstruction improvement, not a solved perceptual-detail
+problem.
+
 ## Public Artifacts
 
 The latest public artifacts are stored in `jwheo/sr-diffusion` on Hugging Face:

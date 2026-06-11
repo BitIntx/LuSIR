@@ -1,0 +1,73 @@
+{
+  "status": "complete",
+  "config": "configs/latent_pretrain_photo130k_lsdir_dual_multiscale_long.yaml",
+  "wandb": "https://wandb.ai/jwheo/sr-diffusion/runs/4akqckxu",
+  "model": {
+    "architecture": "dual_multiscale_context",
+    "parameters": 119238352,
+    "initialization_checkpoint": "checkpoints/stage2_photo100k_multiscale_hqmix_step_0046000.pt"
+  },
+  "data": {
+    "lsdir_unique_train_images": 30000,
+    "merged_unique_train_images": 133450,
+    "validation_images": 100
+  },
+  "training": {
+    "finished_micro_steps": 100000,
+    "optimizer_updates": 25000,
+    "batch_size": 8,
+    "grad_accum_steps": 4,
+    "effective_batch_size": 32,
+    "steady_micro_steps_per_second": 1.15,
+    "gpu": "NVIDIA L40S"
+  },
+  "selected_checkpoint": {
+    "path": "checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt",
+    "source_local_path": "/home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_multiscale_long/checkpoints/best_eval_decoded.pt",
+    "step": 98000,
+    "selection": "best eval/decoded_psnr on photo_detail_mix val100"
+  },
+  "final_checkpoint": {
+    "source_local_path": "/home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_multiscale_long/checkpoints/latest.pt",
+    "step": 100000,
+    "note": "slightly better than step 98000 on strong photo_v2/photo_v3_noise_mix, but lower on cleaner presets"
+  },
+  "val100_same_tool_psnr": {
+    "photo_detail_mix": {
+      "old_step46000": 24.48353934114687,
+      "best_step98000": 24.619740766207123,
+      "best_delta": 0.13620142506025346,
+      "final_step100000": 24.609097311432425,
+      "final_delta": 0.1255579702855556
+    },
+    "mild": {
+      "old_step46000": 24.24963833157169,
+      "best_step98000": 24.358273160472017,
+      "best_delta": 0.10863482890032997,
+      "final_step100000": 24.352187860168964,
+      "final_delta": 0.10254952859727705
+    },
+    "photo_v2": {
+      "old_step46000": 22.718578662849335,
+      "best_step98000": 22.772621240031494,
+      "best_delta": 0.0540425771821576,
+      "final_step100000": 22.78537518368944,
+      "final_delta": 0.06679652084010501
+    },
+    "photo_v3_noise_mix": {
+      "old_step46000": 22.44009140999802,
+      "best_step98000": 22.404442481393833,
+      "best_delta": -0.03564892860418706,
+      "final_step100000": 22.453301299869196,
+      "final_delta": 0.013209889871174798
+    }
+  },
+  "fixed_sample_observation": {
+    "best_step98000_psnr_delta_vs_initial": 0.105543,
+    "best_step98000_laplacian_ratio_delta_vs_initial": 0.014005,
+    "final_step100000_laplacian_ratio_delta_vs_initial": 0.028414,
+    "clipping_artifact_detected": false,
+    "visual_review_note": "Local image viewer failed in the sandbox, so this is based on fixed-sample image statistics and contact sheets saved under scratch."
+  },
+  "conclusion": "Modest but real Stage 2 improvement on cleaner presets and slight strong-preset robustness at the final checkpoint. This is not a perceptual-detail breakthrough and should not be promoted without human visual review of the generated contact sheets."
+}

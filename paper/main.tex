@@ -632,6 +632,15 @@ The long run targets 100,000 micro-steps, or 25,000 optimizer updates.
 Validation remains every 1,000 micro-steps, while ordinary milestones are
 stored every 5,000 micro-steps to remain within disk budget.
 
+The run completed all 100,000 micro-steps. Step 98,000 is the automatic
+\texttt{eval/decoded\_psnr} best on \texttt{photo\_detail\_mix}; step 100,000
+is slightly better on stronger degradations. Against selected step 46,000 under
+the same comparison tool, step 98,000 improves \texttt{photo\_detail\_mix} by
+0.1362 dB and \texttt{mild} by 0.1086 dB, while \texttt{photo\_v2} improves by
+0.0540 dB and \texttt{photo\_v3\_noise\_mix} regresses by 0.0356 dB. The final
+checkpoint changes the strong-preset deltas to +0.0668 dB and +0.0132 dB. This
+is a modest reconstruction gain, not a solved perceptual-detail problem.
+
 \section{Limitations}
 
 This is an engineering report for an active experiment, not a claim of a final

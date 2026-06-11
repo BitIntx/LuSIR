@@ -1040,3 +1040,35 @@ CUDA smoke:
     `/home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_multiscale_long/train.log`
   - 초기 eval 이후 step 50~75 steady 약 `1.15 micro-step/s`, GPU `100%`,
     VRAM `37.8/46.1GB`, 약 `306W`, `58°C`.
+
+### 2026-06-09 dual-context LSDIR 장기 run 완료 판단
+
+학습은 `100000` micro steps에서 정상 종료됐고 W&B sync도 완료됐다.
+
+같은 compare tool 기준 selected multiscale step46000 대비:
+
+| preset | old step46000 | best step98000 | delta | final step100000 | delta |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `photo_detail_mix` | 24.4835 | 24.6197 | +0.1362 | 24.6091 | +0.1256 |
+| `mild` | 24.2496 | 24.3583 | +0.1086 | 24.3522 | +0.1025 |
+| `photo_v2` | 22.7186 | 22.7726 | +0.0540 | 22.7854 | +0.0668 |
+| `photo_v3_noise_mix` | 22.4401 | 22.4044 | -0.0356 | 22.4533 | +0.0132 |
+
+고정 sample grid 통계:
+
+- best step98000은 initial 대비 PSNR `+0.1055 dB`, Laplacian ratio
+  `+0.0140`.
+- final step100000은 initial 대비 Laplacian ratio `+0.0284`로 더 높지만
+  PSNR은 best보다 낮다.
+- 흰색 artifact/클리핑 증가는 샘플 통계상 보이지 않았다.
+
+판단:
+
+- 30k LSDIR 추가와 119M dual-context 확장은 `+0.01 dB` 수준의 이전
+  perceptual continuation보다 분명한 수치 개선을 만들었다.
+- 다만 개선폭은 clean/mild에서 `+0.10~0.14 dB`, strong preset에서
+  `+0.01~0.07 dB` 수준이다. 사용자 체감 fine-detail 복원 돌파로 보기는
+  어렵다.
+- step98000은 clean/mild용 자동 best, step100000은 strong preset tail에
+  조금 더 안전한 후보로 보존한다.
+- public/default 승격 전에는 contact sheet human review가 필요하다.

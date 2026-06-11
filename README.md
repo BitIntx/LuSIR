@@ -265,7 +265,21 @@ The active tmux session is `stage2-lsdir-dual`, with the log at
 `/home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_multiscale_long/train.log`.
 After startup evaluation, the active run stabilized at approximately
 `1.15 micro-step/s`, `100%` GPU utilization, `37.8/46.1GB` VRAM, and about
-`306W`.
+`306W`. It completed all `100,000` micro-steps. The automatic best checkpoint
+is step `98000`; the final checkpoint is slightly better on strong presets but
+slightly worse on cleaner presets.
+
+```text
+same-tool val100 PSNR delta vs selected step 46000:
+photo_detail_mix:   best98000 +0.1362 dB, final100000 +0.1256 dB
+mild:               best98000 +0.1086 dB, final100000 +0.1025 dB
+photo_v2:           best98000 +0.0540 dB, final100000 +0.0668 dB
+photo_v3_noise_mix: best98000 -0.0356 dB, final100000 +0.0132 dB
+```
+
+This is a modest reconstruction/detail-energy gain, not a perceptual-detail
+breakthrough. Human review should inspect the saved contact sheets before
+promoting it over the current public path.
 
 A direct Stage 2 residual diagnostic confirmed that the missing signal is
 mostly high-frequency detail rather than lowpass structure. On mild val100,

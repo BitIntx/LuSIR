@@ -29,7 +29,7 @@ generative:
 - 현재 사용자용 public deterministic 기본값은 residual refiner v2이고,
   최신 연구용 condition 후보는 multiscale Stage 2 step `46000`이다.
 
-### 현재 실행 중인 장기 실험
+### 최신 완료 장기 실험
 
 - perceptual continuation의 `+0.01~0.03 dB`는 고정 sample에서 거의 구분되지
   않아 사용자 체감 개선으로 보지 않는다.
@@ -53,6 +53,17 @@ generative:
   `37.8/46.1GB`, GPU util `99%`, 약 `0.75 micro-step/s`.
 - 실제 장기 run은 초기 eval 이후 step 50~75에서 약 `1.15 micro-step/s`,
   GPU util `100%`, VRAM `37.8/46.1GB`, 약 `306W`, `58°C`로 안정화됐다.
+- 완료: `100000` micro steps = `25000` optimizer updates.
+- 자동 best: step `98000`, `best_eval_decoded.pt`.
+- final: step `100000`, `latest.pt`.
+- 같은 compare tool 기준 selected step46000 대비:
+  - `photo_detail_mix`: best `+0.1362 dB`, final `+0.1256 dB`
+  - `mild`: best `+0.1086 dB`, final `+0.1025 dB`
+  - `photo_v2`: best `+0.0540 dB`, final `+0.0668 dB`
+  - `photo_v3_noise_mix`: best `-0.0356 dB`, final `+0.0132 dB`
+- 판단: clean/mild에는 의미 있는 소폭 개선이 있고, final은 strong preset에서
+  조금 더 안전하다. 하지만 perceptual detail 돌파는 아니므로 human visual
+  review 없이 public 경로로 승격하지 않는다.
 - 일반 milestone은 디스크 보호를 위해 `5000` micro-step마다 저장하고,
   val100 eval과 best checkpoint 갱신은 `1000` micro-step마다 수행한다.
 - raw LSDIR 데이터는 GitHub/HF에 올리지 않는다.
@@ -734,9 +745,9 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
   checkpoint다.
 - 사용자 체감 병목은 여전히 missing fine detail과 strong-input smoothing이다.
 - frozen VGG feature-supervised perceptual continuation은 12000 step에서
-  정상 완료됐지만 시각적 detail 목표에는 실패했다. 다음 장기 실험은 데이터
-  고유성과 Stage 2 capacity를 함께 늘린 dual-multiscale run이며 현재
-  W&B run `4akqckxu`에서 실행 중이다.
+  정상 완료됐지만 시각적 detail 목표에는 실패했다. dual-multiscale LSDIR
+  run은 완료됐고, clean/mild 수치 개선은 있으나 perceptual detail 돌파로
+  보기는 어렵다.
 - `decoded_psnr + 5 * detail_ratio`는 shortlist score다. detail energy만
   높이는 인공 고주파/노이즈를 보상할 수 있으므로 이것만으로 승격하지 않는다.
 
