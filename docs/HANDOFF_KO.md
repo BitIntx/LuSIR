@@ -5,7 +5,7 @@
 
 최신 실패/부분 성공/다음 가설 기록은 `docs/TRIAL_AND_ERROR_KO.md`에 누적합니다.
 
-## 2026-06-08 현재 상태
+## 2026-06-11 현재 상태
 
 ### 학습 단계와 실제 추론 경로
 
@@ -26,8 +26,9 @@ generative:
   학습한 대체 diffusion checkpoint다.
 - Stage 5 few-step distillation도 구현되면 Stage 3/4 sampling을 더 짧은
   sampler로 대체하는 단계이지, 뒤에 추가되는 직렬 모듈이 아니다.
-- 현재 사용자용 public deterministic 기본값은 residual refiner v2이고,
-  최신 연구용 condition 후보는 multiscale Stage 2 step `46000`이다.
+- 현재 사용자용 public deterministic 기본값은 residual refiner v2이다.
+- 기준 deterministic condition 후보는 multiscale Stage 2 step `46000`이고,
+  최신 보존 연구 후보는 dual-context LSDIR Stage 2 step `98000`이다.
 
 ### 최신 완료 장기 실험
 
@@ -64,6 +65,8 @@ generative:
 - 판단: clean/mild에는 의미 있는 소폭 개선이 있고, final은 strong preset에서
   조금 더 안전하다. 하지만 perceptual detail 돌파는 아니므로 human visual
   review 없이 public 경로로 승격하지 않는다.
+- HF preset:
+  `python scripts/download_hf_checkpoints.py --preset stage2_photo130k_lsdir_dual`
 - 일반 milestone은 디스크 보호를 위해 `5000` micro-step마다 저장하고,
   val100 eval과 best checkpoint 갱신은 `1000` micro-step마다 수행한다.
 - raw LSDIR 데이터는 GitHub/HF에 올리지 않는다.
@@ -755,11 +758,11 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
 
 우선순위:
 
-1. dual-multiscale LSDIR 장기 run의 val100과 고정 sample을 함께 감시한다.
-2. perceptual Stage2 step8000은 비승격 실험 후보로 보존한다.
+1. HF에 올린 dual-multiscale LSDIR contact sheet 4종을 눈으로 검토한다.
+2. step98000은 clean/mild best, step100000은 strong-tail safe 후보로 분리 보존한다.
 3. `+0.01 dB` 수준 변화는 시각 개선 근거 없이 승격하지 않는다.
-4. 다음 구조 후보는 degradation-aware high-frequency/detail synthesis branch다.
-5. public Colab 기본 경로는 기존 residual refiner v2를 유지한다.
+4. public Colab 기본 경로는 기존 residual refiner v2를 유지한다.
+5. 다음 구조 후보는 degradation-aware high-frequency/detail synthesis branch다.
 
 ## 새 VM에서 Codex에게 줄 짧은 프롬프트
 
@@ -769,9 +772,10 @@ docs/HANDOFF_KO.md 와 docs/VM_RECOVERY_KO.md 를 먼저 읽고 이어서 작업
 Stage 번호는 학습 순서이며 추론 직렬 경로가 아니다. Colab 기본은
 LR -> Stage2 XL step72000 -> residual refiner v2 step39000 -> Stage1 decoder다.
 multiscale Stage2 step46000에서 시작한 VGG perceptual continuation은 12000
-step에서 완료됐고 시각적 detail 개선이 없어 승격하지 않았다. 현재는 LSDIR
+step에서 완료됐고 시각적 detail 개선이 없어 승격하지 않았다. 이후 LSDIR
 고유 이미지 30000장과 zero-init 두 번째 context branch를 추가한 119.24M
-dual-multiscale Stage2 장기 run을 진행한다. `+0.01 dB`만으로 승격하지 말고
-val100과 고정 sample을 함께 확인해줘.
+dual-multiscale Stage2 run도 100000 step까지 완료됐다. 자동 best는 step98000이고
+final100000은 strong preset에서 조금 더 안전하다. 둘 다 HF에 보존되어 있으며,
+public/default 승격 전 contact sheet human review가 필요하다.
 상업적 이용은 금지이고, raw dataset은 GitHub/HF에 올리지 않는다.
 ```

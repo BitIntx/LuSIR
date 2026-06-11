@@ -139,6 +139,17 @@ STAGE2_MULTISCALE_PERCEPTUAL_FILES = [
     "samples/stage2_multiscale_perceptual_photo_v3_noise_mix_candidates.png",
 ]
 
+STAGE2_PHOTO130K_LSDIR_DUAL_FILES = [
+    *STAGE2_MULTISCALE_PERCEPTUAL_FILES,
+    "checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt",
+    "configs/latent_pretrain_photo130k_lsdir_dual_multiscale_long.yaml",
+    "metrics/stage2_photo130k_lsdir_dual_multiscale_final_summary.json",
+    "samples/stage2_dual_lsdir_photo_detail_mix_best98k_final100k_contact_sheet.png",
+    "samples/stage2_dual_lsdir_mild_best98k_final100k_contact_sheet.png",
+    "samples/stage2_dual_lsdir_photo_v2_best98k_final100k_contact_sheet.png",
+    "samples/stage2_dual_lsdir_photo_v3_noise_mix_best98k_final100k_contact_sheet.png",
+]
+
 PRESETS = {
     "prototype": PROTOTYPE_FILES,
     "photo100k": PHOTO100K_FILES,
@@ -150,6 +161,7 @@ PRESETS = {
     "residual_refiner_v2": RESIDUAL_REFINER_V2_FILES,
     "stage2_multiscale_hqmix": STAGE2_MULTISCALE_HQMIX_FILES,
     "stage2_multiscale_perceptual": STAGE2_MULTISCALE_PERCEPTUAL_FILES,
+    "stage2_photo130k_lsdir_dual": STAGE2_PHOTO130K_LSDIR_DUAL_FILES,
 }
 
 
@@ -173,7 +185,8 @@ def parse_args() -> argparse.Namespace:
             "'stage4_photo_detail' includes the selected detail-preserving Stage 4 checkpoint; "
             "'residual_refiner_v2' includes the selected decoded-detail residual refiner and cross-preset evals; "
             "'stage2_multiscale_hqmix' includes the selected multiscale Stage 2 condition checkpoint; "
-            "'stage2_multiscale_perceptual' includes the non-promoted VGG continuation step 8000 and comparisons."
+            "'stage2_multiscale_perceptual' includes the non-promoted VGG continuation step 8000 and comparisons; "
+            "'stage2_photo130k_lsdir_dual' includes the completed dual-context LSDIR Stage 2 best98000 checkpoint."
         ),
     )
     parser.add_argument(

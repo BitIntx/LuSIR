@@ -12,9 +12,10 @@
 A representative `photo_detail_mix` validation example from the selected
 multiscale Stage 2 step 46000 checkpoint. The model restores stable structure,
 color, and large boundaries from the degraded x4 input, while remaining softer
-than ground truth on the finest surface texture. This is the current
-deterministic Stage 2 research candidate, not a generative result or the current
-Colab default.
+than ground truth on the finest surface texture. This is a prior deterministic
+Stage 2 research example. The newer dual-context LSDIR Stage 2 step 98000
+checkpoint is preserved as a modest reconstruction improvement, but it is not
+promoted over the current Colab default pending human visual review.
 
 Reproducibility: the source is the deterministic val100 contact sheet
 `samples/stage2_multiscale_hqmix_checkpoint_comparison.png`, generated from
@@ -98,6 +99,9 @@ The Colab notebook defaults to the deterministic residual refiner v2 path.
 Users can explicitly select Stage 3/4 diffusion comparisons in the notebook,
 but those are not the recommended default. The latest VGG-feature-supervised
 continuation of multiscale Stage 2 step 46000 is complete but not promoted.
+The later dual-context LSDIR Stage 2 run is also complete: step 98000 is the
+cleaner-preset best checkpoint, while step 100000 is slightly safer on strong
+degradations.
 
 Historical first-pass photo100k Stage 3/4 comparison:
 
@@ -238,13 +242,13 @@ small metric/latent improvement, not a user-facing detail breakthrough.
 The non-promoted checkpoint and comparison sheets are available through
 `python scripts/download_hf_checkpoints.py --preset stage2_multiscale_perceptual`.
 
-The next Stage 2 scale-up addresses the clearer bottlenecks exposed by that
-result: the HQ-balanced manifest contained 203,600 rows but only 103,550 unique
-images, and the 55.50M model still smoothed missing texture. It adds 30,000
-unique LSDIR training images and a second zero-output-initialized multiscale
-context branch. Partial initialization from selected step 46000 therefore
-preserves the existing output before training while increasing capacity to
-119.24M parameters.
+The completed dual-context Stage 2 scale-up addressed the clearer bottlenecks
+exposed by that result: the HQ-balanced manifest contained 203,600 rows but
+only 103,550 unique images, and the 55.50M model still smoothed missing
+texture. It added 30,000 unique LSDIR training images and a second
+zero-output-initialized multiscale context branch. Partial initialization from
+selected step 46000 therefore preserved the existing output before training
+while increasing capacity to 119.24M parameters.
 
 ```text
 config:          configs/latent_pretrain_photo130k_lsdir_dual_multiscale_long.yaml
@@ -259,11 +263,10 @@ W&B:             https://wandb.ai/jwheo/sr-diffusion/runs/4akqckxu
 The L40S smoke test reproduced the initialization at `24.48 dB` decoded PSNR
 and `0.291` detail ratio. Batch 8 used about `37.8/46.1GB` VRAM at `99%` GPU
 utilization and sustained approximately `0.75` micro-step/s. Checkpoint
-milestones are saved every 5,000 micro-steps to keep the long run within disk
-budget; val100 evaluation still runs every 1,000 micro-steps.
-The active tmux session is `stage2-lsdir-dual`, with the log at
+milestones were saved every 5,000 micro-steps to keep the long run within disk
+budget; val100 evaluation ran every 1,000 micro-steps. The completed run log is
 `/home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_multiscale_long/train.log`.
-After startup evaluation, the active run stabilized at approximately
+After startup evaluation, the completed run stabilized at approximately
 `1.15 micro-step/s`, `100%` GPU utilization, `37.8/46.1GB` VRAM, and about
 `306W`. It completed all `100,000` micro-steps. The automatic best checkpoint
 is step `98000`; the final checkpoint is slightly better on strong presets but
@@ -501,7 +504,7 @@ eval/kl:    9.38684
 eval/psnr:  40.19
 ```
 
-Current Stage 2 config:
+Prototype Stage 2 config:
 
 ```text
 configs/latent_pretrain_photo10k.yaml
@@ -516,7 +519,7 @@ configs/latent_pretrain_photo100k.yaml
 This run uses batch size `64` on MI300X and `max_steps: 30000`, which is about
 18.6 passes over the 103,450-image training split.
 
-Current Stage 2 run name:
+Prototype Stage 2 run name:
 
 ```text
 latent_pretrain_photo10k_b16
@@ -547,19 +550,19 @@ best decoded PSNR proxy: step 22000, eval/decoded_psnr 23.93
 final eval: step 30000, eval/latent_loss 0.21267, eval/decoded_psnr 23.88
 ```
 
-Current Stage 3 config:
+Prototype Stage 3 config:
 
 ```text
 configs/diffusion_photo10k_b32.yaml
 ```
 
-Next scale-up Stage 3 config:
+Photo100k Stage 3 scale-up config:
 
 ```text
 configs/diffusion_photo100k_b32.yaml
 ```
 
-Current Stage 3 model:
+Prototype Stage 3 model:
 
 ```text
 conditional U-Net params: 76.6M
@@ -644,7 +647,7 @@ So the Stage 3 `25000` step config is about `80` epochs.
 
 ## Data
 
-The current photo training manifest is:
+The prototype photo training manifest is:
 
 ```text
 /home/jwheojjang/scratch/sr-diffusion/data/manifest_photo10k.csv
@@ -663,7 +666,7 @@ The 10k photo set is built from:
 - Flickr2K HR.
 - A deterministic subset of COCO train2017.
 
-The active scale-up target is:
+The completed photo100k scale-up manifest is:
 
 ```text
 /home/jwheojjang/scratch/sr-diffusion/data/manifest_photo100k.csv
@@ -687,7 +690,9 @@ The `photo_v2` degradation preset is available for denoise/sharpening work. It
 adds stronger blur, LR blur, signal-dependent sensor noise, heavier
 Gaussian/Poisson noise, stronger JPEG/WebP artifacts, edge ringing,
 oversharpen halos, color shift, and stronger banding. Because it changes the LR
-distribution seen by the condition encoder, the recommended path is to
+distribution seen by the condition encoder, later experiments trained matching
+condition encoders and diffusion/refiner candidates instead of mixing presets
+without re-evaluation.
 fine-tune Stage 2 on `photo_v2` before running Stage 3/4 experiments that use
 the same preset.
 
@@ -771,9 +776,11 @@ condition-start checkpoint for faster setup. The Colab notebook now also lets
 you select the larger photo100k Stage 4 checkpoints, including the public XL
 edge-loss Stage 4 checkpoint for denoise/sharpening review. The newer gated
 residual diffusion checkpoint is documented as an experiment but not promoted.
-The deterministic residual refiner probe is preserved on Hugging Face as a
-research artifact because it beats Stage 2 condition-only on mild val100, but it
-is not wired into the default public inference path yet.
+The decoded-detail residual refiner v2 is the current Colab default because it
+beats Stage 2 condition-only across the tested validation presets while keeping
+changes conservative.
+The completed dual-context LSDIR Stage 2 research checkpoint can be downloaded
+with `python scripts/download_hf_checkpoints.py --preset stage2_photo130k_lsdir_dual`.
 
 For a click-to-run demo, open the Colab notebook:
 
@@ -812,6 +819,12 @@ Download the latest residual diagnostic/refiner artifact set:
 
 ```bash
 python scripts/download_hf_checkpoints.py --preset residual_refiner_stage2_xl_mild
+```
+
+Download the completed dual-context LSDIR Stage 2 artifact set:
+
+```bash
+python scripts/download_hf_checkpoints.py --preset stage2_photo130k_lsdir_dual
 ```
 
 Download the selected teacher-supervised Stage 4 probe checkpoint and eval
@@ -1186,7 +1199,8 @@ Stage 2: deterministic LR -> HR latent pretrain
   It produced small metric gains but was not promoted because fixed samples
   showed no meaningful fine-detail improvement.
 - A 119.24M dual-multiscale Stage 2 scale-up on 30,000 additional unique LSDIR
-  images is the active long run. It starts exactly from selected step 46000.
+  images is complete. It started exactly from selected step 46000 and selected
+  step 98000 as the cleaner-preset best checkpoint.
 - Freeze the selected Stage 1 VAE.
 - Train an LR-to-latent predictor that maps degraded LR inputs to HR VAE
   encoder means.

@@ -1,5 +1,6 @@
 {
-  "status": "active",
+  "status": "superseded_by_final_summary",
+  "superseded_by": "metrics/stage2_photo130k_lsdir_dual_multiscale_final_summary.json",
   "config": "configs/latent_pretrain_photo130k_lsdir_dual_multiscale_long.yaml",
   "wandb": "https://wandb.ai/jwheo/sr-diffusion/runs/4akqckxu",
   "initialization": {

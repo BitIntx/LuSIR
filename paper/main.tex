@@ -8,7 +8,7 @@
 
 \title{Vision-Only Latent Diffusion Super-Resolution without T2I Pretraining}
 \author{sr-diffusion contributors}
-\date{Experiment snapshot through active dual-context Stage 2 scale-up}
+\date{Experiment snapshot through completed dual-context Stage 2 scale-up}
 
 \begin{document}
 \maketitle
@@ -18,8 +18,9 @@ This report summarizes a work-in-progress x4 super-resolution system trained
 directly in vision space, without importing a pretrained text-to-image diffusion
 backbone. The completed pipeline consists of a factor-4 VAE, deterministic
 LR-to-HR-latent pretraining, conditional latent diffusion, and
-condition-start fine-tuning on a 103k-image photo split. The latest public
-XL-stage result uses a 500M-class full inference path: a wider Stage 2
+condition-start fine-tuning on a 103k-image photo split, followed by a 133k
+unique-image Stage 2 scale-up. The latest public XL-stage result uses a
+500M-class full inference path: a wider Stage 2
 condition encoder trained with a stronger degradation curriculum and a deeper
 469.6M-parameter diffusion U-Net fine-tuned with decoded edge/highpass losses.
 On the current \texttt{photo\_v3\_noise\_mix} sampled validation setup, the
@@ -36,11 +37,13 @@ gated-residual Stage 4 result to beat condition-only on both mean PSNR and a
 clear majority of samples: 25.3406 PSNR and 71/100 wins versus 25.3103 for the
 condition baseline. A decoded-detail residual refiner v2 then became the public
 Colab default, reaching 25.6410 PSNR on the photo-detail validation mix. The
-latest Stage 2 redesign adds multiscale context and balanced high-quality data;
-its selected step-46000 checkpoint improves the previous condition encoder
-across all tested presets. A VGG-feature-supervised continuation completed with
-small metric gains but no meaningful visible fine-detail improvement, so it was
-not promoted.
+latest Stage 2 redesigns add multiscale context, balanced high-quality data,
+and then a dual-context LSDIR scale-up. The completed dual-context run selects
+step 98,000 for cleaner presets, with modest same-tool gains of 0.1362 dB on
+\texttt{photo\_detail\_mix} and 0.1086 dB on \texttt{mild}; the final step
+100,000 checkpoint is slightly safer on stronger degradation tails. This
+remains a modest reconstruction improvement, not a solved perceptual-detail
+problem.
 \end{abstract}
 
 \section{Objective}
@@ -132,8 +135,10 @@ The repository currently includes:
 
 \section{Data and Degradation}
 
-The large-scale photo runs use a 103,450-image training split and a fixed
-100-image validation split. HR crops are 512px and LR inputs are 128px. The
+The base photo100k runs use a 103,450-image training split and a fixed
+100-image validation split. The completed dual-context Stage 2 scale-up adds
+30,000 unique LSDIR training images, for 133,450 unique training images and the
+same fixed validation set. HR crops are 512px and LR inputs are 128px. The
 original photo degradation was extended with stronger blur, noise, compression,
 ringing, color shift, and banding variants. Earlier XL edge-loss work used
 \texttt{photo\_v3\_noise\_mix}, a strong denoise-focused preset with no clean
@@ -149,7 +154,8 @@ Item & Value \\
 \midrule
 Task & x4 SR, 128px LR to 512px HR \\
 Active large-scale domain & Photo \\
-Train split & 103,450 images \\
+Base train split & 103,450 images \\
+Latest Stage 2 train split & 133,450 unique images \\
 Validation split & 100 fixed images \\
 VAE latent & 128px, 16 channels \\
 Primary dtype & bf16 \\
@@ -617,7 +623,7 @@ the strongest noise mix by 0.0063 dB. Fixed contact sheets showed almost no
 visible difference from initialization, and missing fine texture remained
 smoothed. The continuation was therefore not promoted.
 
-The next scale-up changes capacity and data uniqueness together. The previous
+The completed scale-up changed capacity and data uniqueness together. The previous
 HQ-balanced manifest contained 203,600 rows but only 103,550 unique images.
 The new manifest adds 30,000 unique LSDIR training images, giving 133,450
 unique training images plus the unchanged 100-image validation set. A second
@@ -628,8 +634,8 @@ zero-output-initialized multiscale context branch preserves the selected step
 A one-L40S smoke test reproduced the initial 24.48 dB decoded PSNR and 0.291
 detail ratio. Batch 8 with gradient accumulation 4 used approximately
 37.8/46.1GB VRAM at 99\% GPU utilization and approximately 0.75 micro-steps/s.
-The long run targets 100,000 micro-steps, or 25,000 optimizer updates.
-Validation remains every 1,000 micro-steps, while ordinary milestones are
+The completed long run targeted 100,000 micro-steps, or 25,000 optimizer
+updates. Validation ran every 1,000 micro-steps, while ordinary milestones were
 stored every 5,000 micro-steps to remain within disk budget.
 
 The run completed all 100,000 micro-steps. Step 98,000 is the automatic

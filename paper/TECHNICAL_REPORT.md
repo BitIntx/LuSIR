@@ -1,6 +1,6 @@
 # Vision-Only Latent Diffusion Super-Resolution without T2I Pretraining
 
-Snapshot: dual-context Stage 2 unique-data scale-up active.
+Snapshot: dual-context Stage 2 unique-data scale-up complete.
 
 ## Objective
 
@@ -38,10 +38,12 @@ diffusion sampler rather than append another serial module.
 
 ## Data
 
-The current large photo split has 103,450 training images and 100 fixed
-validation images. LR inputs are generated on the fly from HR crops. Earlier XL
+The base photo100k split has 103,450 training images and 100 fixed validation
+images. The completed dual-context Stage 2 scale-up adds 30,000 unique LSDIR
+training images, for 133,450 unique training images and the unchanged 100-image
+validation set. LR inputs are generated on the fly from HR crops. Earlier XL
 work used `photo_v3_noise_mix`, a strong denoise-focused curriculum with no
-clean share and 80% combined v2/v3 cases. The latest work introduces
+clean share and 80% combined v2/v3 cases. Later work introduced
 `photo_detail_mix`: 35% clean, 48% detail-preserving photo degradation, 15%
 mild degradation, and 2% strong `photo_v2`. This keeps a small robustness tail
 while shifting the primary objective toward user-facing detail restoration.
@@ -484,10 +486,10 @@ the selected step 46000 output before training while increasing capacity to
 The one-L40S smoke test reproduced the initial `24.48 dB` decoded PSNR and
 `0.291` detail ratio. Batch 8 with gradient accumulation 4 used approximately
 `37.8/46.1GB` VRAM, reached `99%` GPU utilization, and sustained approximately
-`0.75` micro-step/s. The long run targets 100,000 micro-steps, or 25,000
-optimizer updates. Evaluation remains every 1,000 micro-steps, while ordinary
-milestone checkpoints are limited to every 5,000 micro-steps to stay within the
-disk budget. The active run is tracked at
+`0.75` micro-step/s. The completed long run targeted 100,000 micro-steps, or
+25,000 optimizer updates. Evaluation ran every 1,000 micro-steps, while
+ordinary milestone checkpoints were limited to every 5,000 micro-steps to stay
+within the disk budget. The run is tracked at
 <https://wandb.ai/jwheo/sr-diffusion/runs/4akqckxu>.
 
 The run completed all 100,000 micro-steps. Step 98,000 is the automatic
@@ -512,6 +514,7 @@ checkpoints/stage4_photo100k_xl_teacher_residual_photo_detail_best8000.pt
 checkpoints/residual_refiner_stage2_xl_photo_detail_v2_best39000.pt
 checkpoints/stage2_photo100k_multiscale_hqmix_step_0046000.pt
 checkpoints/stage2_photo100k_multiscale_hqmix_perceptual_step_0008000.pt
+checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt
 metrics/stage4_photo100k_xl_edge_b16_val100_t50_32step_summary.json
 metrics/diagnose_stage2_xl_residuals_mild_val100_summary.json
 metrics/residual_refiner_stage2_xl_mild_probe_early_stop_summary.json
@@ -529,6 +532,7 @@ metrics/stage2_multiscale_perceptual_photo_detail_mix_candidates.json
 metrics/stage2_multiscale_perceptual_mild_candidates.json
 metrics/stage2_multiscale_perceptual_photo_v2_candidates.json
 metrics/stage2_multiscale_perceptual_photo_v3_noise_mix_candidates.json
+metrics/stage2_photo130k_lsdir_dual_multiscale_final_summary.json
 samples/stage4_photo100k_xl_edge_b16_val100_t50_32step_grid_lr_bicubic_sr_gt.png
 samples/diagnose_stage2_xl_residuals_mild_val100_grid.png
 samples/residual_refiner_stage2_xl_mild_probe_step500_grid.png
@@ -543,6 +547,10 @@ samples/eval_residual_refiner_v2_best39000_stage2_xl_photo_v3_noise_mix_val100_g
 samples/stage2_multiscale_hqmix_checkpoint_comparison.png
 samples/stage2_multiscale_perceptual_photo_detail_mix_candidates.png
 samples/stage2_multiscale_perceptual_photo_v3_noise_mix_candidates.png
+samples/stage2_dual_lsdir_photo_detail_mix_best98k_final100k_contact_sheet.png
+samples/stage2_dual_lsdir_mild_best98k_final100k_contact_sheet.png
+samples/stage2_dual_lsdir_photo_v2_best98k_final100k_contact_sheet.png
+samples/stage2_dual_lsdir_photo_v3_noise_mix_best98k_final100k_contact_sheet.png
 configs/diffusion_photo100k_xl_stage4_condition_v3_edge_b16.yaml
 configs/residual_refiner_stage2_xl_mild_probe.yaml
 configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_v3_b8_probe.yaml
@@ -550,6 +558,7 @@ configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_detail
 configs/residual_refiner_stage2_xl_photo_detail_v2_continue_40k.yaml
 configs/hf/residual_refiner_stage2_xl_photo_detail_v2.yaml
 configs/latent_pretrain_photo100k_multiscale_hqmix_perceptual_continue.yaml
+configs/latent_pretrain_photo130k_lsdir_dual_multiscale_long.yaml
 ```
 
 ## Next Work

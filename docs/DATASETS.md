@@ -73,10 +73,10 @@ the downloaded images from this repository.
 
 ## 100k Photo Expansion
 
-The next scale-up uses a deterministic 100,000-image subset of COCO train2017,
-merged with DF2K. This keeps the existing Stage 1 VAE fixed and gives Stage 2
-and Stage 3 broader photo coverage. COCO has only 45,897 images with short side
-`>=480`, so the 100k setup uses `--min-size 320`.
+The completed photo100k scale-up uses a deterministic 100,000-image subset of
+COCO train2017, merged with DF2K. This keeps the existing Stage 1 VAE fixed and
+gives Stage 2 and Stage 3 broader photo coverage. COCO has only 45,897 images
+with short side `>=480`, so the 100k setup uses `--min-size 320`.
 
 ```bash
 bash scripts/recover_scratch.sh --coco-count 100000
@@ -107,6 +107,27 @@ For a stricter high-resolution-only COCO subset, use `--coco-min-size 480`.
 That currently yields about 49k total photo training images after DF2K is
 merged.
 
+## 130k Photo + LSDIR Unique-Data Expansion
+
+The latest completed Stage 2 scale-up adds 30,000 unique LSDIR training images
+to the photo100k manifest:
+
+```bash
+python scripts/download_lsdir_hf.py \
+  --output-dir /home/$USER/scratch/sr-diffusion/datasets/photo/lsdir \
+  --manifest /home/$USER/scratch/sr-diffusion/data/manifest_lsdir_photo.csv \
+  --target-count 30000
+
+python scripts/merge_manifests.py \
+  --inputs /home/$USER/scratch/sr-diffusion/data/manifest_photo100k.csv \
+           /home/$USER/scratch/sr-diffusion/data/manifest_lsdir_photo.csv \
+  --output /home/$USER/scratch/sr-diffusion/data/manifest_photo130k_lsdir.csv
+```
+
+Expected merged count: `133450` unique training images and the unchanged
+`100` validation images. Raw LSDIR files are not uploaded to GitHub or
+Hugging Face.
+
 ## Degradation v2
 
 The `photo_v2` preset targets the current denoise/sharpening weakness more
@@ -115,8 +136,8 @@ blur, signal-dependent sensor noise, heavier Gaussian/Poisson noise, lower
 quality JPEG/WebP compression, edge ringing, oversharpen halos, color shift,
 and stronger banding.
 
-Use it consistently across the condition encoder and diffusion stages. A good
-next sequence is:
+Use it consistently across the condition encoder and diffusion stages. The
+completed sequence was:
 
 ```text
 Stage 2 photo100k fine-tune with degradation_preset: photo_v2
@@ -145,7 +166,7 @@ keeps ringing/oversharpen probabilities moderate because the v2 Stage 3/4
 results already showed cyan/green dot artifacts and contrast overshoot on some
 samples.
 
-The intended sequence is:
+The completed/attempted sequence was:
 
 ```text
 Stage 2 photo100k long fine-tune with degradation_preset: photo_v3_noise_mix
@@ -156,7 +177,9 @@ bucketed sampled eval for heavy noise, chroma noise, JPEG/WebP, blur+noise
 
 ## Scaling Photo Data
 
-Good next candidates:
+The current unique-data scale-up used LSDIR 30k. Further data expansion should
+be justified by visible contact-sheet gains, not only small PSNR movement.
+Possible future candidates:
 
 - Unsplash Dataset Lite: 25k images, commercial and non-commercial usage stated
   by Unsplash.

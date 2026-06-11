@@ -33,6 +33,13 @@ prototype checkpoints:
 python scripts/download_hf_checkpoints.py
 ```
 
+For the current Colab/default deterministic path, download the residual refiner
+v2 artifacts:
+
+```bash
+python scripts/download_hf_checkpoints.py --preset residual_refiner_v2
+```
+
 Download the latest residual diagnostic/refiner artifact set:
 
 ```bash
@@ -45,10 +52,25 @@ Download the selected teacher-supervised Stage 4 probe artifact set:
 python scripts/download_hf_checkpoints.py --preset stage4_teacher_residual_probe
 ```
 
-This creates the local `checkpoints/` files expected by
-`configs/hf/diffusion_stage4_condition.yaml`.
+Download the completed dual-context LSDIR Stage 2 artifact set:
 
-Run the default Stage 4 condition-start prototype:
+```bash
+python scripts/download_hf_checkpoints.py --preset stage2_photo130k_lsdir_dual
+```
+
+Each preset creates the local `checkpoints/`, `configs/`, `metrics/`, and
+`samples/` files expected by its matching inference or review config.
+
+Run the residual refiner default path:
+
+```bash
+python tools/infer/infer_residual_refiner.py \
+  --config configs/hf/residual_refiner_stage2_xl_photo_detail_v2.yaml \
+  --input-lr /path/to/lr_128.png \
+  --output-dir outputs/demo
+```
+
+Run the Stage 4 condition-start prototype for diffusion comparison:
 
 ```bash
 python tools/infer/infer_diffusion.py \
@@ -264,6 +286,25 @@ Upload the completed, non-promoted Stage 2 perceptual continuation candidate:
 This checkpoint is preserved for research comparison only. It is not the
 public Colab default and did not produce a meaningful visible detail gain.
 
+Upload the completed dual-context LSDIR Stage 2 best checkpoint, final summary,
+and cross-preset contact sheets:
+
+```bash
+/home/ubuntu/venvs/cuda/bin/python scripts/upload_hf_artifact.py \
+  --repo-id jwheo/sr-diffusion \
+  --repo-type model \
+  --message "Add completed dual Stage2 LSDIR results" \
+  --artifact metrics/stage2_photo130k_lsdir_dual_multiscale_final_summary.json=metrics/stage2_photo130k_lsdir_dual_multiscale_final_summary.json \
+  --artifact /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_multiscale_long/checkpoints/best_eval_decoded.pt=checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt \
+  --artifact /home/ubuntu/scratch/sr-diffusion/runs/compare_stage2_dual_lsdir_photo_detail_mix/stage2_xl_candidate_contact_sheet.png=samples/stage2_dual_lsdir_photo_detail_mix_best98k_final100k_contact_sheet.png \
+  --artifact /home/ubuntu/scratch/sr-diffusion/runs/compare_stage2_dual_lsdir_mild/stage2_xl_candidate_contact_sheet.png=samples/stage2_dual_lsdir_mild_best98k_final100k_contact_sheet.png \
+  --artifact /home/ubuntu/scratch/sr-diffusion/runs/compare_stage2_dual_lsdir_photo_v2/stage2_xl_candidate_contact_sheet.png=samples/stage2_dual_lsdir_photo_v2_best98k_final100k_contact_sheet.png \
+  --artifact /home/ubuntu/scratch/sr-diffusion/runs/compare_stage2_dual_lsdir_photo_v3_noise_mix/stage2_xl_candidate_contact_sheet.png=samples/stage2_dual_lsdir_photo_v3_noise_mix_best98k_final100k_contact_sheet.png
+```
+
+This checkpoint is preserved for research comparison and human visual review.
+It is not the current public Colab default.
+
 Make the Hub repository public after license files and the model card are in
 place:
 
@@ -280,4 +321,5 @@ PY
 - Prefer `best_eval_*.pt` over every intermediate step checkpoint.
 - Use public visibility only with the non-commercial license files and model
   card in place.
-- Do not upload raw training data or generated validation grids by default.
+- Do not upload raw training data. Upload generated validation/contact sheets
+  only when they are selected review artifacts tied to a preserved checkpoint.

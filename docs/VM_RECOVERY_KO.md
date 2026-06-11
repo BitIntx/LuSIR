@@ -50,6 +50,13 @@ python scripts/download_hf_checkpoints.py --preset photo100k_xl_candidates
 python scripts/download_hf_checkpoints.py --preset residual_refiner_stage2_xl_mild
 ```
 
+완료된 dual-context LSDIR Stage2 best98000 checkpoint와 contact sheet까지
+받으려면:
+
+```bash
+python scripts/download_hf_checkpoints.py --preset stage2_photo130k_lsdir_dual
+```
+
 다운로드 위치:
 
 ```text
@@ -203,41 +210,27 @@ cp checkpoints/stage4_photo100k_condition_v2_b32_best_eval_condition_decoded.pt 
 
 ## 7. 이어서 할 작업
 
-현재 이어서 할 작업은 Stage2 XL condition encoder 후보를 비교한 뒤
-Stage4 XL condition-start를 시작할지 결정하는 것이다. Stage4 v2 sampled
-eval 재현은 baseline 확인용으로 필요할 때만 실행한다:
-
-```bash
-python tools/eval/eval_diffusion_samples.py \
-  --config configs/diffusion_photo100k_b32_stage4_condition_v2.yaml \
-  --checkpoint /home/$USER/scratch/sr-diffusion/runs/diffusion_photo100k_b32_stage4_condition_v2/checkpoints/best_eval_condition_decoded.pt \
-  --output-dir /home/$USER/scratch/sr-diffusion/runs/eval_diffusion_photo100k_stage4_condition_v2_val100_t25_32step \
-  --split val \
-  --limit 100 \
-  --steps 32 \
-  --seed 1337
-```
-
-그 다음:
+현재 이어서 할 작업은 새 학습 시작이 아니라 완료된 dual-context LSDIR Stage2
+결과를 눈으로 판정하는 것이다.
 
 ```text
-Stage2 XL best/step72000/latest condition-only decoded output 비교
-Stage4 XL condition-start를 Stage4 v2 checkpoint에서 --partial-init으로 시작
-denoise/sharpening A/B review against Stage3 v2, Stage4 v2, and mild baseline
-cyan/green dot artifact and color/contrast overshoot mitigation experiments
+best checkpoint: checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt
+final local checkpoint: latest.pt at step 100000
+W&B: https://wandb.ai/jwheo/sr-diffusion/runs/4akqckxu
 ```
 
-Stage4 XL 시작 명령 예시:
+같은 compare tool 기준 selected multiscale step46000 대비:
 
-```bash
-python tools/train/train_diffusion.py \
-  --config configs/diffusion_photo100k_xl_stage4_condition_v3.yaml \
-  --init-checkpoint /home/$USER/scratch/sr-diffusion/runs/diffusion_photo100k_b32_stage4_condition_v2/checkpoints/best_eval_condition_decoded.pt \
-  --partial-init
+```text
+photo_detail_mix:   best98000 +0.1362 dB, final100000 +0.1256 dB
+mild:               best98000 +0.1086 dB, final100000 +0.1025 dB
+photo_v2:           best98000 +0.0540 dB, final100000 +0.0668 dB
+photo_v3_noise_mix: best98000 -0.0356 dB, final100000 +0.0132 dB
 ```
 
-주의: 이 명령은 Stage4 XL 학습을 시작한다. VM 인수인계 직후에는 먼저
-condition encoder 후보 비교를 하는 것이 권장된다.
+HF의 `samples/stage2_dual_lsdir_*_contact_sheet.png` 네 장을 확인해
+step98000을 clean/mild 후보로 둘지, final100000을 strong-tail 후보로 둘지
+판단한다. 현재 public Colab 기본 경로는 여전히 residual refiner v2다.
 
 ## 8. tmux / 모니터링
 
