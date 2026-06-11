@@ -117,20 +117,32 @@ python tools/train/train_detail_branch.py \
 주의: `train/max_steps`는 micro-step 기준이다. 현재 `grad_accum_steps: 4`이므로
 `40000` micro-steps는 `10000` optimizer updates다.
 
+v1b augmentation run:
+
+```bash
+python tools/train/train_detail_branch.py \
+  --config configs/detail_branch_v1b_aug_photo130k_lsdir.yaml
+```
+
+v1b는 회전/affine/perspective/vertical flip을 쓰지 않는다. 추가되는 증강은
+`hflip_prob: 0.5`, `texture_crop_retries: 4`, 약한 HR color jitter
+(`[0.97, 1.03]`, probability `0.25`)뿐이다. 첫 v1 run은 step `7800`,
+즉 `0.234 epoch`에서 멈추고 v1b로 전환했다.
+
 fixed review set 평가:
 
 ```bash
 python tools/eval/run_fixed_review_detail_branch.py \
-  --config configs/detail_branch_v1_photo130k_lsdir.yaml \
-  --checkpoint /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v1_photo130k_lsdir/checkpoints/best_eval_detail.pt \
+  --config configs/detail_branch_v1b_aug_photo130k_lsdir.yaml \
+  --checkpoint /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v1b_aug_photo130k_lsdir/checkpoints/best_eval_detail.pt \
   --review-manifest /home/ubuntu/scratch/sr-diffusion/review_sets/detail_v1/review_manifest.csv \
-  --output-dir /home/ubuntu/scratch/sr-diffusion/review_outputs/detail_branch_v1_detail_v1
+  --output-dir /home/ubuntu/scratch/sr-diffusion/review_outputs/detail_branch_v1b_aug_detail_v1
 
 python tools/eval/eval_fixed_review_outputs.py \
   --review-manifest /home/ubuntu/scratch/sr-diffusion/review_sets/detail_v1/review_manifest.csv \
-  --output-dir /home/ubuntu/scratch/sr-diffusion/review_reports/detail_branch_v1_detail_v1 \
-  --candidate base=/home/ubuntu/scratch/sr-diffusion/review_outputs/detail_branch_v1_detail_v1/samples/{id}/base.png \
-  --candidate detail=/home/ubuntu/scratch/sr-diffusion/review_outputs/detail_branch_v1_detail_v1/samples/{id}/detail.png
+  --output-dir /home/ubuntu/scratch/sr-diffusion/review_reports/detail_branch_v1b_aug_detail_v1 \
+  --candidate base=/home/ubuntu/scratch/sr-diffusion/review_outputs/detail_branch_v1b_aug_detail_v1/samples/{id}/base.png \
+  --candidate detail=/home/ubuntu/scratch/sr-diffusion/review_outputs/detail_branch_v1b_aug_detail_v1/samples/{id}/detail.png
 ```
 
 ## 학습 목표

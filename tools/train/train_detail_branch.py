@@ -163,6 +163,11 @@ def make_dataset(config: dict[str, Any], split: str, seed: int, deterministic: b
         degradation_preset=data_config.get("degradation_preset", "mild"),
         seed=seed,
         deterministic=deterministic,
+        hflip_prob=data_config.get("hflip_prob", 0.0),
+        texture_crop_retries=data_config.get("texture_crop_retries", 1),
+        texture_crop_downsample=data_config.get("texture_crop_downsample", 128),
+        hr_color_jitter_prob=data_config.get("hr_color_jitter_prob", 0.0),
+        hr_color_jitter=data_config.get("hr_color_jitter", (0.97, 1.03)),
     )
 
 

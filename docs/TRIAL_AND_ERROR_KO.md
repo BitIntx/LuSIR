@@ -46,6 +46,35 @@ step4 wins_vs_base:    69/100
 - 승격 여부는 `detail_v1` fixed review set에서 residual refiner v2 baseline과
   contact sheet/HTML/LPIPS/DISTS까지 보고 판단한다.
 
+### 2026-06-11 detail branch v1 조기 중단 및 v1b augmentation 전환
+
+v1 장기 run은 초반 수치가 올라갔지만 residual이 매우 보수적으로 작고 시각적
+detail 생성량이 아직 약했다. train set이 `133450`장, batch `4`이므로 중단 시점
+`7800` micro-steps는:
+
+```text
+7800 * 4 / 133450 = 0.234 epoch
+```
+
+즉 아직 1 epoch의 1/4도 지나지 않았다. 회전/affine처럼 SR alignment나 현실감을
+깨는 augmentation은 넣지 않고, 다음 안전한 증강만 추가한 v1b로 재시작한다.
+
+```text
+config: configs/detail_branch_v1b_aug_photo130k_lsdir.yaml
+changes:
+  hflip_prob: 0.5
+  texture_crop_retries: 4
+  texture_crop_downsample: 128
+  hr_color_jitter_prob: 0.25
+  hr_color_jitter: [0.97, 1.03]
+excluded:
+  rotation, vertical flip, affine/perspective, random erasing, mixup
+```
+
+목표는 모델/optimizer/loss를 바꾸지 않고 데이터 노출만 바꿔서, detail branch가
+하늘/벽 같은 smooth crop보다 털, 잎, 직물, 글자, 표면 질감이 있는 crop을 더 자주
+보게 하는 것이다.
+
 ## 2026-06-04 VM 복구 후 상태
 
 - GitHub HEAD: `900d1cd Fix report table layout`

@@ -758,6 +758,10 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
 - high-frequency detail branch v1은 구현 및 smoke 검증이 끝났다. 이 branch는
   Stage 2 dual-context best98000과 Stage 1 decoder를 frozen으로 두고,
   decoded base SR 위에 image-space high-frequency residual만 더한다.
+- 첫 v1 장기 run은 augmentation을 넣기 위해 step `7800`에서 조기 중단했다.
+  이는 train `133450`장, batch `4` 기준 `0.234 epoch`다.
+- 새 run은 `configs/detail_branch_v1b_aug_photo130k_lsdir.yaml`이다. 회전 없이
+  hflip, texture-biased crop retry, 약한 HR color jitter만 추가한다.
 - `decoded_psnr + 5 * detail_ratio`는 shortlist score다. detail energy만
   높이는 인공 고주파/노이즈를 보상할 수 있으므로 이것만으로 승격하지 않는다.
 
@@ -774,9 +778,9 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
      `/home/ubuntu/scratch/sr-diffusion/review_reports/residual_refiner_v2_detail_v1/report.html`
    - metrics:
      `/home/ubuntu/scratch/sr-diffusion/review_reports/residual_refiner_v2_detail_v1/summary.json`
-2. detail branch v1 장기학습을 돌리고, 같은 `detail_v1` fixed review set에서
+2. detail branch v1b augmentation run을 돌리고, 같은 `detail_v1` fixed review set에서
    residual refiner v2 baseline과 비교한다.
-   - config: `configs/detail_branch_v1_photo130k_lsdir.yaml`
+   - config: `configs/detail_branch_v1b_aug_photo130k_lsdir.yaml`
    - train script: `tools/train/train_detail_branch.py`
    - review runner: `tools/eval/run_fixed_review_detail_branch.py`
    - smoke: 4 micro-steps = 1 optimizer update 정상 완료, step 0은 base SR과
@@ -800,9 +804,11 @@ step에서 완료됐고 시각적 detail 개선이 없어 승격하지 않았다
 dual-multiscale Stage2 run도 100000 step까지 완료됐다. 자동 best는 step98000이고
 final100000은 strong preset에서 조금 더 안전하다. 둘 다 HF에 보존되어 있으며,
 public/default 승격 전 contact sheet human review가 필요하다.
-다음 실험은 configs/detail_branch_v1_photo130k_lsdir.yaml 의 image-space
-high-frequency detail branch v1이다. Stage2/Stage1은 frozen이고 Stage3/4 diffusion은
-사용하지 않는다. fixed review는 detail_v1 set을 기준으로 residual refiner v2와 비교한다.
+다음 실험은 configs/detail_branch_v1b_aug_photo130k_lsdir.yaml 의 image-space
+high-frequency detail branch v1b다. Stage2/Stage1은 frozen이고 Stage3/4 diffusion은
+사용하지 않는다. 첫 v1 run은 7800 micro-steps = 0.234 epoch에서 멈췄고, v1b는
+hflip/texture crop/약한 HR color jitter만 추가한다. fixed review는 detail_v1 set을
+기준으로 residual refiner v2와 비교한다.
 Colab demo는 notebooks/sr_diffusion_colab_demo.ipynb 에서 Gradio WebUI로 실행되며,
 업로드/slider 조정/before-after 비교 slider를 제공한다.
 상업적 이용은 금지이고, raw dataset은 GitHub/HF에 올리지 않는다.

@@ -31,3 +31,34 @@ def test_manifest_dataset_returns_hr_lr(tmp_path: Path) -> None:
     assert item["hr"].shape == (3, 64, 64)
     assert item["lr"].shape == (3, 16, 16)
     assert int(item["domain_id"]) == 0
+
+
+def test_manifest_dataset_applies_train_hflip(tmp_path: Path) -> None:
+    images = tmp_path / "images"
+    images.mkdir()
+    image = Image.new("RGB", (64, 64), (255, 0, 0))
+    for x in range(32, 64):
+        for y in range(64):
+            image.putpixel((x, y), (0, 0, 255))
+    image.save(images / "asymmetric.png")
+    manifest = tmp_path / "manifest.csv"
+    with manifest.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=["path", "domain", "split"])
+        writer.writeheader()
+        writer.writerow({"path": "images/asymmetric.png", "domain": "photo", "split": "train"})
+
+    dataset = ManifestImageDataset(
+        manifest_path=manifest,
+        split="train",
+        hr_size=64,
+        scale=4,
+        domains={"photo": 0, "anime": 1},
+        degradation_preset="clean",
+        seed=0,
+        deterministic=True,
+        hflip_prob=1.0,
+    )
+
+    item = dataset[0]
+    assert float(item["hr"][2, 0, 0]) == 1.0
+    assert float(item["hr"][0, 0, -1]) == 1.0
