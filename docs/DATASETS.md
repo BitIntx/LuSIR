@@ -1,4 +1,4 @@
-# Datasets
+# LuSIR Datasets
 
 The training pipeline uses HR images only. LR inputs are generated on the fly by
 the degradation pipeline, so we do not store duplicated LR/HR pairs.

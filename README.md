@@ -1,9 +1,11 @@
-# sr-diffusion
+# LuSIR
 
 [![Technical Report](https://img.shields.io/badge/technical_report-PDF-blue)](paper/sr_diffusion_report.pdf)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/BitIntx/sr-diffusion/blob/main/notebooks/sr_diffusion_colab_demo.ipynb)
 [![Code License](https://img.shields.io/badge/code_license-PolyForm_Noncommercial_1.0.0-orange)](LICENSE)
 [![Checkpoint License](https://img.shields.io/badge/checkpoints-CC_BY--NC_4.0-orange)](CHECKPOINT_LICENSE.md)
+
+**LuSIR**: **Latent Upscaling via Self-trained Image Restoration**.
 
 ## Current Demo
 
@@ -24,7 +26,7 @@ from `checkpoints/detail_branch_v1b_aug_photo130k_lsdir_best39500.pt` with
 `photo_detail_mix`. The README image is a crop from the lime row of that public
 sheet.
 
-Vision-only x4 latent diffusion super-resolution experiments.
+LuSIR is a vision-only x4 latent diffusion super-resolution research project.
 Report source: [paper/main.tex](paper/main.tex), with a plain Markdown snapshot
 in [paper/TECHNICAL_REPORT.md](paper/TECHNICAL_REPORT.md).
 The current residual-refiner visual review procedure and honest qualitative
@@ -34,6 +36,10 @@ This is a public source-available, non-commercial research project. The goal is
 to train an SR model directly, without using a pretrained text-to-image
 diffusion model. The intended final model handles photo and anime/illustration
 domains in one codebase with domain conditioning.
+
+Compatibility note: the GitHub repository, Hugging Face repository, W&B history,
+local scratch paths, and Python import namespace still use `sr-diffusion` or
+`sr_diffusion` so existing artifacts, links, and scripts keep working.
 
 This repository is not OSI-approved open source because commercial use is not
 permitted.
@@ -801,6 +807,9 @@ lost after VM restarts. The current target is a public model repository:
 ```text
 jwheo/sr-diffusion
 ```
+
+This is the current LuSIR artifact repository; the `sr-diffusion` name is kept
+as a stable storage identifier until a separate repo migration is planned.
 
 Upload only selected checkpoints/configs/metrics, not raw datasets. See
 [docs/HUGGINGFACE.md](docs/HUGGINGFACE.md) for the exact upload commands.

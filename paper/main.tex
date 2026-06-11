@@ -6,15 +6,15 @@
 \usepackage{amsmath}
 \usepackage{float}
 
-\title{Vision-Only Latent Diffusion Super-Resolution without T2I Pretraining}
-\author{sr-diffusion contributors}
+\title{LuSIR: Latent Upscaling via Self-trained Image Restoration without T2I Pretraining}
+\author{LuSIR contributors}
 \date{Experiment snapshot through completed dual-context Stage 2 scale-up and detail branch v1b}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
-This report summarizes a work-in-progress x4 super-resolution system trained
+This report summarizes LuSIR, a work-in-progress x4 super-resolution system trained
 directly in vision space, without importing a pretrained text-to-image diffusion
 backbone. The completed pipeline consists of a factor-4 VAE, deterministic
 LR-to-HR-latent pretraining, conditional latent diffusion, and
@@ -59,7 +59,7 @@ A later extension targets
 \[
 192 \times 192 \rightarrow 768 \times 768.
 \]
-The design goal is a practical latent diffusion SR model trained from project
+The design goal is a practical latent diffusion SR model trained from LuSIR
 checkpoints only. The system intentionally avoids Stable Diffusion, T2I
 backbones, text conditioning, and imported generative priors from pretrained
 diffusion models.

@@ -1,11 +1,15 @@
-# Hugging Face Artifacts
+# LuSIR Hugging Face Artifacts
 
-Hugging Face is used as checkpoint storage for artifacts that should survive
+Hugging Face is used as LuSIR checkpoint storage for artifacts that should survive
 scratch disk loss. The default target is a public model repository:
 
 ```text
 jwheo/sr-diffusion
 ```
+
+The repository id remains `jwheo/sr-diffusion` for compatibility with existing
+checkpoints, Colab downloads, and handoff scripts. The public project name is
+LuSIR.
 
 Keep dataset files and validation images out of the Hub repository unless their
 licenses are reviewed. Upload configs, metrics, and selected checkpoints only.

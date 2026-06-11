@@ -17,12 +17,12 @@ class Artifact:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Upload selected SR diffusion artifacts to Hugging Face Hub.")
+    parser = argparse.ArgumentParser(description="Upload selected LuSIR artifacts to Hugging Face Hub.")
     parser.add_argument("--repo-id", required=True, help="Target repository, for example jwheo/sr-diffusion.")
     parser.add_argument("--repo-type", default="model", choices=("model", "dataset", "space"))
     parser.add_argument("--private", action="store_true", help="Create the repo as private if it does not exist.")
     parser.add_argument("--revision", default=None)
-    parser.add_argument("--message", default="Upload SR diffusion artifacts")
+    parser.add_argument("--message", default="Upload LuSIR artifacts")
     parser.add_argument(
         "--artifact",
         action="append",
@@ -37,7 +37,7 @@ def parse_args() -> argparse.Namespace:
         help="Ignore pattern used when uploading folders. Can be repeated.",
     )
     parser.add_argument("--update-card", action="store_true", help="Upload a generated Hugging Face model card.")
-    parser.add_argument("--title", default="sr-diffusion")
+    parser.add_argument("--title", default="LuSIR")
     parser.add_argument(
         "--github-url",
         default="https://github.com/BitIntx/sr-diffusion",
@@ -87,11 +87,11 @@ tags:
 
 # {title}
 
-Research checkpoint storage for the `sr-diffusion` project.
+Research checkpoint storage for the LuSIR project.
 
 GitHub: {github_url}
 
-This is a public source-available, non-commercial research project. It trains a
+LuSIR is a public source-available, non-commercial research project. It trains a
 vision-only x4 latent diffusion super-resolution pipeline from scratch and does
 not use a pretrained text-to-image diffusion model.
 

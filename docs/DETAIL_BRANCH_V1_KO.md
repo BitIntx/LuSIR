@@ -1,4 +1,4 @@
-# High-Frequency Detail Branch v1 설계 메모
+# LuSIR High-Frequency Detail Branch v1 설계 메모
 
 ## 왜 필요한가
 

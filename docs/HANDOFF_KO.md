@@ -1,9 +1,13 @@
-# VM Handoff / 대화 기반 인수인계
+# LuSIR VM Handoff / 대화 기반 인수인계
 
 이 문서는 원문 채팅 로그가 아니라, 현재 대화에서 결정하고 실행한 내용을
 다른 VM의 Codex/작업자가 바로 이어받을 수 있게 정리한 공개용 요약입니다.
 
 최신 실패/부분 성공/다음 가설 기록은 `docs/TRIAL_AND_ERROR_KO.md`에 누적합니다.
+
+프로젝트 공개명은 **LuSIR**(**Latent Upscaling via Self-trained Image
+Restoration**)입니다. GitHub/HF/W&B/로컬 경로의 `sr-diffusion` 표기는 기존
+artifact와 링크 호환을 위한 저장소/식별자 이름입니다.
 
 ## 2026-06-11 현재 상태
 
@@ -342,7 +346,7 @@ forward/backward까지 통과했다. 자세한 가설과 평가 기준은
 
 ## 목표
 
-직접 학습하는 x4 vision-only latent diffusion super-resolution 모델.
+LuSIR는 직접 학습하는 x4 vision-only latent diffusion super-resolution 모델이다.
 
 - T2I pretrained diffusion 모델을 사용하지 않음.
 - `LR 128x128 -> HR 512x512`가 현재 기본 목표.
@@ -829,7 +833,7 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
 ## 새 VM에서 Codex에게 줄 짧은 프롬프트
 
 ```text
-이 repo는 /home/.../sr-diffusion 의 x4 latent diffusion SR 프로젝트다.
+이 repo는 LuSIR, 즉 /home/.../sr-diffusion 의 x4 latent diffusion SR 프로젝트다.
 docs/HANDOFF_KO.md 와 docs/VM_RECOVERY_KO.md 를 먼저 읽고 이어서 작업해줘.
 Stage 번호는 학습 순서이며 추론 직렬 경로가 아니다. Colab 기본은
 LR -> Stage2 XL step72000 -> residual refiner v2 step39000 -> Stage1 decoder다.

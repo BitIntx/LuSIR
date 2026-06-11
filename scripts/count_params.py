@@ -14,7 +14,7 @@ from sr_diffusion.utils import load_config
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Count SR diffusion model parameters from configs.")
+    parser = argparse.ArgumentParser(description="Count LuSIR model parameters from configs.")
     parser.add_argument("--autoencoder-config", type=Path, default=None)
     parser.add_argument("--condition-config", type=Path, default=None)
     parser.add_argument("--diffusion-config", type=Path, default=None)

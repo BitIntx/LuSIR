@@ -1,7 +1,10 @@
-# 새 VM 복구 가이드
+# LuSIR 새 VM 복구 가이드
 
-이 문서는 기존 scratch가 사라졌거나 다른 VM으로 옮길 때 현재 프로젝트를
+이 문서는 기존 scratch가 사라졌거나 다른 VM으로 옮길 때 LuSIR 프로젝트를
 복구하는 절차다.
+
+GitHub repo 디렉토리와 기존 artifact 경로는 아직 `sr-diffusion` 이름을 쓴다.
+이는 기존 Colab/HF/W&B 링크와 복구 스크립트를 깨지 않기 위한 호환 이름이다.
 
 ## 1. Repo clone
 

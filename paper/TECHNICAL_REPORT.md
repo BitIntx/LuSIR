@@ -1,10 +1,10 @@
-# Vision-Only Latent Diffusion Super-Resolution without T2I Pretraining
+# LuSIR: Latent Upscaling via Self-trained Image Restoration without T2I Pretraining
 
 Snapshot: dual-context Stage 2 scale-up and high-frequency detail branch v1b complete.
 
 ## Objective
 
-This project trains a vision-only x4 latent diffusion super-resolution model
+LuSIR trains a vision-only x4 latent diffusion super-resolution model
 without using a pretrained text-to-image backbone. The active task is:
 
 ```text
@@ -570,7 +570,7 @@ currently wraps the residual-refiner and diffusion single-image runners.
 
 ## Public Artifacts
 
-The latest public artifacts are stored in `jwheo/sr-diffusion` on Hugging Face:
+The latest LuSIR public artifacts are stored in `jwheo/sr-diffusion` on Hugging Face:
 
 ```text
 checkpoints/stage4_photo100k_xl_edge_b16_best_eval_condition_decoded.pt

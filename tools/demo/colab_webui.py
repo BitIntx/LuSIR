@@ -72,7 +72,7 @@ VARIANTS: dict[str, dict[str, Any]] = {
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Launch the Colab Gradio demo for sr-diffusion.")
+    parser = argparse.ArgumentParser(description="Launch the LuSIR Colab Gradio demo.")
     parser.add_argument("--share", action="store_true", help="Create a public Gradio share URL.")
     parser.add_argument("--server-port", type=int, default=7860)
     parser.add_argument("--repo-id", default=REPO_ID)
@@ -332,10 +332,10 @@ def build_app(repo_id: str) -> Any:
 
     global REPO_ID
     REPO_ID = repo_id
-    with gr.Blocks(title="sr-diffusion x4 WebUI", css="footer {visibility: hidden}") as demo:
+    with gr.Blocks(title="LuSIR x4 WebUI", css="footer {visibility: hidden}") as demo:
         gr.Markdown(
             """
-# sr-diffusion x4 WebUI
+# LuSIR x4 WebUI
 Upload an image, run x4 SR, then use the slider to compare before and after.
 
 Default path: **LR -> Stage 2 XL condition encoder -> residual refiner v2 -> Stage 1 decoder**.

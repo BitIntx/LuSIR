@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "sr-diffusion"
 version = "0.1.0"
-description = "Vision-only latent diffusion super-resolution experiments."
+description = "LuSIR: Latent Upscaling via Self-trained Image Restoration."
 requires-python = ">=3.12"
 dependencies = [
   "numpy",

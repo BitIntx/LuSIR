@@ -1,4 +1,4 @@
-# Command-line tools
+# LuSIR Command-line Tools
 
 - `train/`: model training entry points.
 - `eval/`: dataset-level evaluation entry points.

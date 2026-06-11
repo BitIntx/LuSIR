@@ -1,4 +1,4 @@
-# Residual Refiner v2 시각 검토
+# LuSIR Residual Refiner v2 시각 검토
 
 ## 비교 리포트 생성
 
@@ -34,7 +34,7 @@ python tools/analysis/compare_residual_strengths.py \
 
 ## 현재 시각적 위치
 
-이 모델은 pretrained text-to-image 모델 없이 직접 학습한 vision-only,
+LuSIR는 pretrained text-to-image 모델 없이 직접 학습한 vision-only,
 deterministic x4 SR 연구 모델이다. 구조 보존, 예측 가능성, 낮은 환각 위험,
 T4 실행 가능성은 장점이다. 반면 공개 선도 생성형 복원 모델들보다 실제로
 보이는 미세 질감과 선명도는 아직 크게 부족하다.
