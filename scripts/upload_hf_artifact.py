@@ -18,7 +18,7 @@ class Artifact:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Upload selected LuSIR artifacts to Hugging Face Hub.")
-    parser.add_argument("--repo-id", required=True, help="Target repository, for example jwheo/sr-diffusion.")
+    parser.add_argument("--repo-id", required=True, help="Target repository, for example jwheo/LuSIR.")
     parser.add_argument("--repo-type", default="model", choices=("model", "dataset", "space"))
     parser.add_argument("--private", action="store_true", help="Create the repo as private if it does not exist.")
     parser.add_argument("--revision", default=None)
@@ -40,7 +40,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--title", default="LuSIR")
     parser.add_argument(
         "--github-url",
-        default="https://github.com/BitIntx/sr-diffusion",
+        default="https://github.com/BitIntx/LuSIR",
         help="Public GitHub project URL to include in the generated model card.",
     )
     parser.add_argument("--dry-run", action="store_true")

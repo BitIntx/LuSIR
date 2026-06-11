@@ -14,7 +14,7 @@ import torch
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[2]
-REPO_ID = "jwheo/sr-diffusion"
+REPO_ID = "jwheo/LuSIR"
 OUTPUT_ROOT = ROOT / "outputs" / "colab_webui"
 
 

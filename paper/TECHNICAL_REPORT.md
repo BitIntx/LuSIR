@@ -570,7 +570,7 @@ currently wraps the residual-refiner and diffusion single-image runners.
 
 ## Public Artifacts
 
-The latest LuSIR public artifacts are stored in `jwheo/sr-diffusion` on Hugging Face:
+The latest LuSIR public artifacts are stored in `jwheo/LuSIR` on Hugging Face:
 
 ```text
 checkpoints/stage4_photo100k_xl_edge_b16_best_eval_condition_decoded.pt

@@ -177,7 +177,7 @@ PRESETS = {
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Download public LuSIR Hugging Face inference artifacts.")
-    parser.add_argument("--repo-id", default="jwheo/sr-diffusion")
+    parser.add_argument("--repo-id", default="jwheo/LuSIR")
     parser.add_argument("--repo-type", default="model")
     parser.add_argument("--revision", default=None)
     parser.add_argument("--output-dir", type=Path, default=Path("."))

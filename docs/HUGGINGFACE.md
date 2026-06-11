@@ -4,12 +4,12 @@ Hugging Face is used as LuSIR checkpoint storage for artifacts that should survi
 scratch disk loss. The default target is a public model repository:
 
 ```text
-jwheo/sr-diffusion
+jwheo/LuSIR
 ```
 
-The repository id remains `jwheo/sr-diffusion` for compatibility with existing
-checkpoints, Colab downloads, and handoff scripts. The public project name is
-LuSIR.
+The repository id is `jwheo/LuSIR`. Older `jwheo/sr-diffusion` links may still
+resolve through Hugging Face redirects, but new scripts and docs should use the
+LuSIR id.
 
 Keep dataset files and validation images out of the Hub repository unless their
 licenses are reviewed. Upload configs, metrics, and selected checkpoints only.
@@ -107,7 +107,7 @@ Upload the selected Stage 1 VAE and the current Stage 2 checkpoint:
 
 ```bash
 /home/jwheojjang/venvs/rocm/bin/python scripts/upload_hf_artifact.py \
-  --repo-id jwheo/sr-diffusion \
+  --repo-id jwheo/LuSIR \
   --repo-type model \
   --update-card \
   --message "Upload Stage 1 and Stage 2 checkpoints" \
@@ -123,7 +123,7 @@ For a dry run:
 
 ```bash
 /home/jwheojjang/venvs/rocm/bin/python scripts/upload_hf_artifact.py \
-  --repo-id jwheo/sr-diffusion \
+  --repo-id jwheo/LuSIR \
   --dry-run \
   --artifact configs/latent_pretrain_photo10k.yaml=configs/latent_pretrain_photo10k.yaml
 ```
@@ -132,7 +132,7 @@ Upload the current best sampled Stage 4 condition-start checkpoint and metrics:
 
 ```bash
 /home/jwheojjang/venvs/rocm/bin/python scripts/upload_hf_artifact.py \
-  --repo-id jwheo/sr-diffusion \
+  --repo-id jwheo/LuSIR \
   --repo-type model \
   --message "Upload Stage 4 condition-start checkpoint" \
   --artifact configs/diffusion_photo10k_b32_stage4_condition.yaml=configs/diffusion_photo10k_b32_stage4_condition.yaml \
@@ -145,7 +145,7 @@ degradation config:
 
 ```bash
 /home/jwheojjang/venvs/cuda/bin/python scripts/upload_hf_artifact.py \
-  --repo-id jwheo/sr-diffusion \
+  --repo-id jwheo/LuSIR \
   --repo-type model \
   --message "Upload photo100k Stage 4 and v2 configs" \
   --artifact configs/hf/diffusion_photo100k_stage4_condition.yaml=configs/hf/diffusion_photo100k_stage4_condition.yaml \
@@ -161,7 +161,7 @@ diffusion configs:
 
 ```bash
 /home/jwheojjang/venvs/cuda/bin/python scripts/upload_hf_artifact.py \
-  --repo-id jwheo/sr-diffusion \
+  --repo-id jwheo/LuSIR \
   --repo-type model \
   --message "Upload photo100k Stage 2 v2 condition encoder" \
   --artifact configs/hf/diffusion_photo100k_v2.yaml=configs/hf/diffusion_photo100k_v2.yaml \
@@ -175,7 +175,7 @@ Upload the photo100k Stage 3 `photo_v2` diffusion checkpoint and sampled eval:
 
 ```bash
 /home/jwheojjang/venvs/cuda/bin/python scripts/upload_hf_artifact.py \
-  --repo-id jwheo/sr-diffusion \
+  --repo-id jwheo/LuSIR \
   --repo-type model \
   --message "Upload photo100k Stage 3 v2 diffusion checkpoint" \
   --artifact /home/jwheojjang/scratch/sr-diffusion/runs/diffusion_photo100k_b32_v2/checkpoints/best_eval_noise.pt=checkpoints/stage3_photo100k_v2_b32_best_eval_noise.pt \
@@ -187,7 +187,7 @@ Upload the photo100k Stage 4 `photo_v2` condition-start checkpoint and sampled e
 
 ```bash
 /home/jwheojjang/venvs/cuda/bin/python scripts/upload_hf_artifact.py \
-  --repo-id jwheo/sr-diffusion \
+  --repo-id jwheo/LuSIR \
   --repo-type model \
   --message "Upload photo100k Stage 4 v2 condition checkpoint" \
   --artifact configs/hf/diffusion_photo100k_stage4_condition_v2.yaml=configs/hf/diffusion_photo100k_stage4_condition_v2.yaml \
@@ -202,7 +202,7 @@ artifacts:
 
 ```bash
 /home/ubuntu/venvs/cuda/bin/python scripts/upload_hf_artifact.py \
-  --repo-id jwheo/sr-diffusion \
+  --repo-id jwheo/LuSIR \
   --repo-type model \
   --message "Upload Stage2 residual refiner probe artifacts" \
   --artifact /home/jwheojjang/scratch/sr-diffusion/runs/residual_refiner_stage2_xl_mild_probe/checkpoints/best_eval_refined.pt=checkpoints/residual_refiner_stage2_xl_mild_best_eval_refined.pt \
@@ -231,7 +231,7 @@ evaluation artifacts:
 
 ```bash
 /home/ubuntu/venvs/cuda/bin/python scripts/upload_hf_artifact.py \
-  --repo-id jwheo/sr-diffusion \
+  --repo-id jwheo/LuSIR \
   --repo-type model \
   --message "Upload Stage4 teacher residual probe artifacts" \
   --artifact /home/jwheojjang/scratch/sr-diffusion/runs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_v3_b8_probe/checkpoints/step_0002000.pt=checkpoints/stage4_photo100k_xl_teacher_residual_photo_v3_step_0002000.pt \
@@ -245,7 +245,7 @@ Upload the selected detail-preserving Stage 4 checkpoint and sampled evaluation:
 
 ```bash
 /home/ubuntu/venvs/cuda/bin/python scripts/upload_hf_artifact.py \
-  --repo-id jwheo/sr-diffusion \
+  --repo-id jwheo/LuSIR \
   --repo-type model \
   --message "Upload detail-preserving Stage4 artifacts" \
   --artifact /home/jwheojjang/scratch/sr-diffusion/runs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_detail_b8_long/checkpoints/best_eval_condition_decoded.pt=checkpoints/stage4_photo100k_xl_teacher_residual_photo_detail_best8000.pt \
@@ -259,7 +259,7 @@ Upload the selected decoded-detail residual refiner v2 step 39000 and cross-pres
 
 ```bash
 /home/ubuntu/venvs/cuda/bin/python scripts/upload_hf_artifact.py \
-  --repo-id jwheo/sr-diffusion \
+  --repo-id jwheo/LuSIR \
   --repo-type model \
   --message "Upload residual refiner v2 best39000 artifacts" \
   --artifact /home/jwheojjang/scratch/sr-diffusion/runs/residual_refiner_stage2_xl_photo_detail_v2_long/checkpoints/best_eval_refined.pt=checkpoints/residual_refiner_stage2_xl_photo_detail_v2_best39000.pt \
@@ -280,7 +280,7 @@ Upload the completed, non-promoted Stage 2 perceptual continuation candidate:
 
 ```bash
 /home/ubuntu/venvs/cuda/bin/python scripts/upload_hf_artifact.py \
-  --repo-id jwheo/sr-diffusion \
+  --repo-id jwheo/LuSIR \
   --repo-type model \
   --message "Upload Stage2 perceptual continuation comparison" \
   --artifact /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo100k_multiscale_hqmix_perceptual_continue/checkpoints/step_0008000.pt=checkpoints/stage2_photo100k_multiscale_hqmix_perceptual_step_0008000.pt \
@@ -301,7 +301,7 @@ and cross-preset contact sheets:
 
 ```bash
 /home/ubuntu/venvs/cuda/bin/python scripts/upload_hf_artifact.py \
-  --repo-id jwheo/sr-diffusion \
+  --repo-id jwheo/LuSIR \
   --repo-type model \
   --message "Add completed dual Stage2 LSDIR results" \
   --artifact metrics/stage2_photo130k_lsdir_dual_multiscale_final_summary.json=metrics/stage2_photo130k_lsdir_dual_multiscale_final_summary.json \
@@ -320,7 +320,7 @@ review artifacts:
 
 ```bash
 /home/ubuntu/venvs/cuda/bin/python scripts/upload_hf_artifact.py \
-  --repo-id jwheo/sr-diffusion \
+  --repo-id jwheo/LuSIR \
   --repo-type model \
   --message "Add detail branch v1b best39500 results" \
   --artifact /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v1b_aug_photo130k_lsdir/checkpoints/best_eval_detail.pt=checkpoints/detail_branch_v1b_aug_photo130k_lsdir_best39500.pt \
@@ -340,7 +340,7 @@ place:
 ```bash
 /home/jwheojjang/venvs/rocm/bin/python - <<'PY'
 from huggingface_hub import HfApi
-HfApi().update_repo_settings("jwheo/sr-diffusion", repo_type="model", private=False)
+HfApi().update_repo_settings("jwheo/LuSIR", repo_type="model", private=False)
 PY
 ```
 

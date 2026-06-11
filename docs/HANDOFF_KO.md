@@ -6,8 +6,9 @@
 최신 실패/부분 성공/다음 가설 기록은 `docs/TRIAL_AND_ERROR_KO.md`에 누적합니다.
 
 프로젝트 공개명은 **LuSIR**(**Latent Upscaling via Self-trained Image
-Restoration**)입니다. GitHub/HF/W&B/로컬 경로의 `sr-diffusion` 표기는 기존
-artifact와 링크 호환을 위한 저장소/식별자 이름입니다.
+Restoration**)입니다. GitHub repo id는 `BitIntx/LuSIR`, Hugging Face repo id는
+`jwheo/LuSIR`입니다. W&B 기존 run URL, 로컬 scratch 경로, Python import
+namespace에는 아직 `sr-diffusion`/`sr_diffusion` 호환 이름이 남아 있습니다.
 
 ## 2026-06-11 현재 상태
 
@@ -396,8 +397,8 @@ Stage 4 XL config: configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
 
 ## 라이선스 / 공개 상태
 
-- GitHub: <https://github.com/BitIntx/sr-diffusion>
-- Hugging Face: `jwheo/sr-diffusion`
+- GitHub: <https://github.com/BitIntx/LuSIR>
+- Hugging Face: `jwheo/LuSIR`
 - GitHub repo는 public.
 - HF model repo도 public.
 - code license: PolyForm Noncommercial 1.0.0.

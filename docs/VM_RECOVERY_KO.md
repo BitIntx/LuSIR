@@ -3,14 +3,14 @@
 이 문서는 기존 scratch가 사라졌거나 다른 VM으로 옮길 때 LuSIR 프로젝트를
 복구하는 절차다.
 
-GitHub repo 디렉토리와 기존 artifact 경로는 아직 `sr-diffusion` 이름을 쓴다.
-이는 기존 Colab/HF/W&B 링크와 복구 스크립트를 깨지 않기 위한 호환 이름이다.
+GitHub/HF repo id는 LuSIR로 바뀌었다. 기존 scratch 경로와 일부 과거 실험
+artifact 경로는 아직 `sr-diffusion` 이름을 쓴다.
 
 ## 1. Repo clone
 
 ```bash
-git clone https://github.com/BitIntx/sr-diffusion
-cd sr-diffusion
+git clone https://github.com/BitIntx/LuSIR
+cd LuSIR
 ```
 
 ## 2. Python / PyTorch 설치
@@ -107,7 +107,7 @@ python tools/infer/infer_diffusion.py \
 Colab:
 
 ```text
-https://colab.research.google.com/github/BitIntx/sr-diffusion/blob/main/notebooks/sr_diffusion_colab_demo.ipynb
+https://colab.research.google.com/github/BitIntx/LuSIR/blob/main/notebooks/sr_diffusion_colab_demo.ipynb
 ```
 
 현재 Colab은 Gradio WebUI를 실행한다. 유저 업로드가 기본이고 residual strength,
