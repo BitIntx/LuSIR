@@ -138,7 +138,8 @@ generative:
   - full `1.0`: 평균 품질 최고.
   - balanced `0.75`: 평균 이득 대부분 유지, strong preset 승률 `83/100`.
   - conservative `0.5`: strong preset 승률 `86/100`, 평균 이득은 감소.
-  - CLI `--residual-strength`, Colab `CORRECTION_STYLE`로 선택 가능.
+  - CLI `--residual-strength`, Colab WebUI `Residual correction strength`
+    slider로 선택 가능.
 - 공식 선택 checkpoint:
   `checkpoints/residual_refiner_stage2_xl_photo_detail_v2_best39000.pt`
 - HF preset:
@@ -386,7 +387,10 @@ Stage 4 XL config: configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
 - fixed sample image logging: LR / GT / Pred.
 - sampled validation/eval tooling.
 - HF artifact upload/download scripts.
-- Colab demo.
+- Colab demo: Gradio WebUI 기반. 유저 업로드가 기본이고, residual strength,
+  tile overlap, tile batch size, diffusion steps를 slider로 조정한다. 출력은
+  bicubic/Stage 2 condition/Input LR nearest 중 하나와 SR output을 before/after
+  slider로 비교한다.
 - tiled inference:
   - `--tile`
   - 128x128 LR tiles
@@ -779,7 +783,9 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
      정확히 동일하고 step 4에서 `wins_vs_base 69/100`이 찍혔다.
    - `40000` micro-steps = `10000` optimizer updates
 3. `+0.01 dB` 수준 변화는 시각 개선 근거 없이 승격하지 않는다.
-4. public Colab 기본 경로는 기존 residual refiner v2를 유지한다.
+4. public Colab 기본 경로는 기존 residual refiner v2를 유지한다. Colab은
+   `notebooks/sr_diffusion_colab_demo.ipynb`에서 `tools/demo/colab_webui.py`를
+   실행하는 WebUI 방식이다.
 
 ## 새 VM에서 Codex에게 줄 짧은 프롬프트
 
@@ -797,5 +803,7 @@ public/default 승격 전 contact sheet human review가 필요하다.
 다음 실험은 configs/detail_branch_v1_photo130k_lsdir.yaml 의 image-space
 high-frequency detail branch v1이다. Stage2/Stage1은 frozen이고 Stage3/4 diffusion은
 사용하지 않는다. fixed review는 detail_v1 set을 기준으로 residual refiner v2와 비교한다.
+Colab demo는 notebooks/sr_diffusion_colab_demo.ipynb 에서 Gradio WebUI로 실행되며,
+업로드/slider 조정/before-after 비교 slider를 제공한다.
 상업적 이용은 금지이고, raw dataset은 GitHub/HF에 올리지 않는다.
 ```

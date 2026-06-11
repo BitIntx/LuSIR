@@ -100,6 +100,11 @@ Colab:
 https://colab.research.google.com/github/BitIntx/sr-diffusion/blob/main/notebooks/sr_diffusion_colab_demo.ipynb
 ```
 
+현재 Colab은 Gradio WebUI를 실행한다. 유저 업로드가 기본이고 residual strength,
+tile overlap, tile batch size, diffusion steps는 slider로 조정한다. 결과 화면은
+bicubic/Stage 2 condition/Input LR nearest 중 하나와 SR output을 before/after
+slider로 비교한다.
+
 ## 5. Scratch/data 복구
 
 기존 VM에서는 scratch root를 다음처럼 사용했다:

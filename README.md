@@ -778,7 +778,9 @@ edge-loss Stage 4 checkpoint for denoise/sharpening review. The newer gated
 residual diffusion checkpoint is documented as an experiment but not promoted.
 The decoded-detail residual refiner v2 is the current Colab default because it
 beats Stage 2 condition-only across the tested validation presets while keeping
-changes conservative.
+changes conservative. The notebook now launches a Gradio WebUI: users upload an
+image in the browser, adjust residual strength/tile settings with sliders, and
+compare bicubic or Stage 2 condition against SR with a before/after slider.
 The completed dual-context LSDIR Stage 2 research checkpoint can be downloaded
 with `python scripts/download_hf_checkpoints.py --preset stage2_photo130k_lsdir_dual`.
 

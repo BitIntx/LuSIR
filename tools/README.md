@@ -56,5 +56,15 @@ The detail branch is image-space and deterministic:
 `LR -> Stage 2 dual-context condition -> Stage 1 decoder -> base SR -> detail branch`.
 It does not run Stage 3/4 diffusion sampling.
 
+Colab WebUI:
+
+```bash
+python tools/demo/colab_webui.py --share
+```
+
+The WebUI wraps the public Colab/default inference path with user upload,
+residual-strength and tiling sliders, output gallery, download link, and a
+before/after comparison slider.
+
 Repository-operation utilities such as dataset downloads, manifest generation,
 Hugging Face uploads, and W&B organization remain in `scripts/`.
