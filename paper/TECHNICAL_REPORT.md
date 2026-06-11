@@ -566,10 +566,12 @@ configs/latent_pretrain_photo130k_lsdir_dual_multiscale_long.yaml
 The selected residual refiner remains the public Colab default. The completed
 perceptual Stage 2 continuation is not promoted. Candidate next steps are:
 
-- add LPIPS/DISTS-style perceptual metrics and fixed-sample blind A/B before
-  another small metric-focused continuation;
-- design a degradation-aware high-frequency or separate detail-synthesis path,
-  because frozen VGG supervision did not visibly recover missing texture;
+- use the new `detail_v1` fixed review workflow with PSNR, SSIM,
+  Laplacian/highpass detail metrics, LPIPS, DISTS, contact sheets, and HTML
+  reports before another metric-focused continuation;
+- design the degradation-aware high-frequency/detail synthesis branch described
+  in `docs/DETAIL_BRANCH_V1_KO.md`, because frozen VGG supervision did not
+  visibly recover missing texture;
 - preserve step 8000 as a non-default research candidate because it avoided
   cross-preset PSNR regressions;
 - keep a degradation-aware gate or strong-input guardrail as the primary

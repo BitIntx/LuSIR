@@ -1268,8 +1268,13 @@ Stage 4: perceptual / GAN fine-tune
 - Direct teacher supervision was tested through 8000 micro steps. It improved
   `photo_v3_noise_mix` condition-only by `+0.0626 dB` at step 2000, but outputs
   remained strongly smoothed and later checkpoints regressed. The next
-  high-signal work is a less aggressive, detail-preserving degradation
-  curriculum rather than another long continuation of this Stage 4 objective.
+  high-signal work is a fixed visual/perceptual review set plus a separate
+  high-frequency detail branch rather than another long continuation of this
+  Stage 4 objective. The `detail_v1` review workflow is implemented in
+  `tools/eval/build_fixed_review_set.py`,
+  `tools/eval/run_fixed_review_residual_refiner.py`, and
+  `tools/eval/eval_fixed_review_outputs.py`; the branch design note is
+  `docs/DETAIL_BRANCH_V1_KO.md`.
 
 Run the Stage 4-lite low-timestep fine-tune:
 

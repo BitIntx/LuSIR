@@ -656,9 +656,10 @@ at the same scale. The reported sampled PSNR values are useful for internal
 checkpoint comparison, but they are not a full benchmark suite against external
 SR methods. The detail-preserving curriculum improved sampled Stage 4 accuracy,
 but the selected output remains conservative and does not recover all visible
-fine detail. The highest-signal next directions are a separate user-facing
-detail evaluation set, perceptual/detail metrics, and separation of the rare
-strong degradation tail into a robustness curriculum or evaluation slice.
+fine detail. The highest-signal next directions are the new \texttt{detail\_v1}
+fixed visual/perceptual review workflow, a separate high-frequency detail
+synthesis branch, and separation of the rare strong degradation tail into a
+robustness curriculum or evaluation slice.
 The completed VGG-feature continuation was not promoted into the public Colab
 default because its small metric gains did not translate into visible detail
 recovery.

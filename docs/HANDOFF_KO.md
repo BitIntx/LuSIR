@@ -758,11 +758,19 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
 
 우선순위:
 
-1. HF에 올린 dual-multiscale LSDIR contact sheet 4종을 눈으로 검토한다.
-2. step98000은 clean/mild best, step100000은 strong-tail safe 후보로 분리 보존한다.
-3. `+0.01 dB` 수준 변화는 시각 개선 근거 없이 승격하지 않는다.
-4. public Colab 기본 경로는 기존 residual refiner v2를 유지한다.
-5. 다음 구조 후보는 degradation-aware high-frequency/detail synthesis branch다.
+1. 새 fixed review set `detail_v1`을 기준으로 이후 모델을 비교한다.
+   - review set:
+     `/home/ubuntu/scratch/sr-diffusion/review_sets/detail_v1/review_manifest.csv`
+   - residual refiner v2 baseline outputs:
+     `/home/ubuntu/scratch/sr-diffusion/review_outputs/residual_refiner_v2_detail_v1`
+   - report:
+     `/home/ubuntu/scratch/sr-diffusion/review_reports/residual_refiner_v2_detail_v1/report.html`
+   - metrics:
+     `/home/ubuntu/scratch/sr-diffusion/review_reports/residual_refiner_v2_detail_v1/summary.json`
+2. `+0.01 dB` 수준 변화는 시각 개선 근거 없이 승격하지 않는다.
+3. public Colab 기본 경로는 기존 residual refiner v2를 유지한다.
+4. 다음 구조 후보는 `docs/DETAIL_BRANCH_V1_KO.md`의 degradation-aware
+   high-frequency/detail synthesis branch다.
 
 ## 새 VM에서 Codex에게 줄 짧은 프롬프트
 
