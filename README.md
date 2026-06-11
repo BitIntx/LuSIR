@@ -7,21 +7,22 @@
 
 ## Current Demo
 
-![Representative deterministic x4 Stage 2 results](docs/assets/stage2_multiscale_demo.jpg)
+![Representative deterministic x4 detail branch result](docs/assets/detail_branch_v1b_lime_demo.jpg)
 
-A representative `photo_detail_mix` validation example from the selected
-multiscale Stage 2 step 46000 checkpoint. The model restores stable structure,
-color, and large boundaries from the degraded x4 input, while remaining softer
-than ground truth on the finest surface texture. This is a prior deterministic
-Stage 2 research example. The newer dual-context LSDIR Stage 2 step 98000
-checkpoint is preserved as a modest reconstruction improvement, but it is not
-promoted over the current Colab default pending human visual review.
+A representative `photo_detail_mix` validation crop from the current
+high-frequency detail branch candidate. Columns are base Stage 2 output, detail
+branch output, and ground truth. The branch is deterministic and runs on top of
+the frozen dual-context LSDIR Stage 2 step 98000 checkpoint plus the frozen
+Stage 1 decoder. It adds a small gated high-frequency residual, improving the
+validation aggregate without visible sampling artifacts, but it is still
+conservative and remains softer than ground truth on fine surface texture.
 
-Reproducibility: the source is the deterministic val100 contact sheet
-`samples/stage2_multiscale_hqmix_checkpoint_comparison.png`, generated from
-`checkpoints/stage2_photo100k_multiscale_hqmix_step_0046000.pt` with
-`photo_detail_mix`. The README image is a crop of that public sheet; the exact
-row index was not preserved when the crop was made.
+Reproducibility: the source is the deterministic val100 contact sheet preserved
+on Hugging Face as
+`samples/detail_branch_v1b_aug_photo130k_lsdir_best39500_grid.png`, generated
+from `checkpoints/detail_branch_v1b_aug_photo130k_lsdir_best39500.pt` with
+`photo_detail_mix`. The README image is a crop from the lime row of that public
+sheet.
 
 Vision-only x4 latent diffusion super-resolution experiments.
 Report source: [paper/main.tex](paper/main.tex), with a plain Markdown snapshot
@@ -86,6 +87,10 @@ Colab default / public deterministic:
 Research deterministic candidate:
   LR -> multiscale Stage 2 step 46000 -> Stage 1 VAE decoder -> SR
 
+Current detail research candidate:
+  LR -> dual-context LSDIR Stage 2 step 98000 -> Stage 1 VAE decoder
+     -> high-frequency detail branch v1b step 39500 -> SR
+
 Generative comparison:
   LR -> Stage 2 condition encoder -> Stage 3 OR Stage 4 diffusion U-Net
      -> Stage 1 VAE decoder -> SR
@@ -102,6 +107,10 @@ continuation of multiscale Stage 2 step 46000 is complete but not promoted.
 The later dual-context LSDIR Stage 2 run is also complete: step 98000 is the
 cleaner-preset best checkpoint, while step 100000 is slightly safer on strong
 degradations.
+The high-frequency detail branch v1b run is complete and is the current detail
+research candidate. The selected checkpoint is step 39500 by
+`eval/detail_score`; final step 40000 is slightly lower on that selection
+metric.
 
 Historical first-pass photo100k Stage 3/4 comparison:
 
@@ -369,6 +378,34 @@ Download the selected artifacts with:
 
 ```bash
 python scripts/download_hf_checkpoints.py --preset residual_refiner_v2
+```
+
+High-frequency detail branch v1b then froze the dual-context LSDIR Stage 2
+step 98000 and Stage 1 decoder, training only a small image-space gated
+highpass branch. The v1b run added horizontal flips, texture-biased crop retry,
+and weak HR color jitter while excluding rotations/affine/perspective changes.
+It completed 40000 micro-steps:
+
+```text
+Detail branch v1b, selected step 39500 by eval/detail_score:
+  base PSNR 24.6188, detail PSNR 24.6649, delta +0.0461 dB
+  base SSIM 0.80013, detail SSIM 0.80281, delta +0.00268
+  mean PSNR delta +0.0575, wins 98/100, detail wins 100/100
+
+Other checkpoint peaks:
+  PSNR delta best: step 38500, +0.0489 dB
+  SSIM delta best: step 37000, +0.00336
+  final step 40000: +0.0444 dB PSNR, +0.00277 SSIM, wins 98/100
+```
+
+The branch is the current detail research candidate, but not yet the public
+Colab default because the WebUI still wraps the residual-refiner and diffusion
+single-image runners. Its qualitative change is stable and artifact-light but
+still visually conservative; it does not close the fine-texture gap to GT.
+Download the preserved review artifact set with:
+
+```bash
+python scripts/download_hf_checkpoints.py --preset detail_branch_v1b
 ```
 
 That teacher-supervision path was then tested in the gated-residual Stage 4
@@ -783,6 +820,9 @@ image in the browser, adjust residual strength/tile settings with sliders, and
 compare bicubic or Stage 2 condition against SR with a before/after slider.
 The completed dual-context LSDIR Stage 2 research checkpoint can be downloaded
 with `python scripts/download_hf_checkpoints.py --preset stage2_photo130k_lsdir_dual`.
+The completed detail branch v1b research checkpoint can be downloaded with
+`python scripts/download_hf_checkpoints.py --preset detail_branch_v1b`; it is
+preserved for review and future Colab integration.
 
 For a click-to-run demo, open the Colab notebook:
 
@@ -827,6 +867,12 @@ Download the completed dual-context LSDIR Stage 2 artifact set:
 
 ```bash
 python scripts/download_hf_checkpoints.py --preset stage2_photo130k_lsdir_dual
+```
+
+Download the completed detail branch v1b review artifact set:
+
+```bash
+python scripts/download_hf_checkpoints.py --preset detail_branch_v1b
 ```
 
 Download the selected teacher-supervised Stage 4 probe checkpoint and eval
@@ -1277,7 +1323,7 @@ Stage 4: perceptual / GAN fine-tune
   `tools/eval/run_fixed_review_residual_refiner.py`, and
   `tools/eval/eval_fixed_review_outputs.py`; the branch design note is
   `docs/DETAIL_BRANCH_V1_KO.md`.
-- High-frequency detail branch v1 is implemented as a deterministic image-space
+- High-frequency detail branch v1b is complete as a deterministic image-space
   branch on top of frozen Stage 2 dual-context best98000 and the frozen Stage 1
   decoder. It uses
   `configs/detail_branch_v1b_aug_photo130k_lsdir.yaml`,
@@ -1287,6 +1333,12 @@ Stage 4: perceptual / GAN fine-tune
   retry, and weak HR color jitter, but excludes rotations and affine/perspective
   transforms. Its training step count is micro-step based; with
   `grad_accum_steps: 4`, `40000` micro-steps means `10000` optimizer updates.
+  The run is complete. The selected checkpoint is
+  `checkpoints/detail_branch_v1b_aug_photo130k_lsdir_best39500.pt`
+  (`best_eval_detail.pt` locally): PSNR delta `+0.0461 dB`, SSIM delta
+  `+0.00268`, mean PSNR delta `+0.0575`, and wins `98/100` versus the frozen
+  base. This is the current detail research candidate, but its visible effect
+  remains conservative.
 
 Run the Stage 4-lite low-timestep fine-tune:
 

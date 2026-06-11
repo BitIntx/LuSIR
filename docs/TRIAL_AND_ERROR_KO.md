@@ -75,6 +75,53 @@ excluded:
 하늘/벽 같은 smooth crop보다 털, 잎, 직물, 글자, 표면 질감이 있는 crop을 더 자주
 보게 하는 것이다.
 
+### 2026-06-11 detail branch v1b 완료
+
+v1b augmentation run은 `40000` micro-steps에서 정상 종료됐다.
+`grad_accum_steps: 4` 기준 `10000` optimizer updates이며, train `133450`장 기준
+약 `1.199 epoch`다.
+
+```text
+run:    detail_branch_v1b_aug_photo130k_lsdir
+config: configs/detail_branch_v1b_aug_photo130k_lsdir.yaml
+W&B:    https://wandb.ai/jwheo/sr-diffusion/runs/1o3aavi9
+local:
+  /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v1b_aug_photo130k_lsdir
+best:
+  checkpoints/best_eval_detail.pt
+```
+
+val100 결과:
+
+| selection | step | PSNR delta | SSIM delta | mean delta | wins |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| best detail score | 39500 | +0.0461 dB | +0.00268 | +0.0575 | 98/100 |
+| best PSNR delta | 38500 | +0.0489 dB | +0.00317 | +0.0531 | 96/100 |
+| best SSIM delta | 37000 | +0.0438 dB | +0.00336 | +0.0460 | 95/100 |
+| final | 40000 | +0.0444 dB | +0.00277 | +0.0529 | 98/100 |
+
+이전 v1 조기 중단 run의 최고가 PSNR `+0.0230 dB`, SSIM `+0.00239`였으므로,
+augmentation + 장기 학습은 수치상 진전이 있었다. 특히 wins가 final/selected에서
+`98/100`까지 유지되고, detail score best 기준 detail wins가 `100/100`으로 나온다.
+
+눈으로 본 판단:
+
+- 변화는 안정적이고 artifact-light다.
+- 라임 표면, 털, 풀잎, 원거리 건물 edge에서 얇은 detail 보강은 보인다.
+- 하지만 base와 detail 차이가 작고, GT의 실제 미세 질감에는 아직 크게 못 미친다.
+- SSIM 개선은 `+0.002~+0.003`대라 아쉽지만, 현재 branch가 작은 high-frequency
+  residual만 허용하기 때문에 큰 SSIM 도약을 기대하기 어렵다.
+- SSIM만 키우는 방향은 다시 smoothing을 보상할 수 있으므로 주의가 필요하다.
+
+결론:
+
+- v1b step `39500`을 현재 detail research candidate로 보존한다.
+- final `40000`이 아니라 `best_eval_detail.pt`를 기준으로 문서/HF/리뷰를 맞춘다.
+- public Colab 기본값은 아직 residual refiner v2다. detail branch를 사용자 기본
+  경로로 승격하려면 단일 이미지/tiled inference runner와 WebUI 통합이 필요하다.
+- 다음 ablation은 무작정 더 길게 돌리기보다 약한 SSIM/MS-SSIM loss, gate/residual
+  개방, 또는 degradation-aware detail gate를 비교하는 편이 낫다.
+
 ## 2026-06-04 VM 복구 후 상태
 
 - GitHub HEAD: `900d1cd Fix report table layout`

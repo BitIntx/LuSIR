@@ -55,6 +55,9 @@ python tools/eval/run_fixed_review_detail_branch.py \
 The detail branch is image-space and deterministic:
 `LR -> Stage 2 dual-context condition -> Stage 1 decoder -> base SR -> detail branch`.
 It does not run Stage 3/4 diffusion sampling.
+The completed v1b run selects step 39500 (`best_eval_detail.pt`): val100 PSNR
+delta `+0.0461 dB`, SSIM delta `+0.00268`, and wins `98/100` versus the frozen
+base.
 
 Colab WebUI:
 

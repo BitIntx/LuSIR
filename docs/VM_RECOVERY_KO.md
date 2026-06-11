@@ -57,6 +57,13 @@ python scripts/download_hf_checkpoints.py --preset residual_refiner_stage2_xl_mi
 python scripts/download_hf_checkpoints.py --preset stage2_photo130k_lsdir_dual
 ```
 
+완료된 high-frequency detail branch v1b best39500 checkpoint와 review grid까지
+받으려면:
+
+```bash
+python scripts/download_hf_checkpoints.py --preset detail_branch_v1b
+```
+
 다운로드 위치:
 
 ```text
@@ -235,7 +242,8 @@ photo_v3_noise_mix: best98000 -0.0356 dB, final100000 +0.0132 dB
 
 HF의 `samples/stage2_dual_lsdir_*_contact_sheet.png` 네 장을 확인해
 step98000을 clean/mild 후보로 둘지, final100000을 strong-tail 후보로 둘지
-판단한다. 현재 public Colab 기본 경로는 여전히 residual refiner v2다.
+판단한다. detail branch v1b는 step39500이 현재 detail research candidate다.
+현재 public Colab 기본 경로는 여전히 residual refiner v2다.
 
 ## 8. tmux / 모니터링
 

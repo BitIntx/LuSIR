@@ -58,6 +58,12 @@ Download the completed dual-context LSDIR Stage 2 artifact set:
 python scripts/download_hf_checkpoints.py --preset stage2_photo130k_lsdir_dual
 ```
 
+Download the completed detail branch v1b review artifact set:
+
+```bash
+python scripts/download_hf_checkpoints.py --preset detail_branch_v1b
+```
+
 Each preset creates the local `checkpoints/`, `configs/`, `metrics/`, and
 `samples/` files expected by its matching inference or review config.
 
@@ -304,6 +310,25 @@ and cross-preset contact sheets:
 
 This checkpoint is preserved for research comparison and human visual review.
 It is not the current public Colab default.
+
+Upload the completed high-frequency detail branch v1b selected checkpoint and
+review artifacts:
+
+```bash
+/home/ubuntu/venvs/cuda/bin/python scripts/upload_hf_artifact.py \
+  --repo-id jwheo/sr-diffusion \
+  --repo-type model \
+  --message "Add detail branch v1b best39500 results" \
+  --artifact /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v1b_aug_photo130k_lsdir/checkpoints/best_eval_detail.pt=checkpoints/detail_branch_v1b_aug_photo130k_lsdir_best39500.pt \
+  --artifact configs/detail_branch_v1b_aug_photo130k_lsdir.yaml=configs/detail_branch_v1b_aug_photo130k_lsdir.yaml \
+  --artifact configs/hf/detail_branch_v1b_aug_photo130k_lsdir.yaml=configs/hf/detail_branch_v1b_aug_photo130k_lsdir.yaml \
+  --artifact metrics/detail_branch_v1b_aug_photo130k_lsdir_summary.json=metrics/detail_branch_v1b_aug_photo130k_lsdir_summary.json \
+  --artifact /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v1b_aug_photo130k_lsdir/eval_step_039500/eval_grid_lr_bicubic_base_detail_residual_gt.png=samples/detail_branch_v1b_aug_photo130k_lsdir_best39500_grid.png
+```
+
+This checkpoint is the current detail research candidate. It is not yet the
+public Colab default because the WebUI does not have a detail branch
+single-image/tiled inference runner.
 
 Make the Hub repository public after license files and the model card are in
 place:

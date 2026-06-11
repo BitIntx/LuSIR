@@ -8,7 +8,7 @@
 
 \title{Vision-Only Latent Diffusion Super-Resolution without T2I Pretraining}
 \author{sr-diffusion contributors}
-\date{Experiment snapshot through completed dual-context Stage 2 scale-up}
+\date{Experiment snapshot through completed dual-context Stage 2 scale-up and detail branch v1b}
 
 \begin{document}
 \maketitle
@@ -41,9 +41,12 @@ latest Stage 2 redesigns add multiscale context, balanced high-quality data,
 and then a dual-context LSDIR scale-up. The completed dual-context run selects
 step 98,000 for cleaner presets, with modest same-tool gains of 0.1362 dB on
 \texttt{photo\_detail\_mix} and 0.1086 dB on \texttt{mild}; the final step
-100,000 checkpoint is slightly safer on stronger degradation tails. This
-remains a modest reconstruction improvement, not a solved perceptual-detail
-problem.
+100,000 checkpoint is slightly safer on stronger degradation tails. A
+subsequent image-space high-frequency detail branch v1b freezes that Stage 2
+checkpoint and the Stage 1 decoder, selecting step 39,500 with +0.0461 dB PSNR,
++0.00268 SSIM, and 98/100 wins over the frozen base. This is the current detail
+research candidate, but the visible change remains conservative and does not
+solve the perceptual-detail gap.
 \end{abstract}
 
 \section{Objective}
@@ -84,6 +87,12 @@ chain. The public Colab default is
 \[
 \mathrm{LR} \rightarrow \mathrm{Stage\ 2} \rightarrow
 \mathrm{residual\ refiner} \rightarrow \mathrm{Stage\ 1\ decoder}.
+\]
+The current deterministic detail research candidate is
+\[
+\mathrm{LR} \rightarrow \mathrm{dual\mbox{-}context\ Stage\ 2}
+\rightarrow \mathrm{Stage\ 1\ decoder} \rightarrow
+\mathrm{detail\ branch\ v1b}.
 \]
 For generative comparison, the runtime path is
 \[
@@ -649,8 +658,8 @@ is a modest reconstruction gain, not a solved perceptual-detail problem.
 
 \section{High-Frequency Detail Branch v1}
 
-The next implemented candidate is deterministic and image-space, not another
-Stage 4 continuation. It runs
+The latest deterministic detail candidate is image-space, not another Stage 4
+continuation. It runs
 \[
 \mathrm{LR} \rightarrow \mathrm{Stage\ 2\ dual\ condition}
 \rightarrow \mathrm{Stage\ 1\ decoder} \rightarrow \mathrm{base\ SR},
@@ -666,15 +675,31 @@ The output convolution is zero-initialized, so step 0 exactly reproduces the
 frozen Stage 2 + Stage 1 base output. The implementation is in
 \texttt{tools/train/train\_detail\_branch.py},
 \texttt{tools/eval/run\_fixed\_review\_detail\_branch.py}, and
-\texttt{configs/detail\_branch\_v1\_photo130k\_lsdir.yaml}.
+\texttt{configs/detail\_branch\_v1b\_aug\_photo130k\_lsdir.yaml}.
 
 A four-micro-step smoke test completed loading, evaluation, backpropagation,
 one optimizer update, and checkpoint saving. Step 0 matched the base output
 exactly at 24.6188 dB val100 PSNR; after one optimizer update the aggregate
 PSNR delta was +0.00005 dB with 69/100 wins versus base. This is an integration
-check only. Promotion depends on the fixed \texttt{detail\_v1} review set,
-LPIPS/DISTS-enabled reporting, and human inspection against the residual
-refiner v2 baseline.
+check only.
+
+The first v1 long run was stopped at 7,800 micro-steps, or 0.234 epoch over the
+133,450-image train manifest, because the early residual was safe but visually
+too small. The v1b run kept the same model and loss, but added horizontal flip,
+texture-biased crop retry, and weak HR color jitter while excluding rotation,
+vertical flip, affine/perspective transforms, erasing, and mixup. It completed
+40,000 micro-steps, equal to 10,000 optimizer updates with gradient accumulation
+4, and selected step 39,500 by \texttt{eval/detail\_score}. At that checkpoint,
+base PSNR is 24.6188, detail PSNR is 24.6649, the PSNR delta is +0.0461 dB,
+base SSIM is 0.80013, detail SSIM is 0.80281, the SSIM delta is +0.00268, mean
+PSNR delta is +0.0575, and wins versus base are 98/100. PSNR delta peaks at
+step 38,500 (+0.0489 dB), SSIM delta peaks at step 37,000 (+0.00336), and final
+step 40,000 reaches +0.0444 dB PSNR and +0.00277 SSIM with 98/100 wins. The
+selected step 39,500 is therefore the current detail research candidate. It is
+artifact-light and slightly sharper on texture-heavy crops, but still
+conservative and below GT on fine surface detail. It is not yet the public
+Colab default because the WebUI currently wraps the residual-refiner and
+diffusion single-image runners.
 
 \section{Limitations}
 
@@ -684,11 +709,13 @@ anime/illustration domain conditioning remains implemented but not yet validated
 at the same scale. The reported sampled PSNR values are useful for internal
 checkpoint comparison, but they are not a full benchmark suite against external
 SR methods. The detail-preserving curriculum improved sampled Stage 4 accuracy,
-but the selected output remains conservative and does not recover all visible
-fine detail. The highest-signal next directions are the new \texttt{detail\_v1}
-fixed visual/perceptual review workflow, the implemented high-frequency detail
-branch, and separation of the rare strong degradation tail into a robustness
-curriculum or evaluation slice.
+but the selected diffusion output remains conservative and does not recover all
+visible fine detail. The latest deterministic detail branch improves the frozen
+Stage 2 base slightly but remains conservative. The highest-signal next
+directions are the \texttt{detail\_v1} fixed visual/perceptual review workflow,
+single-image/tiled detail branch inference for Colab integration, a small
+SSIM/MS-SSIM or gate-opening v1c ablation, and separation of the rare strong
+degradation tail into a robustness curriculum or evaluation slice.
 The completed VGG-feature continuation was not promoted into the public Colab
 default because its small metric gains did not translate into visible detail
 recovery.

@@ -70,6 +70,8 @@ sr = clamp(base_sr + gate * highpass_project(residual), 0, 1)
 tools/train/train_detail_branch.py
 tools/eval/run_fixed_review_detail_branch.py
 configs/detail_branch_v1_photo130k_lsdir.yaml
+configs/detail_branch_v1b_aug_photo130k_lsdir.yaml
+configs/hf/detail_branch_v1b_aug_photo130k_lsdir.yaml
 tests/test_detail_branch.py
 ```
 
@@ -128,6 +130,56 @@ v1b는 회전/affine/perspective/vertical flip을 쓰지 않는다. 추가되는
 `hflip_prob: 0.5`, `texture_crop_retries: 4`, 약한 HR color jitter
 (`[0.97, 1.03]`, probability `0.25`)뿐이다. 첫 v1 run은 step `7800`,
 즉 `0.234 epoch`에서 멈추고 v1b로 전환했다.
+
+## v1b 완료 결과
+
+v1b augmentation run은 `40000` micro-steps에서 정상 종료됐다.
+`grad_accum_steps: 4`이므로 이는 `10000` optimizer updates이고, train
+`133450`장 기준 약 `1.199 epoch`다.
+
+```text
+run:       detail_branch_v1b_aug_photo130k_lsdir
+config:    configs/detail_branch_v1b_aug_photo130k_lsdir.yaml
+W&B:       https://wandb.ai/jwheo/sr-diffusion/runs/1o3aavi9
+selected:  step 39500, eval/detail_score best
+local ckpt:
+  /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v1b_aug_photo130k_lsdir/checkpoints/best_eval_detail.pt
+HF path:
+  checkpoints/detail_branch_v1b_aug_photo130k_lsdir_best39500.pt
+```
+
+선택 checkpoint의 val100 지표:
+
+| metric | value |
+| --- | ---: |
+| base PSNR | 24.6188 |
+| detail PSNR | 24.6649 |
+| PSNR delta | +0.0461 dB |
+| base SSIM | 0.80013 |
+| detail SSIM | 0.80281 |
+| SSIM delta | +0.00268 |
+| mean PSNR delta | +0.0575 |
+| wins vs base | 98/100 |
+| detail wins vs base | 100/100 |
+
+근접 checkpoint별 peak:
+
+| selection | step | value |
+| --- | ---: | ---: |
+| best detail score | 39500 | 26.53945 |
+| best PSNR delta | 38500 | +0.0489 dB |
+| best SSIM delta | 37000 | +0.00336 |
+| final | 40000 | +0.0444 dB PSNR, +0.00277 SSIM, 98/100 wins |
+
+판단:
+
+- v1 대비 augmentation + 장기 학습은 수치상 명확히 좋아졌다.
+- residual은 여전히 작고 안정적이다. 흰 점, grid, cyan/green artifact를
+  키우는 방향은 아니다.
+- 라임/털/풀/건물 edge처럼 texture-heavy crop에서 얇은 고주파 보강이 보인다.
+- 다만 base와 detail 차이는 작고, GT 수준의 표면 질감 복원에는 아직 못 미친다.
+- 따라서 v1b는 현재 detail research candidate로 보존하되, Colab 기본값으로
+  승격하려면 단일 이미지/tiled inference runner와 WebUI 통합이 먼저 필요하다.
 
 fixed review set 평가:
 

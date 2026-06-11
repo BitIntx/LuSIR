@@ -1,6 +1,6 @@
 # Vision-Only Latent Diffusion Super-Resolution without T2I Pretraining
 
-Snapshot: dual-context Stage 2 unique-data scale-up complete.
+Snapshot: dual-context Stage 2 scale-up and high-frequency detail branch v1b complete.
 
 ## Objective
 
@@ -26,6 +26,9 @@ The numbered stages describe training order, not a mandatory Stage 1 -> 2 -> 3
 ```text
 public Colab default:
   LR -> Stage 2 XL condition encoder -> residual refiner v2 -> Stage 1 decoder
+
+current detail research candidate:
+  LR -> dual-context LSDIR Stage 2 -> Stage 1 decoder -> detail branch v1b
 
 generative comparison:
   LR -> Stage 2 condition encoder -> Stage 3 OR Stage 4 diffusion U-Net
@@ -504,8 +507,8 @@ problem.
 
 ## High-Frequency Detail Branch v1
 
-The next implemented candidate is a deterministic image-space detail branch,
-not another Stage 4 continuation. The path is:
+The latest deterministic detail candidate is an image-space detail branch, not
+another Stage 4 continuation. The path is:
 
 ```text
 LR -> frozen Stage 2 dual-context condition -> frozen Stage 1 decoder -> base SR
@@ -522,6 +525,7 @@ Implemented files:
 
 ```text
 configs/detail_branch_v1_photo130k_lsdir.yaml
+configs/detail_branch_v1b_aug_photo130k_lsdir.yaml
 tools/train/train_detail_branch.py
 tools/eval/run_fixed_review_detail_branch.py
 tests/test_detail_branch.py
@@ -531,8 +535,38 @@ A four-micro-step smoke test completed load/eval/backprop/update/checkpoint
 successfully. Step 0 matched the base output exactly at `24.6188 dB` val100
 PSNR; after one optimizer update, the branch produced a tiny `+0.00005 dB`
 aggregate PSNR delta and `69/100` wins versus base. This is only an integration
-check, not a quality claim. The promotion gate is the fixed `detail_v1` review
-set with metrics and human inspection against the residual refiner v2 baseline.
+check, not a quality claim.
+
+The first v1 run was stopped at 7800 micro-steps, or 0.234 epoch over the
+133450-image train manifest, because early samples showed that the residual was
+safe but visually too small. The v1b run kept the same model and loss, but added
+horizontal flips, texture-biased crop retry, and weak HR color jitter while
+excluding rotation, vertical flip, affine/perspective transforms, erasing, and
+mixup.
+
+The v1b run completed 40000 micro-steps, equal to 10000 optimizer updates with
+`grad_accum_steps: 4`. It selected step 39500 by `eval/detail_score`:
+
+```text
+base PSNR:        24.6188
+detail PSNR:      24.6649
+PSNR delta:       +0.0461 dB
+base SSIM:        0.80013
+detail SSIM:      0.80281
+SSIM delta:       +0.00268
+mean PSNR delta:  +0.0575
+wins vs base:     98/100
+detail wins:      100/100
+```
+
+Different metrics peak at nearby checkpoints: PSNR delta is highest at step
+38500 (`+0.0489 dB`), SSIM delta is highest at step 37000 (`+0.00336`), and the
+final step 40000 reaches `+0.0444 dB` PSNR and `+0.00277` SSIM with `98/100`
+wins. The selected step 39500 is the current detail research candidate because
+it has the best combined detail score. Qualitatively, it is artifact-light and
+slightly sharper on texture-heavy crops, but still conservative and below GT on
+fine surface detail. It is not yet the public Colab default because the WebUI
+currently wraps the residual-refiner and diffusion single-image runners.
 
 ## Public Artifacts
 
@@ -547,6 +581,7 @@ checkpoints/residual_refiner_stage2_xl_photo_detail_v2_best39000.pt
 checkpoints/stage2_photo100k_multiscale_hqmix_step_0046000.pt
 checkpoints/stage2_photo100k_multiscale_hqmix_perceptual_step_0008000.pt
 checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt
+checkpoints/detail_branch_v1b_aug_photo130k_lsdir_best39500.pt
 metrics/stage4_photo100k_xl_edge_b16_val100_t50_32step_summary.json
 metrics/diagnose_stage2_xl_residuals_mild_val100_summary.json
 metrics/residual_refiner_stage2_xl_mild_probe_early_stop_summary.json
@@ -565,6 +600,7 @@ metrics/stage2_multiscale_perceptual_mild_candidates.json
 metrics/stage2_multiscale_perceptual_photo_v2_candidates.json
 metrics/stage2_multiscale_perceptual_photo_v3_noise_mix_candidates.json
 metrics/stage2_photo130k_lsdir_dual_multiscale_final_summary.json
+metrics/detail_branch_v1b_aug_photo130k_lsdir_summary.json
 samples/stage4_photo100k_xl_edge_b16_val100_t50_32step_grid_lr_bicubic_sr_gt.png
 samples/diagnose_stage2_xl_residuals_mild_val100_grid.png
 samples/residual_refiner_stage2_xl_mild_probe_step500_grid.png
@@ -583,6 +619,7 @@ samples/stage2_dual_lsdir_photo_detail_mix_best98k_final100k_contact_sheet.png
 samples/stage2_dual_lsdir_mild_best98k_final100k_contact_sheet.png
 samples/stage2_dual_lsdir_photo_v2_best98k_final100k_contact_sheet.png
 samples/stage2_dual_lsdir_photo_v3_noise_mix_best98k_final100k_contact_sheet.png
+samples/detail_branch_v1b_aug_photo130k_lsdir_best39500_grid.png
 configs/diffusion_photo100k_xl_stage4_condition_v3_edge_b16.yaml
 configs/residual_refiner_stage2_xl_mild_probe.yaml
 configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_v3_b8_probe.yaml
@@ -592,17 +629,23 @@ configs/hf/residual_refiner_stage2_xl_photo_detail_v2.yaml
 configs/latent_pretrain_photo100k_multiscale_hqmix_perceptual_continue.yaml
 configs/latent_pretrain_photo130k_lsdir_dual_multiscale_long.yaml
 configs/detail_branch_v1_photo130k_lsdir.yaml
+configs/detail_branch_v1b_aug_photo130k_lsdir.yaml
+configs/hf/detail_branch_v1b_aug_photo130k_lsdir.yaml
 ```
 
 ## Next Work
 
-The selected residual refiner remains the public Colab default. The completed
+The selected residual refiner remains the public Colab default until the detail
+branch has a single-image inference runner and WebUI integration. The completed
 perceptual Stage 2 continuation is not promoted. Candidate next steps are:
 
-- train the implemented high-frequency detail branch v1 and compare it on the
-  `detail_v1` fixed review workflow with PSNR, SSIM, Laplacian/highpass detail
-  metrics, LPIPS, DISTS, contact sheets, and HTML reports;
-- preserve step 8000 as a non-default research candidate because it avoided
-  cross-preset PSNR regressions;
+- run the selected detail branch v1b checkpoint through the full `detail_v1`
+  fixed review workflow against residual refiner v2, including optional LPIPS
+  and DISTS when available;
+- implement the single-image/tiled detail branch inference runner before
+  promoting it to the Colab WebUI default;
+- test a small v1c ablation with weak SSIM/MS-SSIM supervision or slightly more
+  open residual/gate settings, while monitoring whether higher SSIM makes the
+  output smoother;
 - keep a degradation-aware gate or strong-input guardrail as the primary
   response to the remaining strong-preset failure tail.

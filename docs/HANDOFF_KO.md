@@ -29,6 +29,10 @@ generative:
 - 현재 사용자용 public deterministic 기본값은 residual refiner v2이다.
 - 기준 deterministic condition 후보는 multiscale Stage 2 step `46000`이고,
   최신 보존 연구 후보는 dual-context LSDIR Stage 2 step `98000`이다.
+- 현재 detail 연구 후보는 dual-context LSDIR Stage 2 step `98000`과 Stage 1
+  decoder를 frozen으로 두고 image-space high-frequency residual만 더하는
+  detail branch v1b step `39500`이다. public Colab 기본값은 아직 아니며,
+  단일 이미지/tiled inference runner 통합 전까지는 review artifact로 보존한다.
 
 ### 최신 완료 장기 실험
 
@@ -70,6 +74,30 @@ generative:
 - 일반 milestone은 디스크 보호를 위해 `5000` micro-step마다 저장하고,
   val100 eval과 best checkpoint 갱신은 `1000` micro-step마다 수행한다.
 - raw LSDIR 데이터는 GitHub/HF에 올리지 않는다.
+
+### 최신 완료 detail branch v1b
+
+- run: `detail_branch_v1b_aug_photo130k_lsdir`
+- config: `configs/detail_branch_v1b_aug_photo130k_lsdir.yaml`
+- W&B: <https://wandb.ai/jwheo/sr-diffusion/runs/1o3aavi9>
+- 완료: `40000` micro-steps = `10000` optimizer updates, 약 `1.199 epoch`
+  over train `133450`.
+- selected: step `39500`, `eval/detail_score` best.
+- local checkpoint:
+  `/home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v1b_aug_photo130k_lsdir/checkpoints/best_eval_detail.pt`
+- HF target:
+  `checkpoints/detail_branch_v1b_aug_photo130k_lsdir_best39500.pt`
+- selected val100:
+  - base PSNR `24.6188`, detail PSNR `24.6649`, delta `+0.0461 dB`
+  - base SSIM `0.80013`, detail SSIM `0.80281`, delta `+0.00268`
+  - mean PSNR delta `+0.0575`, wins `98/100`, detail wins `100/100`
+- nearby peaks:
+  - PSNR delta best: step `38500`, `+0.0489 dB`
+  - SSIM delta best: step `37000`, `+0.00336`
+  - final step `40000`: `+0.0444 dB` PSNR, `+0.00277` SSIM, wins `98/100`
+- 판단: v1 대비 수치상 진전이 있고 artifact-light지만, 눈으로는 아직 보수적이다.
+  라임/털/풀/건물 edge에서 얇은 detail 보강이 보이나 GT 수준의 fine texture에는
+  못 미친다.
 
 ### 최신 완료 실험
 
@@ -755,13 +783,17 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
   정상 완료됐지만 시각적 detail 목표에는 실패했다. dual-multiscale LSDIR
   run은 완료됐고, clean/mild 수치 개선은 있으나 perceptual detail 돌파로
   보기는 어렵다.
-- high-frequency detail branch v1은 구현 및 smoke 검증이 끝났다. 이 branch는
-  Stage 2 dual-context best98000과 Stage 1 decoder를 frozen으로 두고,
-  decoded base SR 위에 image-space high-frequency residual만 더한다.
+- high-frequency detail branch v1b는 완료됐다. 이 branch는 Stage 2 dual-context
+  best98000과 Stage 1 decoder를 frozen으로 두고, decoded base SR 위에
+  image-space high-frequency residual만 더한다.
 - 첫 v1 장기 run은 augmentation을 넣기 위해 step `7800`에서 조기 중단했다.
   이는 train `133450`장, batch `4` 기준 `0.234 epoch`다.
-- 새 run은 `configs/detail_branch_v1b_aug_photo130k_lsdir.yaml`이다. 회전 없이
-  hflip, texture-biased crop retry, 약한 HR color jitter만 추가한다.
+- v1b는 `configs/detail_branch_v1b_aug_photo130k_lsdir.yaml`로 회전 없이 hflip,
+  texture-biased crop retry, 약한 HR color jitter만 추가했고 `40000` micro-steps
+  까지 완료했다.
+- 선택 checkpoint는 step `39500`의 `best_eval_detail.pt`다. val100 기준
+  PSNR delta `+0.0461 dB`, SSIM delta `+0.00268`, mean delta `+0.0575`,
+  wins `98/100`이다. final `40000`은 `+0.0444 dB`, `+0.00277`, wins `98/100`.
 - `decoded_psnr + 5 * detail_ratio`는 shortlist score다. detail energy만
   높이는 인공 고주파/노이즈를 보상할 수 있으므로 이것만으로 승격하지 않는다.
 
@@ -778,18 +810,21 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
      `/home/ubuntu/scratch/sr-diffusion/review_reports/residual_refiner_v2_detail_v1/report.html`
    - metrics:
      `/home/ubuntu/scratch/sr-diffusion/review_reports/residual_refiner_v2_detail_v1/summary.json`
-2. detail branch v1b augmentation run을 돌리고, 같은 `detail_v1` fixed review set에서
+2. detail branch v1b selected checkpoint를 같은 `detail_v1` fixed review set에서
    residual refiner v2 baseline과 비교한다.
    - config: `configs/detail_branch_v1b_aug_photo130k_lsdir.yaml`
-   - train script: `tools/train/train_detail_branch.py`
    - review runner: `tools/eval/run_fixed_review_detail_branch.py`
-   - smoke: 4 micro-steps = 1 optimizer update 정상 완료, step 0은 base SR과
-     정확히 동일하고 step 4에서 `wins_vs_base 69/100`이 찍혔다.
-   - `40000` micro-steps = `10000` optimizer updates
+   - selected checkpoint:
+     `/home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v1b_aug_photo130k_lsdir/checkpoints/best_eval_detail.pt`
+   - HF preset target: `detail_branch_v1b`
 3. `+0.01 dB` 수준 변화는 시각 개선 근거 없이 승격하지 않는다.
-4. public Colab 기본 경로는 기존 residual refiner v2를 유지한다. Colab은
-   `notebooks/sr_diffusion_colab_demo.ipynb`에서 `tools/demo/colab_webui.py`를
-   실행하는 WebUI 방식이다.
+4. public Colab 기본 경로는 기존 residual refiner v2를 유지한다. detail branch를
+   기본 경로로 승격하려면 먼저 단일 이미지/tiled inference runner와 WebUI 모델
+   옵션을 추가해야 한다. Colab은 `notebooks/sr_diffusion_colab_demo.ipynb`에서
+   `tools/demo/colab_webui.py`를 실행하는 WebUI 방식이다.
+5. 다음 학습 ablation은 약한 SSIM/MS-SSIM loss, gate/residual 개방, 또는
+   degradation-aware detail gate를 비교한다. SSIM만 무리하게 올리면 다시
+   smoothing을 보상할 수 있으므로 시각 비교를 우선한다.
 
 ## 새 VM에서 Codex에게 줄 짧은 프롬프트
 
@@ -804,11 +839,13 @@ step에서 완료됐고 시각적 detail 개선이 없어 승격하지 않았다
 dual-multiscale Stage2 run도 100000 step까지 완료됐다. 자동 best는 step98000이고
 final100000은 strong preset에서 조금 더 안전하다. 둘 다 HF에 보존되어 있으며,
 public/default 승격 전 contact sheet human review가 필요하다.
-다음 실험은 configs/detail_branch_v1b_aug_photo130k_lsdir.yaml 의 image-space
-high-frequency detail branch v1b다. Stage2/Stage1은 frozen이고 Stage3/4 diffusion은
-사용하지 않는다. 첫 v1 run은 7800 micro-steps = 0.234 epoch에서 멈췄고, v1b는
-hflip/texture crop/약한 HR color jitter만 추가한다. fixed review는 detail_v1 set을
-기준으로 residual refiner v2와 비교한다.
+image-space high-frequency detail branch v1b는 완료됐다. Stage2/Stage1은
+frozen이고 Stage3/4 diffusion은 사용하지 않는다. 첫 v1 run은 7800 micro-steps =
+0.234 epoch에서 멈췄고, v1b는 hflip/texture crop/약한 HR color jitter만 추가해
+40000 micro-steps까지 완료했다. 선택 checkpoint는 step 39500 best_eval_detail이며
+val100 PSNR delta +0.0461 dB, SSIM delta +0.00268, wins 98/100이다. fixed review는
+detail_v1 set을 기준으로 residual refiner v2와 비교한다. public Colab 기본값으로
+올리려면 detail branch 단일 이미지/tiled inference runner가 먼저 필요하다.
 Colab demo는 notebooks/sr_diffusion_colab_demo.ipynb 에서 Gradio WebUI로 실행되며,
 업로드/slider 조정/before-after 비교 slider를 제공한다.
 상업적 이용은 금지이고, raw dataset은 GitHub/HF에 올리지 않는다.
