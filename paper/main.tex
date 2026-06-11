@@ -647,6 +647,35 @@ the same comparison tool, step 98,000 improves \texttt{photo\_detail\_mix} by
 checkpoint changes the strong-preset deltas to +0.0668 dB and +0.0132 dB. This
 is a modest reconstruction gain, not a solved perceptual-detail problem.
 
+\section{High-Frequency Detail Branch v1}
+
+The next implemented candidate is deterministic and image-space, not another
+Stage 4 continuation. It runs
+\[
+\mathrm{LR} \rightarrow \mathrm{Stage\ 2\ dual\ condition}
+\rightarrow \mathrm{Stage\ 1\ decoder} \rightarrow \mathrm{base\ SR},
+\]
+then applies a gated high-frequency detail branch using the base SR and
+bicubic-upsampled LR image. Stage 2 and Stage 1 remain frozen, and Stage 3/4
+diffusion sampling is not used.
+
+The branch predicts a bounded RGB residual and a per-pixel gate. The residual
+is projected through a local highpass operation before addition to the base SR,
+limiting the model's route for global color or low-frequency structure changes.
+The output convolution is zero-initialized, so step 0 exactly reproduces the
+frozen Stage 2 + Stage 1 base output. The implementation is in
+\texttt{tools/train/train\_detail\_branch.py},
+\texttt{tools/eval/run\_fixed\_review\_detail\_branch.py}, and
+\texttt{configs/detail\_branch\_v1\_photo130k\_lsdir.yaml}.
+
+A four-micro-step smoke test completed loading, evaluation, backpropagation,
+one optimizer update, and checkpoint saving. Step 0 matched the base output
+exactly at 24.6188 dB val100 PSNR; after one optimizer update the aggregate
+PSNR delta was +0.00005 dB with 69/100 wins versus base. This is an integration
+check only. Promotion depends on the fixed \texttt{detail\_v1} review set,
+LPIPS/DISTS-enabled reporting, and human inspection against the residual
+refiner v2 baseline.
+
 \section{Limitations}
 
 This is an engineering report for an active experiment, not a claim of a final
@@ -657,9 +686,9 @@ checkpoint comparison, but they are not a full benchmark suite against external
 SR methods. The detail-preserving curriculum improved sampled Stage 4 accuracy,
 but the selected output remains conservative and does not recover all visible
 fine detail. The highest-signal next directions are the new \texttt{detail\_v1}
-fixed visual/perceptual review workflow, a separate high-frequency detail
-synthesis branch, and separation of the rare strong degradation tail into a
-robustness curriculum or evaluation slice.
+fixed visual/perceptual review workflow, the implemented high-frequency detail
+branch, and separation of the rare strong degradation tail into a robustness
+curriculum or evaluation slice.
 The completed VGG-feature continuation was not promoted into the public Colab
 default because its small metric gains did not translate into visible detail
 recovery.

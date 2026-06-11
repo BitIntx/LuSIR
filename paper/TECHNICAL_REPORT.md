@@ -502,6 +502,38 @@ checkpoint changes those to `+0.1256`, `+0.1025`, `+0.0668`, and `+0.0132 dB`.
 This is a modest reconstruction improvement, not a solved perceptual-detail
 problem.
 
+## High-Frequency Detail Branch v1
+
+The next implemented candidate is a deterministic image-space detail branch,
+not another Stage 4 continuation. The path is:
+
+```text
+LR -> frozen Stage 2 dual-context condition -> frozen Stage 1 decoder -> base SR
+base SR + bicubic LR upsample -> gated high-frequency detail branch -> detail SR
+```
+
+The branch predicts a bounded RGB residual and a per-pixel gate. The residual is
+projected through a local highpass operation before being added to the base SR,
+which limits the model's ability to change global color or low-frequency
+structure. The output convolution is zero-initialized, so step 0 exactly
+reproduces the frozen Stage 2 + Stage 1 base output.
+
+Implemented files:
+
+```text
+configs/detail_branch_v1_photo130k_lsdir.yaml
+tools/train/train_detail_branch.py
+tools/eval/run_fixed_review_detail_branch.py
+tests/test_detail_branch.py
+```
+
+A four-micro-step smoke test completed load/eval/backprop/update/checkpoint
+successfully. Step 0 matched the base output exactly at `24.6188 dB` val100
+PSNR; after one optimizer update, the branch produced a tiny `+0.00005 dB`
+aggregate PSNR delta and `69/100` wins versus base. This is only an integration
+check, not a quality claim. The promotion gate is the fixed `detail_v1` review
+set with metrics and human inspection against the residual refiner v2 baseline.
+
 ## Public Artifacts
 
 The latest public artifacts are stored in `jwheo/sr-diffusion` on Hugging Face:
@@ -559,6 +591,7 @@ configs/residual_refiner_stage2_xl_photo_detail_v2_continue_40k.yaml
 configs/hf/residual_refiner_stage2_xl_photo_detail_v2.yaml
 configs/latent_pretrain_photo100k_multiscale_hqmix_perceptual_continue.yaml
 configs/latent_pretrain_photo130k_lsdir_dual_multiscale_long.yaml
+configs/detail_branch_v1_photo130k_lsdir.yaml
 ```
 
 ## Next Work
@@ -566,12 +599,9 @@ configs/latent_pretrain_photo130k_lsdir_dual_multiscale_long.yaml
 The selected residual refiner remains the public Colab default. The completed
 perceptual Stage 2 continuation is not promoted. Candidate next steps are:
 
-- use the new `detail_v1` fixed review workflow with PSNR, SSIM,
-  Laplacian/highpass detail metrics, LPIPS, DISTS, contact sheets, and HTML
-  reports before another metric-focused continuation;
-- design the degradation-aware high-frequency/detail synthesis branch described
-  in `docs/DETAIL_BRANCH_V1_KO.md`, because frozen VGG supervision did not
-  visibly recover missing texture;
+- train the implemented high-frequency detail branch v1 and compare it on the
+  `detail_v1` fixed review workflow with PSNR, SSIM, Laplacian/highpass detail
+  metrics, LPIPS, DISTS, contact sheets, and HTML reports;
 - preserve step 8000 as a non-default research candidate because it avoided
   cross-preset PSNR regressions;
 - keep a degradation-aware gate or strong-input guardrail as the primary

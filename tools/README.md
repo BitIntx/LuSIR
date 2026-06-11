@@ -39,5 +39,22 @@ energy ratios, and highpass L1. Optional metrics such as `lpips`, `dists`,
 `maniqa`, or `musiq` can be requested with `--optional-metric`; missing optional
 packages are reported in `summary.json` instead of failing the run.
 
+High-frequency detail branch v1:
+
+```bash
+python tools/train/train_detail_branch.py \
+  --config configs/detail_branch_v1_photo130k_lsdir.yaml
+
+python tools/eval/run_fixed_review_detail_branch.py \
+  --config configs/detail_branch_v1_photo130k_lsdir.yaml \
+  --checkpoint /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v1_photo130k_lsdir/checkpoints/best_eval_detail.pt \
+  --review-manifest /home/ubuntu/scratch/sr-diffusion/review_sets/detail_v1/review_manifest.csv \
+  --output-dir /home/ubuntu/scratch/sr-diffusion/review_outputs/detail_branch_v1_detail_v1
+```
+
+The detail branch is image-space and deterministic:
+`LR -> Stage 2 dual-context condition -> Stage 1 decoder -> base SR -> detail branch`.
+It does not run Stage 3/4 diffusion sampling.
+
 Repository-operation utilities such as dataset downloads, manifest generation,
 Hugging Face uploads, and W&B organization remain in `scripts/`.

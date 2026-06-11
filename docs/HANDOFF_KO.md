@@ -751,6 +751,9 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
   정상 완료됐지만 시각적 detail 목표에는 실패했다. dual-multiscale LSDIR
   run은 완료됐고, clean/mild 수치 개선은 있으나 perceptual detail 돌파로
   보기는 어렵다.
+- high-frequency detail branch v1은 구현 및 smoke 검증이 끝났다. 이 branch는
+  Stage 2 dual-context best98000과 Stage 1 decoder를 frozen으로 두고,
+  decoded base SR 위에 image-space high-frequency residual만 더한다.
 - `decoded_psnr + 5 * detail_ratio`는 shortlist score다. detail energy만
   높이는 인공 고주파/노이즈를 보상할 수 있으므로 이것만으로 승격하지 않는다.
 
@@ -767,10 +770,16 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
      `/home/ubuntu/scratch/sr-diffusion/review_reports/residual_refiner_v2_detail_v1/report.html`
    - metrics:
      `/home/ubuntu/scratch/sr-diffusion/review_reports/residual_refiner_v2_detail_v1/summary.json`
-2. `+0.01 dB` 수준 변화는 시각 개선 근거 없이 승격하지 않는다.
-3. public Colab 기본 경로는 기존 residual refiner v2를 유지한다.
-4. 다음 구조 후보는 `docs/DETAIL_BRANCH_V1_KO.md`의 degradation-aware
-   high-frequency/detail synthesis branch다.
+2. detail branch v1 장기학습을 돌리고, 같은 `detail_v1` fixed review set에서
+   residual refiner v2 baseline과 비교한다.
+   - config: `configs/detail_branch_v1_photo130k_lsdir.yaml`
+   - train script: `tools/train/train_detail_branch.py`
+   - review runner: `tools/eval/run_fixed_review_detail_branch.py`
+   - smoke: 4 micro-steps = 1 optimizer update 정상 완료, step 0은 base SR과
+     정확히 동일하고 step 4에서 `wins_vs_base 69/100`이 찍혔다.
+   - `40000` micro-steps = `10000` optimizer updates
+3. `+0.01 dB` 수준 변화는 시각 개선 근거 없이 승격하지 않는다.
+4. public Colab 기본 경로는 기존 residual refiner v2를 유지한다.
 
 ## 새 VM에서 Codex에게 줄 짧은 프롬프트
 
@@ -785,5 +794,8 @@ step에서 완료됐고 시각적 detail 개선이 없어 승격하지 않았다
 dual-multiscale Stage2 run도 100000 step까지 완료됐다. 자동 best는 step98000이고
 final100000은 strong preset에서 조금 더 안전하다. 둘 다 HF에 보존되어 있으며,
 public/default 승격 전 contact sheet human review가 필요하다.
+다음 실험은 configs/detail_branch_v1_photo130k_lsdir.yaml 의 image-space
+high-frequency detail branch v1이다. Stage2/Stage1은 frozen이고 Stage3/4 diffusion은
+사용하지 않는다. fixed review는 detail_v1 set을 기준으로 residual refiner v2와 비교한다.
 상업적 이용은 금지이고, raw dataset은 GitHub/HF에 올리지 않는다.
 ```

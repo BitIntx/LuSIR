@@ -62,6 +62,77 @@ sr = clamp(base_sr + gate * highpass_project(residual), 0, 1)
 시작한다. 이렇게 하면 branch가 색/밝기 전체를 바꾸는 경로를 줄이고 texture/detail
 수정에 집중한다.
 
+## 현재 구현
+
+구현 파일:
+
+```text
+tools/train/train_detail_branch.py
+tools/eval/run_fixed_review_detail_branch.py
+configs/detail_branch_v1_photo130k_lsdir.yaml
+tests/test_detail_branch.py
+```
+
+현재 config는 최신 보존 Stage 2 dual-context LSDIR best98000을 frozen base로
+사용한다.
+
+```text
+LR -> Stage 2 dual-context condition -> Stage 1 decoder -> base SR
+base SR + bicubic LR upsample -> detail branch -> detail SR
+```
+
+이 실험은 Stage 3/4 diffusion sampling을 사용하지 않는다. Stage 2와 Stage 1은
+frozen이고, image-space detail branch만 학습한다. branch output convolution은
+zero-init이라 step 0 출력은 base SR과 정확히 같다.
+
+Smoke 확인:
+
+```text
+command:
+  python tools/train/train_detail_branch.py \
+    --config configs/detail_branch_v1_photo130k_lsdir.yaml \
+    --limit-steps 4 \
+    --output-dir /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v1_smoke_update \
+    --disable-wandb
+
+base/sr step 0:
+  eval/base_psnr = eval/sr_psnr = 24.6188
+
+after 4 micro-steps = 1 optimizer update:
+  eval/sr_vs_base_psnr      +0.00005 dB
+  eval/sr_vs_base_mean_psnr +0.00001 dB
+  wins_vs_base              69/100
+```
+
+Smoke 수치는 성능 주장이 아니라 load/eval/backprop/update/checkpoint 경로가
+정상 작동한다는 확인이다.
+
+장기 학습:
+
+```bash
+python tools/train/train_detail_branch.py \
+  --config configs/detail_branch_v1_photo130k_lsdir.yaml
+```
+
+주의: `train/max_steps`는 micro-step 기준이다. 현재 `grad_accum_steps: 4`이므로
+`40000` micro-steps는 `10000` optimizer updates다.
+
+fixed review set 평가:
+
+```bash
+python tools/eval/run_fixed_review_detail_branch.py \
+  --config configs/detail_branch_v1_photo130k_lsdir.yaml \
+  --checkpoint /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v1_photo130k_lsdir/checkpoints/best_eval_detail.pt \
+  --review-manifest /home/ubuntu/scratch/sr-diffusion/review_sets/detail_v1/review_manifest.csv \
+  --output-dir /home/ubuntu/scratch/sr-diffusion/review_outputs/detail_branch_v1_detail_v1
+
+python tools/eval/eval_fixed_review_outputs.py \
+  --review-manifest /home/ubuntu/scratch/sr-diffusion/review_sets/detail_v1/review_manifest.csv \
+  --output-dir /home/ubuntu/scratch/sr-diffusion/review_reports/detail_branch_v1_detail_v1 \
+  --candidate base=/home/ubuntu/scratch/sr-diffusion/review_outputs/detail_branch_v1_detail_v1/samples/{id}/base.png \
+  --candidate detail=/home/ubuntu/scratch/sr-diffusion/review_outputs/detail_branch_v1_detail_v1/samples/{id}/detail.png
+```
+
 ## 학습 목표
 
 기본 loss:
@@ -100,4 +171,3 @@ patch discriminator가 우선이다. full image GAN은 fake texture와 색 변�
 - PSNR `+0.01 dB` 개선만으로 모델을 승격하지 않는다.
 - strong degradation을 train mix의 대부분으로 두지 않는다.
 - pretrained T2I 모델을 runtime dependency로 넣지 않는다.
-

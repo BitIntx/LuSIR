@@ -1275,6 +1275,14 @@ Stage 4: perceptual / GAN fine-tune
   `tools/eval/run_fixed_review_residual_refiner.py`, and
   `tools/eval/eval_fixed_review_outputs.py`; the branch design note is
   `docs/DETAIL_BRANCH_V1_KO.md`.
+- High-frequency detail branch v1 is implemented as a deterministic image-space
+  branch on top of frozen Stage 2 dual-context best98000 and the frozen Stage 1
+  decoder. It uses
+  `configs/detail_branch_v1_photo130k_lsdir.yaml`,
+  `tools/train/train_detail_branch.py`, and
+  `tools/eval/run_fixed_review_detail_branch.py`. It does not run Stage 3/4
+  diffusion sampling. Its training step count is micro-step based; with
+  `grad_accum_steps: 4`, `40000` micro-steps means `10000` optimizer updates.
 
 Run the Stage 4-lite low-timestep fine-tune:
 

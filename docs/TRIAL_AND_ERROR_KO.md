@@ -4,6 +4,48 @@
 계속 누적하기 위한 기록이다. 최종 성능표가 아니라, 왜 다음 실험을 그렇게 잡았는지
 추적하는 용도다.
 
+## 2026-06-11 detail branch v1 구현
+
+배경:
+
+- Stage 2 dual-context LSDIR scale-up은 `+0.10 dB`대의 수치 개선을 만들었지만
+  사용자가 지적한 missing fine detail/뭉개짐은 계속 남았다.
+- VGG feature continuation은 `+0.01~0.03 dB` 수준의 개선에 그쳤고 fixed
+  sample에서 눈으로 거의 구분되지 않았다.
+- residual refiner v2는 안전하지만 visible texture 생성량이 작다.
+
+따라서 또 하나의 full-image/latent continuation 대신, decoded base SR 위에
+고주파 residual만 더하는 deterministic detail branch를 구현했다.
+
+```text
+config: configs/detail_branch_v1_photo130k_lsdir.yaml
+train:  tools/train/train_detail_branch.py
+eval:   tools/eval/run_fixed_review_detail_branch.py
+base:   Stage 2 dual-context LSDIR best98000 + Stage 1 decoder, frozen
+path:   LR -> Stage2 -> Stage1 decoder -> base SR -> image-space detail branch
+```
+
+구조상 output conv는 zero-init이다. step 0은 base SR과 정확히 같아야 하고,
+branch는 `highpass_project(residual)`과 gate를 통해 색/저주파 구조 변경 경로를
+제한한다.
+
+Smoke:
+
+```text
+4 micro-steps = 1 optimizer update
+eval/base_psnr step0: 24.6188
+eval/sr_psnr step0:   24.6188
+step4 sr_vs_base_psnr: +0.00005 dB
+step4 wins_vs_base:    69/100
+```
+
+판단:
+
+- smoke는 품질 주장이 아니라 load/eval/backprop/update/checkpoint 경로 확인이다.
+- 장기 run은 `40000` micro-steps = `10000` optimizer updates로 시작한다.
+- 승격 여부는 `detail_v1` fixed review set에서 residual refiner v2 baseline과
+  contact sheet/HTML/LPIPS/DISTS까지 보고 판단한다.
+
 ## 2026-06-04 VM 복구 후 상태
 
 - GitHub HEAD: `900d1cd Fix report table layout`
