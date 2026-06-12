@@ -244,7 +244,12 @@ def load_checkpoint(path: Path, model: nn.Module, optimizer: torch.optim.Optimiz
     return int(checkpoint.get("step", 0))
 
 
-def init_model_from_checkpoint(path: Path, model: nn.Module, device: torch.device) -> dict[str, Any]:
+def init_model_from_checkpoint(
+    path: Path,
+    model: nn.Module,
+    device: torch.device,
+    identity_init_new_blocks: bool = False,
+) -> dict[str, Any]:
     checkpoint = torch.load(path, map_location=device)
     source_state = checkpoint["model"]
     target_state = model.state_dict()
@@ -253,6 +258,8 @@ def init_model_from_checkpoint(path: Path, model: nn.Module, device: torch.devic
     skipped_tensors = 0
     exact_params = 0
     partial_params = 0
+    identity_tensors = 0
+    identity_params = 0
 
     for key, source in source_state.items():
         target = target_state.get(key)
@@ -279,6 +286,15 @@ def init_model_from_checkpoint(path: Path, model: nn.Module, device: torch.devic
             continue
         skipped_tensors += 1
 
+    if identity_init_new_blocks:
+        for key, target in target_state.items():
+            if key in source_state or not key.startswith("blocks."):
+                continue
+            if key.endswith(".conv2.weight") or key.endswith(".conv2.bias"):
+                target_state[key] = torch.zeros_like(target)
+                identity_tensors += 1
+                identity_params += int(target.numel())
+
     model.load_state_dict(target_state)
     return {
         "checkpoint": str(path),
@@ -286,8 +302,10 @@ def init_model_from_checkpoint(path: Path, model: nn.Module, device: torch.devic
         "exact_tensors": exact_tensors,
         "partial_tensors": partial_tensors,
         "skipped_tensors": skipped_tensors,
+        "identity_tensors": identity_tensors,
         "exact_params": exact_params,
         "partial_params": partial_params,
+        "identity_params": identity_params,
     }
 
 
@@ -571,7 +589,12 @@ def main() -> None:
     )
     init_cfg = config.get("initialization", {})
     if init_cfg.get("checkpoint"):
-        init_stats = init_model_from_checkpoint(Path(init_cfg["checkpoint"]), model, device)
+        init_stats = init_model_from_checkpoint(
+            Path(init_cfg["checkpoint"]),
+            model,
+            device,
+            identity_init_new_blocks=bool(init_cfg.get("identity_init_new_blocks", False)),
+        )
         print(f"model_init={json.dumps(init_stats, sort_keys=True)}", flush=True)
     start_step = 0
     if args.resume is not None:

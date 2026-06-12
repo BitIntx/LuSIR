@@ -89,6 +89,34 @@ def test_detail_branch_model_init_preserves_old_path_with_condition_latent(tmp_p
     assert torch.allclose(new_raw, old_raw, atol=1e-6)
 
 
+def test_detail_branch_model_init_preserves_old_path_with_new_identity_blocks(tmp_path) -> None:
+    torch.manual_seed(3)
+    old_model = GatedHighFrequencyDetailBranch(hidden_channels=16, num_blocks=1, norm_groups=8, highpass_kernel=5)
+    for parameter in old_model.parameters():
+        parameter.data.normal_(mean=0.0, std=0.02)
+    checkpoint = tmp_path / "old.pt"
+    torch.save({"step": 456, "model": old_model.state_dict()}, checkpoint)
+
+    new_model = GatedHighFrequencyDetailBranch(hidden_channels=16, num_blocks=3, norm_groups=8, highpass_kernel=5)
+    stats = init_model_from_checkpoint(
+        checkpoint,
+        new_model,
+        torch.device("cpu"),
+        identity_init_new_blocks=True,
+    )
+
+    base = torch.rand(1, 3, 24, 24)
+    bicubic = torch.rand(1, 3, 24, 24)
+    domain_id = torch.tensor([1], dtype=torch.long)
+    old_outputs = old_model(base, bicubic, domain_id=domain_id)
+    new_outputs = new_model(base, bicubic, domain_id=domain_id)
+
+    assert stats["checkpoint_step"] == 456
+    assert stats["identity_tensors"] == 4
+    for old_output, new_output in zip(old_outputs, new_outputs):
+        assert torch.allclose(new_output, old_output, atol=1e-6)
+
+
 def test_detail_branch_training_loss_backpropagates() -> None:
     torch.manual_seed(1)
     model = GatedHighFrequencyDetailBranch(
