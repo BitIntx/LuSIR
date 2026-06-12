@@ -10,7 +10,7 @@ Restoration**)입니다. GitHub repo id는 `BitIntx/LuSIR`, Hugging Face repo id
 `jwheo/LuSIR`입니다. W&B 기존 run URL, 로컬 scratch 경로, Python import
 namespace에는 아직 `sr-diffusion`/`sr_diffusion` 호환 이름이 남아 있습니다.
 
-## 2026-06-11 현재 상태
+## 2026-06-12 현재 상태
 
 ### 학습 단계와 실제 추론 경로
 
@@ -34,10 +34,39 @@ generative:
 - 현재 사용자용 public deterministic 기본값은 residual refiner v2이다.
 - 기준 deterministic condition 후보는 multiscale Stage 2 step `46000`이고,
   최신 보존 연구 후보는 dual-context LSDIR Stage 2 step `98000`이다.
-- 현재 detail 연구 후보는 dual-context LSDIR Stage 2 step `98000`과 Stage 1
-  decoder를 frozen으로 두고 image-space high-frequency residual만 더하는
-  detail branch v1b step `39500`이다. public Colab 기본값은 아직 아니며,
-  단일 이미지/tiled inference runner 통합 전까지는 review artifact로 보존한다.
+- 최신 완료/public detail artifact는 v1b step `39500`이다. 이후 v1c step
+  `6000`은 condition latent 입력과 더 열린 gate/residual 설정을 추가했다.
+- 현재 활성 연구 run은 v1c에서 identity-preserving 초기화한 3.02M-parameter
+  detail branch v1d이다. public Colab 기본값은 아직 residual refiner v2다.
+
+### 최신 활성 detail v1d와 strict-bicubic 진단
+
+- active tmux: `detail-v1d`
+- config: `configs/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml`
+- W&B: <https://wandb.ai/jwheo/LuSIR/runs/ctg4r7n9>
+- 구조: v1c의 8-block/1.35M branch를 18-block/3.02M으로 확장했다. 기존 block은
+  복사하고 추가 block은 identity-init하여 시작 출력이 v1c와 정확히 같다.
+- 목표 길이: `100086` micro-steps, train `133450`, batch `4` 기준 정확히
+  `3 epoch`. `grad_accum_steps: 4`이므로 optimizer update는 micro-step의 1/4이다.
+- technical report snapshot의 selected step `9500`:
+  - ordinary `photo_detail_mix`: PSNR delta `+0.0638 dB`, SSIM delta
+    `+0.00337`, wins `100/100`
+  - strict-bicubic DIV2K five-crop: `31.8247 dB`, v1c 대비 `+0.0093 dB`
+- 이후 ordinary fixed eval은 step `14500`에서 PSNR delta `+0.0741 dB`,
+  mean delta `+0.0789`, SSIM delta `+0.00382`, wins `96/100`까지 진행됐다.
+  이 checkpoint에는 아직 strict-bicubic 진단을 다시 실행하지 않았다.
+- strict-bicubic 진단은 PIL bicubic x4만 적용한 DIV2K val `0801-0805` center
+  crop RGB PSNR이다. 정식 SOTA benchmark가 아니다.
+- 같은 진단에서 모델별 주요 결과:
+  - Stage2 XL condition-only `30.5677`
+  - multiscale `31.6068`
+  - dual-context `31.7411`
+  - dual + v1d `31.8247`
+  - 509.658M Stage4 XL sampled `29.5487`
+- 판단: Stage2 구조 확장은 실제 clean reconstruction 향상을 만들었다. 반면
+  Stage4 XL은 strong-cleanup 역할 때문에 clean input을 과수정한다. v1d의 추가
+  용량 이득은 현재 v1c 대비 `+0.0093 dB`로 작아, 용량만 늘리는 접근의 한계도
+  함께 관찰 중이다.
 
 ### 최신 완료 장기 실험
 
@@ -799,6 +828,8 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
 - 선택 checkpoint는 step `39500`의 `best_eval_detail.pt`다. val100 기준
   PSNR delta `+0.0461 dB`, SSIM delta `+0.00268`, mean delta `+0.0575`,
   wins `98/100`이다. final `40000`은 `+0.0444 dB`, `+0.00277`, wins `98/100`.
+- v1c step `6000`은 v1b보다 개선됐고, 현재 v1d 3.02M capacity run이 그
+  checkpoint에서 이어서 학습 중이다.
 - `decoded_psnr + 5 * detail_ratio`는 shortlist score다. detail energy만
   높이는 인공 고주파/노이즈를 보상할 수 있으므로 이것만으로 승격하지 않는다.
 
@@ -806,30 +837,16 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
 
 우선순위:
 
-1. 새 fixed review set `detail_v1`을 기준으로 이후 모델을 비교한다.
-   - review set:
-     `/home/ubuntu/scratch/sr-diffusion/review_sets/detail_v1/review_manifest.csv`
-   - residual refiner v2 baseline outputs:
-     `/home/ubuntu/scratch/sr-diffusion/review_outputs/residual_refiner_v2_detail_v1`
-   - report:
-     `/home/ubuntu/scratch/sr-diffusion/review_reports/residual_refiner_v2_detail_v1/report.html`
-   - metrics:
-     `/home/ubuntu/scratch/sr-diffusion/review_reports/residual_refiner_v2_detail_v1/summary.json`
-2. detail branch v1b selected checkpoint를 같은 `detail_v1` fixed review set에서
-   residual refiner v2 baseline과 비교한다.
-   - config: `configs/detail_branch_v1b_aug_photo130k_lsdir.yaml`
-   - review runner: `tools/eval/run_fixed_review_detail_branch.py`
-   - selected checkpoint:
-     `/home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v1b_aug_photo130k_lsdir/checkpoints/best_eval_detail.pt`
-   - HF preset target: `detail_branch_v1b`
-3. `+0.01 dB` 수준 변화는 시각 개선 근거 없이 승격하지 않는다.
-4. public Colab 기본 경로는 기존 residual refiner v2를 유지한다. detail branch를
-   기본 경로로 승격하려면 먼저 단일 이미지/tiled inference runner와 WebUI 모델
-   옵션을 추가해야 한다. Colab은 `notebooks/sr_diffusion_colab_demo.ipynb`에서
-   `tools/demo/colab_webui.py`를 실행하는 WebUI 방식이다.
-5. 다음 학습 ablation은 약한 SSIM/MS-SSIM loss, gate/residual 개방, 또는
-   degradation-aware detail gate를 비교한다. SSIM만 무리하게 올리면 다시
-   smoothing을 보상할 수 있으므로 시각 비교를 우선한다.
+1. 활성 v1d run을 적어도 1 epoch까지 관찰하되 fixed validation/시각 품질이
+   명확히 후퇴하면 중단한다. v1b/v1c/v1d를 같은 fixed review에서 비교한다.
+2. 정식 full-image DIV2K/Set5/Set14/Urban100 benchmark를 Y-channel, border
+   shave, benchmark-compatible bicubic 규칙으로 구현한다.
+3. Real-ESRGAN 등 공개 baseline을 같은 입력에 실행하고 LPIPS/DISTS 및 blind
+   human comparison을 추가한다.
+4. v1d가 계속 보수적이면 branch 파라미터를 더 늘리지 말고 perceptual 또는
+   detail-only adversarial supervision을 검토한다.
+5. public Colab 기본 경로는 residual refiner v2를 유지한다. detail branch를
+   승격하려면 단일 이미지/tiled inference runner와 WebUI 옵션이 먼저 필요하다.
 
 ## 새 VM에서 Codex에게 줄 짧은 프롬프트
 
@@ -844,13 +861,14 @@ step에서 완료됐고 시각적 detail 개선이 없어 승격하지 않았다
 dual-multiscale Stage2 run도 100000 step까지 완료됐다. 자동 best는 step98000이고
 final100000은 strong preset에서 조금 더 안전하다. 둘 다 HF에 보존되어 있으며,
 public/default 승격 전 contact sheet human review가 필요하다.
-image-space high-frequency detail branch v1b는 완료됐다. Stage2/Stage1은
-frozen이고 Stage3/4 diffusion은 사용하지 않는다. 첫 v1 run은 7800 micro-steps =
-0.234 epoch에서 멈췄고, v1b는 hflip/texture crop/약한 HR color jitter만 추가해
-40000 micro-steps까지 완료했다. 선택 checkpoint는 step 39500 best_eval_detail이며
-val100 PSNR delta +0.0461 dB, SSIM delta +0.00268, wins 98/100이다. fixed review는
-detail_v1 set을 기준으로 residual refiner v2와 비교한다. public Colab 기본값으로
-올리려면 detail branch 단일 이미지/tiled inference runner가 먼저 필요하다.
+image-space high-frequency detail branch v1b는 완료됐고 public artifact로 보존됐다.
+v1c selected step6000은 condition/gate를 더 열어 개선됐으며, 현재는 v1c에서
+identity-init한 3.02M v1d를 3 epoch 목표로 학습 중이다. strict-bicubic DIV2K
+five-crop 진단에서 v1d step9500은 31.8247 dB이고, 509.658M Stage4 XL은 clean
+input 과수정 때문에 29.5487 dB다. 이 진단은 정식 SOTA benchmark가 아니다.
+다음은 v1d 관찰, formal benchmark, 동일 입력 public baseline/human review다.
+public Colab 기본값으로 올리려면 detail branch 단일 이미지/tiled inference
+runner가 먼저 필요하다.
 Colab demo는 notebooks/sr_diffusion_colab_demo.ipynb 에서 Gradio WebUI로 실행되며,
 업로드/slider 조정/before-after 비교 slider를 제공한다.
 상업적 이용은 금지이고, raw dataset은 GitHub/HF에 올리지 않는다.

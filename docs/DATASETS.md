@@ -175,6 +175,18 @@ Stage 4 photo100k v3 condition-start fine-tune
 bucketed sampled eval for heavy noise, chroma noise, JPEG/WebP, blur+noise
 ```
 
+## Strict Bicubic Diagnostic
+
+`benchmark_bicubic` is a deterministic evaluation-only preset. It applies PIL
+bicubic x4 downsampling and no blur, noise, compression, sharpening, ringing,
+color shift, or banding. It exists because the older `clean` preset still
+randomly selected bicubic, bilinear, or Lanczos downsampling.
+
+The current five-image DIV2K center-crop result is an exploratory diagnostic,
+not a published-benchmark claim. A formal benchmark still requires full-image
+evaluation, Y-channel PSNR, border shave, and benchmark-compatible bicubic
+generation.
+
 ## Scaling Photo Data
 
 The current unique-data scale-up used LSDIR 30k. Further data expansion should

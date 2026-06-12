@@ -1,734 +1,1159 @@
-\documentclass[10pt]{article}
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+\PassOptionsToPackage{dvipsnames,svgnames,x11names}{xcolor}
+%
+\documentclass[
+  10pt,
+]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\usepackage[margin=0.8in]{geometry}
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\newenvironment{Shaded}{}{}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{1.00,0.00,0.00}{\textbf{#1}}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{#1}}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.49,0.56,0.16}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.25,0.63,0.44}{#1}}
+\newcommand{\BuiltInTok}[1]{\textcolor[rgb]{0.00,0.50,0.00}{#1}}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textit{#1}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{#1}}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.53,0.00,0.00}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.00,0.44,0.13}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.56,0.13,0.00}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.25,0.63,0.44}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.73,0.13,0.13}{\textit{#1}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{1.00,0.00,0.00}{\textbf{#1}}}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.25,0.63,0.44}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.02,0.16,0.49}{#1}}
+\newcommand{\ImportTok}[1]{\textcolor[rgb]{0.00,0.50,0.00}{\textbf{#1}}}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{#1}}}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.00,0.44,0.13}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.40,0.40,0.40}{#1}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.00,0.44,0.13}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.74,0.48,0.00}{#1}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{#1}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.73,0.40,0.53}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.10,0.09,0.49}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{#1}}}}
+\usepackage{longtable,booktabs,array}
+\usepackage{calc} % for calculating minipage widths
+% Correct order of tables after \paragraph or \subparagraph
+\usepackage{etoolbox}
+\makeatletter
+\patchcmd\longtable{\par}{\if@noskipsec\mbox{}\fi\par}{}{}
+\makeatother
+% Allow footnotes in longtable head/foot
+\IfFileExists{footnotehyper.sty}{\usepackage{footnotehyper}}{\usepackage{footnote}}
+\makesavenoteenv{longtable}
+\usepackage{graphicx}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+% Set default figure placement to htbp
+\makeatletter
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{5}
+\ifLuaTeX
+  \usepackage{selnolig}  % disable illegal ligatures
+\fi
+\IfFileExists{bookmark.sty}{\usepackage{bookmark}}{\usepackage{hyperref}}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+\hypersetup{
+  pdftitle={LuSIR: Latent Upscaling via Self-trained Image Restoration without T2I Pretraining},
+  colorlinks=true,
+  linkcolor={blue},
+  filecolor={Maroon},
+  citecolor={Blue},
+  urlcolor={blue},
+  pdfcreator={LaTeX via pandoc}}
 
-\usepackage[margin=1in]{geometry}
-\usepackage{hyperref}
-\usepackage{booktabs}
-\usepackage{amsmath}
-\usepackage{float}
-
-\title{LuSIR: Latent Upscaling via Self-trained Image Restoration without T2I Pretraining}
-\author{LuSIR contributors}
-\date{Experiment snapshot through completed dual-context Stage 2 scale-up and detail branch v1b}
+\title{LuSIR: Latent Upscaling via Self-trained Image Restoration
+without T2I Pretraining}
+\author{}
+\date{}
 
 \begin{document}
 \maketitle
 
-\begin{abstract}
-This report summarizes LuSIR, a work-in-progress x4 super-resolution system trained
-directly in vision space, without importing a pretrained text-to-image diffusion
-backbone. The completed pipeline consists of a factor-4 VAE, deterministic
-LR-to-HR-latent pretraining, conditional latent diffusion, and
-condition-start fine-tuning on a 103k-image photo split, followed by a 133k
-unique-image Stage 2 scale-up. The latest public XL-stage result uses a
-500M-class full inference path: a wider Stage 2
-condition encoder trained with a stronger degradation curriculum and a deeper
-469.6M-parameter diffusion U-Net fine-tuned with decoded edge/highpass losses.
-On the current \texttt{photo\_v3\_noise\_mix} sampled validation setup, the
-Stage 4 XL edge-loss checkpoint improves over bicubic by +0.7195 dB PSNR.
-Subsequent role-split and gated-residual probes show that bounded residual
-parameterization can nearly preserve the Stage 2 condition output on mild
-validation, reaching 25.0445 PSNR versus 25.0449 for condition-only, but it
-still does not provide a net average gain. A direct residual diagnostic then
-showed that the recoverable gap is dominated by high-frequency residuals, and a
-small deterministic sparse-gate residual refiner improved mild val100 mean PSNR
-from 25.0449 to 25.1178 with 86/100 wins over condition-only. A subsequent
-detail-preserving curriculum adaptation produced the first sampled
-gated-residual Stage 4 result to beat condition-only on both mean PSNR and a
-clear majority of samples: 25.3406 PSNR and 71/100 wins versus 25.3103 for the
-condition baseline. A decoded-detail residual refiner v2 then became the public
-Colab default, reaching 25.6410 PSNR on the photo-detail validation mix. The
-latest Stage 2 redesigns add multiscale context, balanced high-quality data,
-and then a dual-context LSDIR scale-up. The completed dual-context run selects
-step 98,000 for cleaner presets, with modest same-tool gains of 0.1362 dB on
-\texttt{photo\_detail\_mix} and 0.1086 dB on \texttt{mild}; the final step
-100,000 checkpoint is slightly safer on stronger degradation tails. A
-subsequent image-space high-frequency detail branch v1b freezes that Stage 2
-checkpoint and the Stage 1 decoder, selecting step 39,500 with +0.0461 dB PSNR,
-+0.00268 SSIM, and 98/100 wins over the frozen base. This is the current detail
-research candidate, but the visible change remains conservative and does not
-solve the perceptual-detail gap.
-\end{abstract}
+{
+\hypersetup{linkcolor=}
+\setcounter{tocdepth}{3}
+\tableofcontents
+}
+Snapshot: dual-context Stage 2 scale-up complete and 3.02M-parameter
+detail branch v1d capacity run in progress.
 
-\section{Objective}
+\texttt{paper/TECHNICAL\_REPORT.md} is the canonical report source.
+\texttt{paper/sr\_diffusion\_report.pdf} and \texttt{paper/main.tex} are
+generated from it with \texttt{paper/build\_report.sh}, so the Markdown
+and PDF contain the same report.
 
-The target task is single-image x4 restoration:
-\[
-128 \times 128 \rightarrow 512 \times 512.
-\]
-A later extension targets
-\[
-192 \times 192 \rightarrow 768 \times 768.
-\]
-The design goal is a practical latent diffusion SR model trained from LuSIR
-checkpoints only. The system intentionally avoids Stable Diffusion, T2I
-backbones, text conditioning, and imported generative priors from pretrained
-diffusion models.
+\hypertarget{objective}{%
+\section{Objective}\label{objective}}
 
-\section{Architecture}
+LuSIR trains a vision-only x4 latent diffusion super-resolution model
+without using a pretrained text-to-image backbone. The active task is:
 
-The model is split into three trainable parts:
-\[
-\mathrm{HR\ image} \rightarrow \mathrm{VAE} \rightarrow \mathrm{HR\ latent},
-\]
-\[
-\mathrm{LR\ image} \rightarrow \mathrm{condition\ encoder} \rightarrow
-\mathrm{condition\ latent},
-\]
-\[
-\mathrm{noisy\ HR\ latent}, \mathrm{condition\ latent}, t,
-\mathrm{domain\ id} \rightarrow \mathrm{conditional\ U\mbox{-}Net}.
-\]
-The VAE decoder maps the denoised latent back to the 512px HR output. Domain IDs
-are implemented for photo and anime/illustration data, although the completed
-large-scale runs reported here use the photo split.
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{LR 128x128 {-}\textgreater{} HR 512x512}
+\end{Highlighting}
+\end{Shaded}
 
-The stage numbers describe training order, not a mandatory serial inference
-chain. The public Colab default is
-\[
-\mathrm{LR} \rightarrow \mathrm{Stage\ 2} \rightarrow
-\mathrm{residual\ refiner} \rightarrow \mathrm{Stage\ 1\ decoder}.
-\]
-The current deterministic detail research candidate is
-\[
-\mathrm{LR} \rightarrow \mathrm{dual\mbox{-}context\ Stage\ 2}
-\rightarrow \mathrm{Stage\ 1\ decoder} \rightarrow
-\mathrm{detail\ branch\ v1b}.
-\]
-For generative comparison, the runtime path is
-\[
-\mathrm{LR} \rightarrow \mathrm{Stage\ 2} \rightarrow
-\mathrm{Stage\ 3\ or\ Stage\ 4} \rightarrow \mathrm{Stage\ 1\ decoder}.
-\]
-Stage 4 is a Stage-3-derived replacement checkpoint, not a module applied after
-Stage 3.
+The model path is:
 
-\section{Training Stages}
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{HR image {-}\textgreater{} factor{-}4 VAE {-}\textgreater{} HR latent}
+\NormalTok{LR image {-}\textgreater{} condition encoder {-}\textgreater{} condition latent}
+\NormalTok{noisy HR latent + condition latent + timestep + domain id {-}\textgreater{} conditional U{-}Net}
+\NormalTok{denoised latent {-}\textgreater{} VAE decoder {-}\textgreater{} SR output}
+\end{Highlighting}
+\end{Shaded}
 
-The project is organized as staged training rather than a single end-to-end run:
+The numbered stages describe training order, not a mandatory Stage 1
+-\textgreater{} 2 -\textgreater{} 3 -\textgreater{} 4 runtime chain. The
+current runtime choices are:
 
-\begin{enumerate}
-  \item Stage 1 trains the factor-4 VAE on HR crops.
-  \item Stage 2 trains a deterministic condition encoder to predict HR latents
-        from degraded LR inputs.
-  \item Stage 3 trains a conditional diffusion U-Net in latent space.
-  \item Stage 4 fine-tunes diffusion from the condition latent at low timesteps.
-  \item Stage 5 is planned few-step distillation. If implemented, it will
-        replace the slower Stage 3/4 sampler rather than run after Stage 4.
-  \item XL variants widen and deepen the condition encoder or diffusion U-Net
-        while using partial checkpoint initialization where tensor shapes match.
-\end{enumerate}
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{public Colab default:}
+\NormalTok{  LR {-}\textgreater{} Stage 2 XL condition encoder {-}\textgreater{} residual refiner v2 {-}\textgreater{} Stage 1 decoder}
 
-\section{Completed Implementation}
+\NormalTok{current detail research candidate:}
+\NormalTok{  LR {-}\textgreater{} dual{-}context LSDIR Stage 2 {-}\textgreater{} Stage 1 decoder {-}\textgreater{} detail branch v1d}
 
-The repository currently includes:
-\begin{itemize}
-  \item manifest-based dataset loading with explicit domain IDs,
-  \item on-the-fly x4 degradation pipelines,
-  \item a factor-4 AutoencoderKL with 16 latent channels,
-  \item deterministic LR-to-HR-latent pretraining,
-  \item conditional latent diffusion with timestep and domain conditioning,
-  \item DDIM/img2img sampling for validation,
-  \item condition-start Stage 4 fine-tuning,
-  \item condition-only validation tooling for isolating Stage 2 from diffusion,
-  \item gated-residual \(\hat{x}_0\) prediction for bounded Stage 4 refinement,
-  \item Stage 2 residual oracle diagnostics for low/high-frequency error
-        isolation,
-  \item a deterministic bounded residual refiner with sparse/open gate
-        ablations,
-  \item bf16 CUDA/ROCm training paths,
-  \item W\&B logging, fixed validation samples, checkpoint evaluation, and
-        recovery scripts for VM migration,
-  \item partial checkpoint initialization for widened/deepened models,
-  \item PyTorch DDP diffusion training with single-GPU fallback.
-\end{itemize}
+\NormalTok{generative comparison:}
+\NormalTok{  LR {-}\textgreater{} Stage 2 condition encoder {-}\textgreater{} Stage 3 OR Stage 4 diffusion U{-}Net}
+\NormalTok{     {-}\textgreater{} Stage 1 decoder}
+\end{Highlighting}
+\end{Shaded}
 
-\section{Data and Degradation}
+Stage 4 is a Stage 3-derived replacement diffusion checkpoint. It does
+not run after Stage 3. Planned Stage 5 distillation would similarly
+replace the slower diffusion sampler rather than append another serial
+module.
 
-The base photo100k runs use a 103,450-image training split and a fixed
-100-image validation split. The completed dual-context Stage 2 scale-up adds
-30,000 unique LSDIR training images, for 133,450 unique training images and the
-same fixed validation set. HR crops are 512px and LR inputs are 128px. The
-original photo degradation was extended with stronger blur, noise, compression,
-ringing, color shift, and banding variants. Earlier XL edge-loss work used
-\texttt{photo\_v3\_noise\_mix}, a strong denoise-focused preset with no clean
-share and 80\% combined v2/v3 cases. The latest \texttt{photo\_detail\_mix}
-uses 35\% clean, 48\% detail-preserving photo degradation, 15\% mild
-degradation, and 2\% strong \texttt{photo\_v2}.
+\hypertarget{data}{%
+\section{Data}\label{data}}
 
-\begin{table}[H]
-\centering
-\begin{tabular}{ll}
-\toprule
-Item & Value \\
-\midrule
-Task & x4 SR, 128px LR to 512px HR \\
-Active large-scale domain & Photo \\
-Base train split & 103,450 images \\
-Latest Stage 2 train split & 133,450 unique images \\
-Validation split & 100 fixed images \\
-VAE latent & 128px, 16 channels \\
-Primary dtype & bf16 \\
-Latest detail degradation & \texttt{photo\_detail\_mix} \\
-\bottomrule
-\end{tabular}
-\end{table}
+The base photo100k split has 103,450 training images and 100 fixed
+validation images. The completed dual-context Stage 2 scale-up adds
+30,000 unique LSDIR training images, for 133,450 unique training images
+and the unchanged 100-image validation set. LR inputs are generated on
+the fly from HR crops. Earlier XL work used
+\texttt{photo\_v3\_noise\_mix}, a strong denoise-focused curriculum with
+no clean share and 80\% combined v2/v3 cases. Later work introduced
+\texttt{photo\_detail\_mix}: 35\% clean, 48\% detail-preserving photo
+degradation, 15\% mild degradation, and 2\% strong \texttt{photo\_v2}.
+This keeps a small robustness tail while shifting the primary objective
+toward user-facing detail restoration.
 
-\section{Completed Results}
+\hypertarget{completed-baselines}{%
+\section{Completed Baselines}\label{completed-baselines}}
 
-\subsection{Stage 1 VAE}
+\begin{longtable}[]{@{}lll@{}}
+\toprule\noalign{}
+Stage & Run & Result \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Stage 1 VAE & \texttt{autoencoder\_photo10k\_b16\_eval\_online} &
+\texttt{eval/psnr\ 40.19} \\
+Stage 2 photo100k & \texttt{latent\_pretrain\_photo100k\_b64} & best
+latent loss \texttt{0.21230} \\
+Stage 3 photo100k & \texttt{diffusion\_photo100k\_b32} & sampled val100
+\texttt{25.3745} PSNR \\
+Stage 4 photo100k &
+\texttt{diffusion\_photo100k\_b32\_stage4\_condition} & sampled val100
+\texttt{25.4072} PSNR \\
+Stage 4 photo100k v2 &
+\texttt{diffusion\_photo100k\_b32\_stage4\_condition\_v2} & sampled
+val100 \texttt{22.8426} PSNR, \texttt{+0.4323} over bicubic \\
+\end{longtable}
 
-The selected Stage 1 VAE checkpoint is the best reconstruction artifact from the
-Stage 1 photo10k run. It was selected at the 50k-step checkpoint with:
+The v2 task has a stronger degradation distribution, so its absolute
+PSNR is not directly comparable with the earlier mild photo100k run.
 
-\begin{table}[H]
-\centering
-\begin{tabular}{lr}
-\toprule
-Metric & Value \\
-\midrule
-eval/recon & 0.01198 \\
-eval/kl & 9.38684 \\
-eval/psnr & 40.19 \\
-\bottomrule
-\end{tabular}
-\end{table}
+\hypertarget{exploratory-strict-bicubic-five-image-comparison}{%
+\section{Exploratory Strict-Bicubic Five-Image
+Comparison}\label{exploratory-strict-bicubic-five-image-comparison}}
 
-\subsection{Photo100k Baseline Stages}
+The ordinary LuSIR validation metrics use task-specific degradations, so
+their absolute PSNR values should not be compared directly with
+published bicubic-only SR benchmarks. A small strict-bicubic diagnostic
+was added to separate degradation difficulty from reconstruction
+capacity. The new \texttt{benchmark\_bicubic} preset applies only PIL
+bicubic factor-4 downsampling and does not add blur, noise, compression,
+color changes, or sharpening.
 
-The first photo100k scale-up completed deterministic latent pretraining,
-conditional diffusion, and condition-start fine-tuning.
+The shared diagnostic protocol is:
 
-\begin{table}[H]
-\centering
-\begin{tabular}{llll}
-\toprule
-Stage & Run & Finished step & Selected result \\
-\midrule
-Stage 2 & photo100k b64 latent pretrain & 30k &
-best latent loss 0.21230 \\
-Stage 3 & photo100k b32 diffusion & 60k &
-decoded PSNR 24.56 diagnostic \\
-Stage 4 & photo100k condition-start & 5k &
-sampled val100 PSNR 25.4072 \\
-\bottomrule
-\end{tabular}
-\end{table}
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{source images: DIV2K validation 0801{-}0805}
+\NormalTok{HR input: deterministic center 512x512 crop}
+\NormalTok{LR input: strict PIL bicubic x4 downsample to 128x128}
+\NormalTok{metric: mean per{-}image RGB PSNR over the full 512x512 crop}
+\NormalTok{deterministic inference: CPU FP32}
+\NormalTok{diffusion inference: condition initialization, start timestep 50, 32 DDIM steps}
+\end{Highlighting}
+\end{Shaded}
 
-On the sampled validation comparison, the Stage 4 condition-start checkpoint
-slightly improved the Stage 3 checkpoint:
-\[
-25.4072 - 25.3745 = +0.0327\ \mathrm{PSNR}.
-\]
+Loaded parameter counts include the entire 21.10M-parameter Stage 1 VAE
+because the current runners load the full module, although inference
+executes only its 10.52M-parameter decoder. This matches the existing
+\texttt{509.658M} Stage 4 XL accounting.
 
-\subsection{Photo100k v2 Denoise/Sharpening Stages}
+\begin{longtable}[]{@{}lrrrr@{}}
+\toprule\noalign{}
+Inference path & Selected checkpoint & Loaded params & Mean RGB PSNR &
+vs bicubic \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Bicubic & n/a & n/a & \texttt{29.5999} & n/a \\
+Stage 2 XL condition-only & step 72000 & \texttt{40.040M} &
+\texttt{30.5677} & \texttt{+0.9678} \\
+Stage 2 XL + residual refiner v2 & step 39000 & \texttt{48.106M} &
+\texttt{30.8205} & \texttt{+1.2206} \\
+Stage 2 multiscale & step 46000 & \texttt{76.591M} & \texttt{31.6068} &
+\texttt{+2.0069} \\
+Stage 2 dual-context LSDIR & step 98000 & \texttt{140.334M} &
+\texttt{31.7411} & \texttt{+2.1412} \\
+Dual-context + detail v1b & step 39500 & \texttt{141.675M} &
+\texttt{31.8135} & \texttt{+2.2136} \\
+Dual-context + detail v1c & step 6000 & \texttt{141.689M} &
+\texttt{31.8154} & \texttt{+2.2155} \\
+Dual-context + detail v1d, in progress & step 9500 & \texttt{143.354M} &
+\texttt{31.8247} & \texttt{+2.2248} \\
+Stage 4 XL edge, 32-step sampled & step 4250 & \texttt{509.658M} &
+\texttt{29.5487} & \texttt{-0.0512} \\
+\end{longtable}
 
-The \texttt{photo\_v2} degradation curriculum produced lower absolute PSNR than
-the earlier degradation because the task is stronger, but Stage 4 improved both
-the Stage 3 v2 model and bicubic baseline on the sampled validation set.
+The strict-bicubic result confirms that LuSIR already operates in the
+30-32 dB range when the LR input is not additionally corrupted. The much
+lower \texttt{photo\_detail\_mix} and strong-preset values primarily
+reflect degradation difficulty rather than a direct 6-7 dB gap to
+bicubic-only SR papers.
 
-\begin{table}[H]
-\centering
-\begin{tabular}{lr}
-\toprule
-Comparison & Sampled val100 PSNR \\
-\midrule
-Bicubic baseline & 22.4103 \\
-Stage 3 v2 SR & 22.6699 \\
-Stage 4 v2 SR & 22.8426 \\
-\bottomrule
-\end{tabular}
-\end{table}
+The capacity trend is also informative. Stage 2 XL to multiscale gains
+\texttt{+1.0391\ dB}, and multiscale to dual-context gains another
+\texttt{+0.1343\ dB}. The detail branches then provide smaller but
+consistent gains over dual-context: v1b \texttt{+0.0725\ dB}, v1c
+\texttt{+0.0744\ dB}, and the in-progress 3.02M v1d
+\texttt{+0.0837\ dB}. V1d currently improves v1c by only
+\texttt{+0.0093\ dB}, so increasing detail-branch capacity alone is not
+yet a perceptual-detail breakthrough.
 
-Stage 4 v2 improved over Stage 3 v2 by +0.1727 PSNR and beat bicubic by +0.4323
-PSNR on the sampled validation set, with 81 wins and 19 losses in per-image
-comparison. Remaining artifacts included occasional color/contrast overshoot and
-small cyan/green sampling artifacts.
+The 509.7M Stage 4 XL edge checkpoint is the clearest counterexample to
+treating parameter count as a quality ranking. On this clean bicubic
+diagnostic it falls \texttt{-0.0512\ dB} below bicubic and
+\texttt{-1.0190\ dB} below its own Stage 2 XL condition-only path.
+Visual inspection shows that it can add apparent sharpness, but it also
+changes clean input details enough to reduce reconstruction fidelity.
+This is consistent with its strong-noise denoise/color-cleanup training
+role; it should not be routed unconditionally for clean inputs.
 
-\subsection{Stage 2 XL Condition Encoder}
+This diagnostic is deliberately small and is not a published-benchmark
+claim. It uses five center crops, RGB PSNR, no border shave, and PIL
+bicubic rather than the full-image Y-channel/Matlab-bicubic conventions
+used by many SR papers. A formal comparison still requires full DIV2K,
+Set5, Set14, and Urban100 evaluation under each
+benchmark\textquotesingle s exact protocol.
 
-A smaller \texttt{photo\_v3\_noise\_mix} Stage 2 run was stopped at step 12,700
-after the validation latent loss plateaued near 0.282. The XL condition encoder
-then completed 80k steps with a larger 500M-class full-path target. Its main
-checkpoints were:
+The machine-readable snapshot is stored in:
 
-\begin{table}[H]
-\centering
-\begin{tabular}{llll}
-\toprule
-Checkpoint & Step & eval/latent\_loss & eval/decoded\_psnr \\
-\midrule
-Best latent & 66k & 0.27230 & 21.38 \\
-Best PSNR proxy & 72k & 0.27940 & 21.52 \\
-Final/latest & 80k & 0.27593 & 21.51 \\
-\bottomrule
-\end{tabular}
-\end{table}
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{metrics/benchmark\_bicubic5\_lusir\_model\_comparison.json}
+\end{Highlighting}
+\end{Shaded}
 
-The three Stage 2 XL candidates were then compared on the same 100 validation
-images by decoding condition-only outputs through the selected VAE. This
-comparison used fixed samples, fixed seed, and the same
-\texttt{latent\_pretrain\_photo100k\_v3\_noise\_xl.yaml} configuration.
+\hypertarget{stage-2-xl-candidate-selection}{%
+\section{Stage 2 XL Candidate
+Selection}\label{stage-2-xl-candidate-selection}}
 
-\begin{table}[H]
-\centering
-\begin{tabular}{lrr}
-\toprule
-Candidate & Latent MSE & Mean decoded PSNR \\
-\midrule
-Best latent, step 66k & 0.91770 & 21.3828 \\
-Best PSNR proxy, step 72k & 0.97295 & 21.5241 \\
-Latest, step 80k & 0.89609 & 21.5062 \\
-\bottomrule
-\end{tabular}
-\end{table}
+The XL condition encoder uses:
 
-The 72k-step checkpoint had the best decoded condition-only PSNR, so it was
-selected as the condition encoder for the next XL diffusion experiment.
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{config: configs/latent\_pretrain\_photo100k\_v3\_noise\_xl.yaml}
+\NormalTok{base\_channels: 256}
+\NormalTok{num\_blocks: 16}
+\NormalTok{degradation: photo\_v3\_noise\_mix}
+\NormalTok{finished step: 80000}
+\end{Highlighting}
+\end{Shaded}
 
-\subsection{Stage 4 XL Edge-Loss Condition-Start}
+Candidate comparison on the same validation images:
 
-The first Stage 4 XL run was then launched from the selected 72k-step Stage 2
-XL condition encoder. The diffusion U-Net uses \texttt{base\_channels=128},
-\texttt{channel\_multipliers=[1,2,4,8]}, six residual blocks per scale, and
-eight attention heads. Shape-compatible tensors were partially initialized from
-the smaller Stage 4 v2 checkpoint. The loss combines a small noise term,
-latent \(\hat{x}_0\), decoded Charbonnier reconstruction, Sobel edge loss, and a
-highpass decoded loss.
+\begin{longtable}[]{@{}lrrrr@{}}
+\toprule\noalign{}
+Candidate & Step & Latent loss & Latent MSE & Decoded PSNR \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+\texttt{best\_eval\_latent} & 66000 & \texttt{0.27230} &
+\texttt{0.91770} & \texttt{21.3828} \\
+\texttt{step\_0072000} & 72000 & \texttt{0.27940} & \texttt{0.97295} &
+\texttt{21.5241} \\
+\texttt{latest} & 80000 & \texttt{0.27593} & \texttt{0.89609} &
+\texttt{21.5062} \\
+\end{longtable}
 
-\begin{table}[H]
-\centering
-\begin{tabular}{ll}
-\toprule
-Item & Value \\
-\midrule
-Config & \texttt{diffusion\_photo100k\_xl\_stage4\_condition\_v3\_edge\_b16.yaml} \\
-Run & \texttt{diffusion\_photo100k\_xl\_stage4\_condition\_v3\_edge\_b16} \\
-Finished step & 5000 \\
-Selected checkpoint & step 4250, best \texttt{eval/decoded\_mse} \\
-Training eval decoded PSNR & 21.9872 \\
-W\&B run & \url{https://wandb.ai/jwheo/LuSIR/runs/nog04fwr} \\
-\bottomrule
-\end{tabular}
-\end{table}
+The 72k checkpoint was selected for Stage 4 XL because it had the best
+decoded condition-only PSNR on the fixed validation set.
 
-The selected checkpoint was sampled on the fixed 100-image validation split
-with condition initialization, 32 DDIM steps, and start timestep 50:
+\hypertarget{stage-4-xl-edge-loss-result}{%
+\section{Stage 4 XL Edge-Loss
+Result}\label{stage-4-xl-edge-loss-result}}
 
-\begin{table}[H]
-\centering
-\begin{tabular}{lr}
-\toprule
-Metric & Value \\
-\midrule
-Mean bicubic PSNR & 22.3599 \\
-Mean SR PSNR & 23.0793 \\
-Mean PSNR delta & +0.7195 \\
-\bottomrule
-\end{tabular}
-\end{table}
+The first XL diffusion run used the selected Stage 2 XL condition
+encoder and partial initialization from the smaller Stage 4 v2
+checkpoint.
 
-Qualitatively, the XL Stage 4 checkpoint reduces noise and color contamination
-relative to the degraded LR/bicubic path. It is not yet a final restoration
-model: outputs remain visibly softer than the ground truth on fine textures.
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{config: configs/diffusion\_photo100k\_xl\_stage4\_condition\_v3\_edge\_b16.yaml}
+\NormalTok{run: diffusion\_photo100k\_xl\_stage4\_condition\_v3\_edge\_b16}
+\NormalTok{U{-}Net path: 469.6M parameters}
+\NormalTok{full inference path: 509.658M parameters}
+\NormalTok{train batch size: 16}
+\NormalTok{GPUs: 2x A100{-}SXM4{-}80GB through PyTorch DDP}
+\NormalTok{finished step: 5000}
+\NormalTok{selected checkpoint: step 4250, best eval/decoded\_mse}
+\end{Highlighting}
+\end{Shaded}
 
-\subsection{Stage 4 XL Role-Split and Gated-Residual Probes}
+Training-time best proxy:
 
-Follow-up probes tested whether Stage 4 could act as a bounded detail refiner
-instead of freely overwriting the deterministic Stage 2 condition latent. The
-role-split mild probe added a lowpass anchor and separated low/high-frequency
-decoded losses.
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{step 4250}
+\NormalTok{eval/decoded\_psnr: 21.9872}
+\NormalTok{eval/decoded\_mse: 0.025313}
+\NormalTok{eval/noise\_mse: 27.66008}
+\NormalTok{eval/x0\_mse: 0.86226}
+\end{Highlighting}
+\end{Shaded}
 
-\begin{table}[H]
-\centering
-\begin{tabular}{ll}
-\toprule
-Item & Value \\
-\midrule
-Config & role-split mild b8 probe \\
-W\&B run & \url{https://wandb.ai/jwheo/LuSIR/runs/lrb6nco9} \\
-Finished step & 8000 micro-steps, 2000 optimizer updates \\
-Best one-step checkpoint & step 7500, decoded PSNR 23.2515 \\
-\bottomrule
-\end{tabular}
-\end{table}
+Sampled validation evaluation:
 
-Sampled mild val100 showed that role-split losses reduced some over-editing at
-very low start timesteps, but the diffusion path still damaged the Stage 2
-condition output on average:
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{checkpoint: best\_eval\_condition\_decoded.pt}
+\NormalTok{checkpoint step: 4250}
+\NormalTok{split: val}
+\NormalTok{limit: 100}
+\NormalTok{init: condition}
+\NormalTok{start\_timestep: 50}
+\NormalTok{steps: 32}
+\NormalTok{mean\_bicubic\_psnr: 22.3599}
+\NormalTok{mean\_sr\_psnr: 23.0793}
+\NormalTok{mean\_psnr\_delta: +0.7195}
+\end{Highlighting}
+\end{Shaded}
 
-\begin{table}[H]
-\centering
-\begin{tabular}{lrrr}
-\toprule
-Model & Start timestep & Mean SR PSNR & vs condition \\
-\midrule
-Stage 2 condition-only & n/a & 25.0449 & n/a \\
-Stage 4 role-split & 25 & 24.5747 & -0.4702 \\
-Stage 4 role-split & 10 & 24.9185 & -0.1264 \\
-Stage 4 role-split & 5 & 24.9935 & -0.0514 \\
-Stage 4 role-split & 1 & 25.0335 & -0.0114 \\
-\bottomrule
-\end{tabular}
-\end{table}
+The latest XL Stage 4 checkpoint is therefore better than bicubic on the
+current v3 validation setup and better aligned with the desired
+denoise/color cleanup behavior than the Stage 2 condition-only path. It
+is still not a final restoration model: outputs remain softer than GT on
+fine textures.
 
-The next probe changed the diffusion prediction type to
-\texttt{gated\_residual\_x0}. Instead of predicting the full denoised latent,
-the U-Net predicts a bounded residual and gate on top of the condition latent:
-\[
-\hat{x}_0 = c + s \tanh(r) \sigma(g + b),
-\]
-where \(c\) is the Stage 2 condition latent, \(r\) is the residual head, \(g\)
-is the gate head, \(s=1.25\), and \(b=0.0\). The probe was initialized from the
-role-split best checkpoint with partial initialization and stopped at step 2000
-after sampled validation reached condition-only parity.
+\hypertarget{stage-4-xl-role-split-and-gated-residual-probes}{%
+\section{Stage 4 XL Role-Split and Gated-Residual
+Probes}\label{stage-4-xl-role-split-and-gated-residual-probes}}
 
-\begin{table}[H]
-\centering
-\begin{tabular}{ll}
-\toprule
-Item & Value \\
-\midrule
-Config & gated-residual mild b8 probe \\
-W\&B run & \url{https://wandb.ai/jwheo/LuSIR/runs/edfko8e8} \\
-Best one-step checkpoint & step 1000 \\
-Final checkpoint & step 2000 \\
-\bottomrule
-\end{tabular}
-\end{table}
+Follow-up probes tested whether Stage 4 could act as a bounded detail
+refiner instead of freely overwriting the deterministic Stage 2
+condition latent.
 
-\begin{table}[H]
-\centering
-\begin{tabular}{lrrrr}
-\toprule
-Model & Checkpoint & Start timestep & Mean SR PSNR & Wins vs condition \\
-\midrule
-Stage 2 condition-only & n/a & n/a & 25.0449 & n/a \\
-Stage 4 gated residual & 1000 & 25 & 25.0415 & 25/100 \\
-Stage 4 gated residual & 1000 & 10 & 25.0415 & 25/100 \\
-Stage 4 gated residual & 1000 & 5 & 25.0416 & 25/100 \\
-Stage 4 gated residual & 1000 & 1 & 25.0418 & 25/100 \\
-Stage 4 gated residual & 2000 & 25 & 25.0445 & 34/100 \\
-Stage 4 gated residual & 2000 & 10 & 25.0444 & 32/100 \\
-Stage 4 gated residual & 2000 & 5 & 25.0444 & 31/100 \\
-Stage 4 gated residual & 2000 & 1 & 25.0443 & 32/100 \\
-\bottomrule
-\end{tabular}
-\end{table}
+The role-split mild probe added a lowpass anchor and separated
+low/high-frequency decoded losses:
 
-This is a partial success. Gated residual prediction almost eliminated the
-condition damage seen in previous Stage 4 probes and increased the number of
-samples beating condition-only from 10/100 at role-split \(t=1\) to 34/100 at
-gated-residual step 2000 with \(t=25\). However, the mean result still does not
-beat the Stage 2 condition-only baseline. The current interpretation is that
-Stage 4 has learned a safe near-identity residual path, not a reliable
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{config: configs/diffusion\_photo100k\_xl\_stage4\_condition\_v3\_rolesplit\_mild\_b8\_probe.yaml}
+\NormalTok{run: diffusion\_photo100k\_xl\_stage4\_condition\_v3\_rolesplit\_mild\_b8\_probe}
+\NormalTok{W\&B: https://wandb.ai/jwheo/LuSIR/runs/lrb6nco9}
+\NormalTok{finished step: 8000 micro{-}steps, 2000 optimizer updates}
+\NormalTok{best one{-}step checkpoint: step 7500, decoded PSNR 23.2515}
+\end{Highlighting}
+\end{Shaded}
+
+Sampled mild val100 showed that role-split losses reduced some
+over-editing at very low start timesteps, but the diffusion path still
+damaged the Stage 2 condition output on average:
+
+\begin{longtable}[]{@{}lrrrr@{}}
+\toprule\noalign{}
+Model & Start timestep & Mean SR PSNR & vs condition-only & Wins vs
+condition \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Stage 2 XL condition-only & n/a & \texttt{25.0449} & n/a & n/a \\
+Stage 4 role-split & 25 & \texttt{24.5747} & \texttt{-0.4702} &
+\texttt{3/100} \\
+Stage 4 role-split & 10 & \texttt{24.9185} & \texttt{-0.1264} &
+\texttt{3/100} \\
+Stage 4 role-split & 5 & \texttt{24.9935} & \texttt{-0.0514} &
+\texttt{6/100} \\
+Stage 4 role-split & 1 & \texttt{25.0335} & \texttt{-0.0114} &
+\texttt{10/100} \\
+\end{longtable}
+
+The next probe changed the diffusion prediction parameterization to
+\texttt{gated\_residual\_x0}. Instead of predicting the full denoised
+latent, the U-Net predicts a bounded residual and gate on top of the
+condition latent:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{x0\_hat = condition + residual\_scale * tanh(residual\_logits) * sigmoid(gate\_logits + gate\_bias)}
+\NormalTok{residual\_scale: 1.25}
+\NormalTok{gate\_bias: 0.0}
+\NormalTok{out\_channels: 32}
+\end{Highlighting}
+\end{Shaded}
+
+The probe was initialized from the role-split best checkpoint with
+partial initialization and stopped at step 2000 after the sampled
+validation result reached condition-only parity:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{config: configs/diffusion\_photo100k\_xl\_stage4\_condition\_v3\_gated\_residual\_mild\_b8\_probe.yaml}
+\NormalTok{run: diffusion\_photo100k\_xl\_stage4\_condition\_v3\_gated\_residual\_mild\_b8\_probe}
+\NormalTok{W\&B: https://wandb.ai/jwheo/LuSIR/runs/edfko8e8}
+\NormalTok{best one{-}step checkpoint: step 1000}
+\NormalTok{final checkpoint: step 2000}
+\end{Highlighting}
+\end{Shaded}
+
+Sampled mild val100:
+
+\begin{longtable}[]{@{}lrrrrr@{}}
+\toprule\noalign{}
+Model & Checkpoint & Start timestep & Mean SR PSNR & vs condition-only &
+Wins vs condition \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Stage 2 XL condition-only & n/a & n/a & \texttt{25.0449} & n/a & n/a \\
+Stage 4 gated residual & 1000 & 25 & \texttt{25.0415} & \texttt{-0.0035}
+& \texttt{25/100} \\
+Stage 4 gated residual & 1000 & 10 & \texttt{25.0415} & \texttt{-0.0034}
+& \texttt{25/100} \\
+Stage 4 gated residual & 1000 & 5 & \texttt{25.0416} & \texttt{-0.0034}
+& \texttt{25/100} \\
+Stage 4 gated residual & 1000 & 1 & \texttt{25.0418} & \texttt{-0.0032}
+& \texttt{25/100} \\
+Stage 4 gated residual & 2000 & 25 & \texttt{25.0445} & \texttt{-0.0004}
+& \texttt{34/100} \\
+Stage 4 gated residual & 2000 & 10 & \texttt{25.0444} & \texttt{-0.0006}
+& \texttt{32/100} \\
+Stage 4 gated residual & 2000 & 5 & \texttt{25.0444} & \texttt{-0.0005}
+& \texttt{31/100} \\
+Stage 4 gated residual & 2000 & 1 & \texttt{25.0443} & \texttt{-0.0007}
+& \texttt{32/100} \\
+\end{longtable}
+
+This is a partial success. The gated residual parameterization almost
+eliminated the condition damage seen in previous Stage 4 probes and
+increased the number of samples beating condition-only from
+\texttt{10/100} at role-split t1 to \texttt{34/100} at gated-residual
+step2000 t25. However, the mean result still does not beat the Stage 2
+condition-only baseline. The current interpretation is that Stage 4 has
+learned a safe near-identity residual path, not a reliable
 missing-detail generator.
 
-\subsection{Stage 2 Residual Diagnostic and Deterministic Refiner}
+\hypertarget{stage-2-residual-diagnostic-and-deterministic-refiner}{%
+\section{Stage 2 Residual Diagnostic and Deterministic
+Refiner}\label{stage-2-residual-diagnostic-and-deterministic-refiner}}
 
-A direct residual/oracle diagnostic was run on mild val100 to separate the
-Stage 2 condition-only error into lowpass and highpass components.
+A direct residual/oracle diagnostic was run to separate the Stage 2
+condition-only error into lowpass and highpass components on mild
+val100:
 
-\begin{table}[H]
-\centering
-\begin{tabular}{lr}
-\toprule
+\begin{longtable}[]{@{}lr@{}}
+\toprule\noalign{}
 Metric & Value \\
-\midrule
-Bicubic PSNR & 24.4778 \\
-Condition decoded PSNR & 25.0543 \\
-Oracle full residual PSNR & 41.8207 \\
-Oracle full vs condition & +16.7664 \\
-Oracle highpass PSNR & 35.0872 \\
-Oracle highpass vs condition & +10.0329 \\
-Oracle lowpass PSNR & 25.0814 \\
-Oracle lowpass vs condition & +0.0270 \\
-Residual highpass energy ratio & 0.8988 \\
-Residual lowpass energy ratio & 0.0758 \\
-\bottomrule
-\end{tabular}
-\end{table}
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Bicubic PSNR & \texttt{24.4778} \\
+Condition decoded PSNR & \texttt{25.0543} \\
+Oracle full residual PSNR & \texttt{41.8207} \\
+Oracle full vs condition & \texttt{+16.7664} \\
+Oracle highpass PSNR & \texttt{35.0872} \\
+Oracle highpass vs condition & \texttt{+10.0329} \\
+Oracle lowpass PSNR & \texttt{25.0814} \\
+Oracle lowpass vs condition & \texttt{+0.0270} \\
+Residual highpass energy ratio & \texttt{0.8988} \\
+Residual lowpass energy ratio & \texttt{0.0758} \\
+\end{longtable}
 
 This indicates that the Stage 2 condition encoder already preserves most
-structure and low-frequency color, while the remaining recoverable error is
-dominated by high-frequency detail.
+structure and low-frequency color, while the remaining recoverable error
+is dominated by high-frequency detail.
 
-The follow-up deterministic bounded residual refiner freezes the Stage 1 VAE
-and Stage 2 condition encoder, then predicts only:
-\[
-c + s \tanh(r) \sigma(g + b),
-\]
-where \(c\) is the condition latent, \(r\) is the residual head, \(g\) is the
-gate head, \(s\) is the residual scale, and \(b\) is the gate bias. The
-sparse-gate probe reached its best validation result at step 500.
+The follow-up deterministic bounded residual refiner freezes the Stage 1
+VAE and Stage 2 condition encoder, then predicts only:
 
-\begin{table}[H]
-\centering
-\begin{tabular}{lrrrr}
-\toprule
-Model & Mean PSNR & vs condition & Wins & Gate mean \\
-\midrule
-Stage 2 condition-only & 25.0449 & n/a & n/a & n/a \\
-Sparse-gate residual refiner & 25.1178 & +0.0729 & 86/100 & 0.2147 \\
-Open-gate residual refiner & 25.0972 & +0.0523 & 73/100 & 0.8680 \\
-\bottomrule
-\end{tabular}
-\end{table}
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{condition + residual\_scale * tanh(residual\_logits) * sigmoid(gate\_logits + gate\_bias)}
+\end{Highlighting}
+\end{Shaded}
 
-The sparse-gate result is a small but real gain and is qualitatively close to
-the condition output, without the destructive edits seen in previous diffusion
-Stage 4 probes. The open-gate ablation was worse despite a much larger mean gate
-value, so the next step should not simply force larger residual edits.
+The sparse-gate probe reached its best validation result at step 500:
 
-The sparse-gate refiner was then connected to standalone eval and inference
-scripts and evaluated without retraining across the active degradation presets.
+\begin{longtable}[]{@{}lrrrr@{}}
+\toprule\noalign{}
+Model & Mean PSNR & vs condition & Wins vs condition & Gate mean \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Stage 2 condition-only & \texttt{25.0449} & n/a & n/a & n/a \\
+Sparse-gate residual refiner & \texttt{25.1178} & \texttt{+0.0729} &
+\texttt{86/100} & \texttt{0.2147} \\
+Open-gate residual refiner & \texttt{25.0972} & \texttt{+0.0523} &
+\texttt{73/100} & \texttt{0.8680} \\
+\end{longtable}
 
-\begin{table}[H]
-\centering
-\begin{tabular}{lrrrrr}
-\toprule
-Degradation & Bicubic & Condition & Refined & vs condition & Wins \\
-\midrule
-\texttt{mild} & 24.4778 & 25.0449 & 25.1178 & +0.0729 & 86/100 \\
-\texttt{photo\_v2} & 22.4103 & 22.9271 & 22.9767 & +0.0496 & 77/100 \\
-\texttt{photo\_v3\_noise\_mix} & 22.3599 & 22.9014 & 22.9600 & +0.0586 & 86/100 \\
-\bottomrule
-\end{tabular}
-\end{table}
+The sparse-gate result is a small but real gain and is qualitatively
+close to the condition output, without the destructive edits seen in
+previous diffusion Stage 4 probes. The open-gate ablation was worse
+despite a much larger mean gate value, so the next step should not
+simply force larger residual edits.
 
-Qualitatively, the refined outputs remain very close to the Stage 2 condition
-outputs. This is useful because the refiner does not introduce the destructive
-edits seen in earlier diffusion probes, but the visible detail gain is still
-small. The result is best interpreted as a safe residual teacher or warm start,
-not as a final detail generator.
+The sparse-gate refiner was then connected to standalone eval and
+inference scripts and evaluated without retraining across the active
+degradation presets:
 
-\section{Teacher-Supervised Stage 4 Residual Probe}
+\begin{longtable}[]{@{}lrrrrr@{}}
+\toprule\noalign{}
+Degradation & Bicubic PSNR & Condition PSNR & Refined PSNR & vs
+condition & Wins \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+\texttt{mild} & \texttt{24.4778} & \texttt{25.0449} & \texttt{25.1178} &
+\texttt{+0.0729} & \texttt{86/100} \\
+\texttt{photo\_v2} & \texttt{22.4103} & \texttt{22.9271} &
+\texttt{22.9767} & \texttt{+0.0496} & \texttt{77/100} \\
+\texttt{photo\_v3\_noise\_mix} & \texttt{22.3599} & \texttt{22.9014} &
+\texttt{22.9600} & \texttt{+0.0586} & \texttt{86/100} \\
+\end{longtable}
 
-The sparse-gate deterministic refiner was used as a frozen teacher for the
-gated-residual Stage 4 U-Net on \texttt{photo\_v3\_noise\_mix}. Direct losses
-supervised the predicted residual, highpass residual, and gate. Training
-completed 8000 micro-steps, or 2000 optimizer updates with gradient
-accumulation four.
+Qualitatively, the refined outputs remain very close to the Stage 2
+condition outputs. This is useful because the refiner does not introduce
+the destructive edits seen in earlier diffusion probes, but the visible
+detail gain is still small. The result is best interpreted as a safe
+residual teacher or warm start, not as a final detail generator.
 
-\begin{table}[H]
-\centering
-\begin{tabular}{lrrrrr}
-\toprule
-Checkpoint & Start \(t\) & SR PSNR & vs bicubic & vs condition & Wins \\
-\midrule
-Teacher step 2000 & 25 & 22.9640 & +0.6041 & +0.0626 & 68/100 \\
-Teacher step 2000 & 50 & 22.9639 & +0.6040 & +0.0625 & n/a \\
-Teacher step 4000 & 25 & 22.9571 & +0.5972 & +0.0557 & 65/100 \\
-Teacher step 8000 & 25 & 22.9490 & +0.5891 & +0.0476 & 59/100 \\
-Edge step 4250 & 25 & 22.9563 & +0.5964 & +0.0549 & 42/100 \\
-Edge step 4250 & 50 & 23.0799 & +0.7200 & +0.1784 & 45/100 \\
-\bottomrule
-\end{tabular}
-\end{table}
+\hypertarget{teacher-supervised-stage-4-residual-probe}{%
+\section{Teacher-Supervised Stage 4 Residual
+Probe}\label{teacher-supervised-stage-4-residual-probe}}
 
-Teacher supervision produced a small cleanup gain over the Stage 2 condition
-output and slightly exceeded the edge model at \(t=25\). However, fur, leaves,
+The sparse-gate deterministic refiner was used as a frozen teacher for
+the gated-residual Stage 4 U-Net. Direct losses supervised the predicted
+residual, highpass residual, and gate on \texttt{photo\_v3\_noise\_mix}.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{config: configs/diffusion\_photo100k\_xl\_stage4\_condition\_v3\_teacher\_residual\_photo\_v3\_b8\_probe.yaml}
+\NormalTok{train batch size: 8}
+\NormalTok{gradient accumulation: 4}
+\NormalTok{finished step: 8000 micro{-}steps, 2000 optimizer updates}
+\end{Highlighting}
+\end{Shaded}
+
+Sampled val100, condition initialization, 32 sampling steps:
+
+\begin{longtable}[]{@{}lrrrrr@{}}
+\toprule\noalign{}
+Checkpoint & Start timestep & Mean SR PSNR & vs bicubic & vs condition &
+Wins vs condition \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Teacher Stage 4 step 2000 & 25 & \texttt{22.9640} & \texttt{+0.6041} &
+\texttt{+0.0626} & \texttt{68/100} \\
+Teacher Stage 4 step 2000 & 50 & \texttt{22.9639} & \texttt{+0.6040} &
+\texttt{+0.0625} & n/a \\
+Teacher Stage 4 step 4000 & 25 & \texttt{22.9571} & \texttt{+0.5972} &
+\texttt{+0.0557} & \texttt{65/100} \\
+Teacher Stage 4 step 8000 & 25 & \texttt{22.9490} & \texttt{+0.5891} &
+\texttt{+0.0476} & \texttt{59/100} \\
+Existing edge Stage 4 step 4250 & 25 & \texttt{22.9563} &
+\texttt{+0.5964} & \texttt{+0.0549} & \texttt{42/100} \\
+Existing edge Stage 4 step 4250 & 50 & \texttt{23.0799} &
+\texttt{+0.7200} & \texttt{+0.1784} & \texttt{45/100} \\
+\end{longtable}
+
+Teacher supervision therefore produced a small, stable cleanup gain over
+the Stage 2 condition output and slightly exceeded the edge model at
+t25. However, the user-facing objective was not achieved. Fur, leaves,
 branches, and building detail remained strongly smoothed. A simple
-absolute-Laplacian diagnostic measured teacher step-2000 output at 21.8\% of
-GT detail energy, below the existing edge \(t=25\) output at 32.7\%. This is
-not a complete perceptual metric, but it agrees with visual inspection.
+absolute-Laplacian diagnostic measured teacher step-2000 output at
+\texttt{21.8\%} of GT detail energy, below the existing edge t25 output
+at \texttt{32.7\%}. This is not a complete perceptual metric, but it
+agrees with visual inspection.
 
-The best sampled checkpoint was step 2000; continuing to step 8000 reduced both
-mean PSNR and condition win count. The current interpretation is that the
-\texttt{photo\_v3\_noise\_mix} curriculum overemphasizes severe cleanup cases.
-The next high-signal experiment is therefore a less aggressive,
-detail-preserving degradation curriculum rather than another long continuation
-of this Stage 4 objective.
+The best sampled checkpoint was step 2000; continuing to step 8000
+reduced both mean PSNR and condition win count. The active
+interpretation is that the current \texttt{photo\_v3\_noise\_mix}
+curriculum overemphasizes severe denoise/cleanup cases, so direct
+residual supervision teaches a safer cleanup operator rather than a
+missing-detail generator.
 
-\section{Detail-Preserving Curriculum Adaptation}
+\hypertarget{detail-preserving-curriculum-adaptation}{%
+\section{Detail-Preserving Curriculum
+Adaptation}\label{detail-preserving-curriculum-adaptation}}
 
-A fixed-sample degradation audit confirmed that
-\texttt{photo\_v3\_noise\_mix} overemphasized cleanup. On val100 it produced a
-22.3599 bicubic PSNR baseline and 0.02040 mean LR chroma RMS error relative to
-clean downsampling. The new \texttt{photo\_detail\_mix} increased the bicubic
-baseline to 24.7357 and reduced chroma error to 0.00507.
+A fixed-sample degradation audit confirmed the curriculum mismatch. On
+val100, \texttt{photo\_v3\_noise\_mix} reduced the bicubic baseline to
+\texttt{22.3599} PSNR and produced mean LR chroma RMS error
+\texttt{0.02040} relative to clean downsampling.
+\texttt{photo\_detail\_mix} increased the bicubic baseline to
+\texttt{24.7357} and reduced the chroma error to \texttt{0.00507}.
 
-The existing Stage 2 XL condition encoder already improved
-\texttt{photo\_detail\_mix} to 25.3103 PSNR, so it remained frozen. The
-teacher-supervised gated-residual Stage 4 was adapted for 12000 micro-steps
-with batch size eight, gradient accumulation four, and learning rate
-\(10^{-6}\).
+The existing Stage 2 XL condition encoder was evaluated before
+retraining. It already improved \texttt{photo\_detail\_mix} from
+\texttt{24.7357} bicubic PSNR to \texttt{25.3103}, a \texttt{+0.5745}
+gain. Stage 2 was therefore frozen, and the teacher-supervised
+gated-residual Stage 4 was adapted from its selected step-2000
+checkpoint:
 
-\begin{table}[H]
-\centering
-\begin{tabular}{lrrrr}
-\toprule
-Model/checkpoint & SR PSNR & vs bicubic & vs condition & Wins \\
-\midrule
-Stage 2 condition-only & 25.3103 & +0.5745 & n/a & n/a \\
-Teacher Stage 4 initialization & 25.3187 & +0.5829 & +0.0084 & 46/100 \\
-Photo-detail Stage 4 step 8000 & 25.3406 & +0.6049 & +0.0303 & 71/100 \\
-Photo-detail Stage 4 step 12000 & 25.3337 & +0.5980 & +0.0235 & 67/100 \\
-Existing edge Stage 4 step 4250 & 25.1176 & +0.3818 & -0.1927 & 13/100 \\
-\bottomrule
-\end{tabular}
-\end{table}
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{config: configs/diffusion\_photo100k\_xl\_stage4\_condition\_v3\_teacher\_residual\_photo\_detail\_b8\_long.yaml}
+\NormalTok{run: diffusion\_photo100k\_xl\_stage4\_condition\_v3\_teacher\_residual\_photo\_detail\_b8\_long}
+\NormalTok{W\&B: https://wandb.ai/jwheo/LuSIR/runs/so0lbyte}
+\NormalTok{train batch size: 8}
+\NormalTok{gradient accumulation: 4}
+\NormalTok{learning rate: 1e{-}6}
+\NormalTok{finished step: 12000 micro{-}steps, 3000 optimizer updates}
+\end{Highlighting}
+\end{Shaded}
 
-Step 8000 is the selected checkpoint. It preserves the condition structure and
-sharpness and avoids the broad destructive edits produced by the edge model on
-this distribution. Mean absolute-Laplacian energy is still only 29.7\% of GT,
-so the improvement comes primarily from more accurate bounded corrections
-rather than strong new texture synthesis. Rare strong-tail samples can still
-exhibit bright artifacts.
+Sampled \texttt{photo\_detail\_mix} val100, condition initialization,
+start timestep 25, 32 sampling steps:
 
-\section{Decoded-Detail Residual Refiner v2}
+\begin{longtable}[]{@{}lrrrr@{}}
+\toprule\noalign{}
+Model/checkpoint & Mean SR PSNR & vs bicubic & vs condition & Wins vs
+condition \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Stage 2 condition-only & \texttt{25.3103} & \texttt{+0.5745} & n/a &
+n/a \\
+Teacher Stage 4 initialization & \texttt{25.3187} & \texttt{+0.5829} &
+\texttt{+0.0084} & \texttt{46/100} \\
+Photo-detail Stage 4 step 8000 & \texttt{25.3406} & \texttt{+0.6049} &
+\texttt{+0.0303} & \texttt{71/100} \\
+Photo-detail Stage 4 step 12000 & \texttt{25.3337} & \texttt{+0.5980} &
+\texttt{+0.0235} & \texttt{67/100} \\
+Existing edge Stage 4 step 4250 & \texttt{25.1176} & \texttt{+0.3818} &
+\texttt{-0.1927} & \texttt{13/100} \\
+\end{longtable}
 
-The deterministic residual refiner was expanded to 192 hidden channels and 12
-residual blocks, with decoded-image and highpass supervision through the frozen
-Stage 1 decoder. A lower-learning-rate continuation completed 40,000
-micro-steps, and step 39,000 was selected as the public default.
+Step 8000 is the selected checkpoint. This is the first sampled
+gated-residual Stage 4 result that beats the Stage 2 condition-only
+baseline on both mean PSNR and a clear majority of samples.
+Qualitatively, it preserves the condition structure and sharpness and
+avoids the broad destructive edits produced by the edge model on this
+distribution.
 
-\begin{table}[H]
-\centering
-\begin{tabular}{lrrr}
-\toprule
-Degradation & Condition PSNR & Refined PSNR & Gain \\
-\midrule
-\texttt{photo\_detail\_mix} & 25.3103 & 25.6410 & +0.3307 \\
-\texttt{mild} & 25.0449 & 25.3161 & +0.2712 \\
-\texttt{photo\_v2} & 22.9271 & 23.0419 & +0.1148 \\
-\texttt{photo\_v3\_noise\_mix} & 22.9014 & 23.0787 & +0.1773 \\
-\bottomrule
-\end{tabular}
-\end{table}
+The result remains conservative. Mean absolute-Laplacian energy is
+\texttt{29.7\%} of GT for step 8000, compared with \texttt{29.6\%} for
+its teacher initialization and \texttt{41.2\%} for the more aggressive
+edge model. The gain therefore comes primarily from more accurate
+bounded corrections, not from strong new texture synthesis. Rare
+strong-tail samples can still exhibit bright artifacts.
 
-This model is the default Colab path. It runs after the Stage 2 condition
-encoder and before the Stage 1 decoder; it does not use Stage 3 or Stage 4.
-Residual strengths 1.0, 0.75, and 0.5 expose an average-quality versus
-failure-tail trade-off.
+\hypertarget{decoded-detail-residual-refiner-v2}{%
+\section{Decoded-Detail Residual Refiner
+v2}\label{decoded-detail-residual-refiner-v2}}
 
-\section{Multiscale Stage 2 and Dual-Context Scale-up}
+The deterministic bounded residual refiner uses 192 hidden channels, 12
+residual blocks, and decoded-image/highpass supervision through the
+frozen VAE decoder. An initial 12000-step run was continued to 40000
+micro-steps with a lower \texttt{2.5e-5} learning rate. Step 39000
+achieved the best global decoded PSNR and was selected.
 
-The latest Stage 2 redesign preserves the selected XL predictor through partial
-initialization, then adds a zero-output-initialized multiscale context branch.
-Training exposure balances 100,000 COCO rows against 103,500 repeated
-DIV2K/Flickr2K rows. The 55.50M-parameter model completed 50,000 micro-steps,
-and step 46,000 was selected.
+\begin{longtable}[]{@{}lrrrr@{}}
+\toprule\noalign{}
+Degradation & Condition mean PSNR & Refined mean PSNR & Gain & Wins \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+\texttt{photo\_detail\_mix} & \texttt{25.3103} & \texttt{25.6410} &
+\texttt{+0.3307} & \texttt{94/100} \\
+\texttt{mild} & \texttt{25.0449} & \texttt{25.3161} & \texttt{+0.2712} &
+\texttt{91/100} \\
+\texttt{photo\_v2} & \texttt{22.9271} & \texttt{23.0419} &
+\texttt{+0.1148} & \texttt{81/100} \\
+\texttt{photo\_v3\_noise\_mix} & \texttt{22.9014} & \texttt{23.0787} &
+\texttt{+0.1773} & \texttt{81/100} \\
+\end{longtable}
 
-\begin{table}[H]
-\centering
-\begin{tabular}{lrr}
-\toprule
-Degradation & PSNR gain vs previous Stage 2 & Detail behavior \\
-\midrule
-\texttt{photo\_detail\_mix} & +1.0348 & slightly improved \\
-\texttt{mild} & +0.9228 & slightly improved \\
-\texttt{photo\_v2} & +0.9441 & reduced on strong input \\
-\texttt{photo\_v3\_noise\_mix} & +0.9650 & reduced on strong input \\
-\bottomrule
-\end{tabular}
-\end{table}
+On the training curriculum, step 39000 reached global decoded PSNR
+\texttt{24.0305}, \texttt{+0.2927\ dB} over condition-only, mean PSNR
+gain \texttt{+0.3307\ dB}, SSIM gain \texttt{+0.01076}, and wins on
+\texttt{94/100} images. Step 40000 had a slightly higher SSIM gain
+(\texttt{+0.01161}) but lower PSNR and fewer wins, so step 39000 is the
+more balanced public default.
 
-The selected model improves structure, color, and denoising but remains soft on
-fine texture. A continuation using frozen ImageNet VGG16 features completed
-12,000 micro-steps from step 46,000. Step 8000 had the best shortlist score,
-26.0092, and improved decoded PSNR over initialization by 0.0101 to 0.0256 dB
-across four presets. Step 11,000 was strongest on cleaner presets but regressed
-the strongest noise mix by 0.0063 dB. Fixed contact sheets showed almost no
-visible difference from initialization, and missing fine texture remained
-smoothed. The continuation was therefore not promoted.
+The continuation improved mean PSNR on every tested degradation.
+However, the strong \texttt{photo\_v2} and
+\texttt{photo\_v3\_noise\_mix} win counts fell versus step 11000,
+indicating that the larger correction has a less conservative failure
+tail. A post-training residual-strength guardrail provides an explicit
+trade-off: strength \texttt{1.0} gives the best average quality,
+\texttt{0.75} preserves most of the gain with fewer regressions, and
+\texttt{0.5} raises strong-preset wins from \texttt{81/100} to
+\texttt{86/100} while keeping positive mean gains. These modes are
+exposed in the inference CLI and Colab. Future work should prioritize
+user-facing evaluation and a learned degradation-aware gate rather than
+continuing indefinitely.
 
-The completed scale-up changed capacity and data uniqueness together. The previous
-HQ-balanced manifest contained 203,600 rows but only 103,550 unique images.
-The new manifest adds 30,000 unique LSDIR training images, giving 133,450
-unique training images plus the unchanged 100-image validation set. A second
-zero-output-initialized multiscale context branch preserves the selected step
-46,000 output before training and increases predictor capacity from 55.50M to
-119.24M parameters.
+\hypertarget{systems-notes}{%
+\section{Systems Notes}\label{systems-notes}}
 
-A one-L40S smoke test reproduced the initial 24.48 dB decoded PSNR and 0.291
-detail ratio. Batch 8 with gradient accumulation 4 used approximately
-37.8/46.1GB VRAM at 99\% GPU utilization and approximately 0.75 micro-steps/s.
-The completed long run targeted 100,000 micro-steps, or 25,000 optimizer
-updates. Validation ran every 1,000 micro-steps, while ordinary milestones were
-stored every 5,000 micro-steps to remain within disk budget.
+Diffusion training now supports PyTorch DDP when launched with
+\texttt{torchrun}. Without \texttt{torchrun}, the same script falls back
+to the existing single-GPU path. On the tested 2x A100 SXM environment,
+a 1 GiB NCCL all-reduce smoke test reported about \texttt{199.5\ GB/s},
+so multi-GPU communication was not the bottleneck.
+
+The completed Stage 4 XL edge run trained at about \texttt{0.78\ step/s}
+in ordinary train sections. A 5000-step run is roughly 1.8 hours of pure
+training, plus eval/checkpoint overhead.
+
+On the tested 2x L40S environment, the gated-residual probe ran with
+high GPU utilization, about \texttt{0.79} micro-step/s, and roughly
+\texttt{44.7\ /\ 46.1\ GiB} allocated per GPU. No GPU bottleneck or NCCL
+communication issue was observed.
+
+The decoded-detail residual refiner v2 ran on one L40S at about
+\texttt{0.89} micro-step/s with \texttt{42.0\ /\ 46.1\ GiB} allocated
+and sustained \texttt{99-100\%} GPU utilization.
+
+\hypertarget{visual-review-and-external-positioning}{%
+\section{Visual Review and External
+Positioning}\label{visual-review-and-external-positioning}}
+
+A fixed-sample visual review now compares LR, bicubic, Stage 2
+condition, residual strengths \texttt{0.50}, \texttt{0.75}, and
+\texttt{1.00}, and GT side by side. On mild inputs the selected refiner
+makes small, generally structure-preserving improvements. On stronger
+\texttt{photo\_v2} and \texttt{photo\_v3\_noise\_mix} inputs, the main
+failure occurs earlier: the condition encoder removes noise together
+with real detail and sometimes leaves small cyan/white grid-like
+artifacts. The residual refiner changes are too small to recover the
+missing fur, leaf veins, text, and distant structural detail.
+
+Qualitatively, the current model is not competitive with leading
+generative restoration systems in perceived sharpness or plausible fine
+texture. Its useful distinction is a deterministic, vision-only path
+trained without a pretrained text-to-image model, with lower
+hallucination risk and adjustable correction strength. This is an
+architectural and visual assessment, not a direct SOTA benchmark. A
+defensible comparison requires same-input blind A/B testing plus
+LPIPS/DISTS/MANIQA/MUSIQ and user-preference evaluation.
+
+\hypertarget{representative-visual-examples}{%
+\subsection{Representative Visual
+Examples}\label{representative-visual-examples}}
+
+The following two examples use the same lime image so that the role of
+the base reconstruction and the later detail branch can be inspected
+separately. They are representative diagnostic examples, not
+cherry-picked evidence of a formal benchmark win.
+
+\includegraphics{../docs/assets/stage2_multiscale_demo.jpg}
+
+\emph{Figure 1. Multiscale Stage 2 restores the degraded input while
+retaining a visible fine-texture gap to ground truth.}
+
+\includegraphics{../docs/assets/detail_branch_v1b_lime_demo.jpg}
+
+\emph{Figure 2. Detail branch v1b adds a small, artifact-light
+correction over the base; this illustrates both its stability and its
+conservative behavior.}
+
+\hypertarget{stage-2-multiscale-redesign}{%
+\section{Stage 2 Multiscale
+Redesign}\label{stage-2-multiscale-redesign}}
+
+A decoded pixel/edge/highpass fine-tuning probe confirmed that the flat
+Stage 2 condition predictor is the current bottleneck. By step 4000,
+decoded PSNR had risen from \texttt{23.7387} to \texttt{24.2792}, but
+the Laplacian detail ratio fell from \texttt{0.2817} to \texttt{0.2773}
+and fixed samples remained visibly smooth. This is consistent with the
+distortion-perception limitation of optimizing reconstruction losses
+without sufficient spatial context or high-quality training exposure.
+
+The replacement keeps all parameters and names of the selected
+19M-parameter step 72000 predictor, then adds a zero-output-initialized
+128-to-64-to-32 multiscale context branch. Partial initialization
+therefore exactly preserves the previous output before training. The
+training manifest also changes from 100,000 COCO plus 3,450
+DIV2K/Flickr2K rows to a roughly balanced exposure of 100,000 COCO and
+103,500 repeated DIV2K/Flickr2K rows. Random crops and degradations
+remain stochastic, so repeated high-quality rows generate different
+training pairs.
+
+The design is informed by broad-context and multiscale restoration
+findings in \href{https://arxiv.org/abs/2108.10257}{SwinIR},
+\href{https://arxiv.org/abs/2309.05239}{HAT}, and
+\href{https://arxiv.org/abs/2204.04676}{NAFNet}, together with the
+data/degradation emphasis of
+\href{https://arxiv.org/abs/2107.10833}{Real-ESRGAN}. The resulting
+55.50M-parameter model passed a full batch-8 forward/backward and val100
+smoke test on one L40S at approximately \texttt{34.8/46.1GB} VRAM and
+\texttt{100\%} GPU utilization. The 50,000-micro-step long run is
+tracked at \url{https://wandb.ai/jwheo/LuSIR/runs/6zt2do4v}.
+
+The run completed normally. Step 46000 was selected over the final
+checkpoint because it provides the best cross-preset distortion/detail
+compromise. It improves the previous Stage 2 by \texttt{+1.0348\ dB} on
+\texttt{photo\_detail\_mix} and \texttt{+0.9228\ dB} on \texttt{mild},
+with \texttt{99/100} and \texttt{97/100} per-image wins and slightly
+higher detail ratios. On the stronger \texttt{photo\_v2} and
+\texttt{photo\_v3\_noise\_mix} presets it improves PSNR by
+\texttt{+0.9441\ dB} and \texttt{+0.9650\ dB}, but the detail ratio
+drops from roughly \texttt{0.29-0.30} to \texttt{0.22-0.23}. Visual
+comparison confirms that the model improves color, large boundaries, and
+denoising without convincingly recovering missing fur, text, fabric, or
+distant texture. The experiment is a successful base-reconstruction
+redesign but not a solution to perceptual fine-detail recovery.
+
+An optional continuation completed from step 46000 using frozen ImageNet
+VGG16 features at shallow and intermediate layers. This explicitly
+introduces pretrained vision feature supervision, while still avoiding
+pretrained text-to-image or generative models. A CUDA smoke test passed
+at batch 4 with approximately \texttt{20.6/46.1GB} VRAM and
+\texttt{2.62} micro-steps/s. The run completed 12,000 micro-steps. Step
+8000 had the best shortlist score, \texttt{26.0092}, and improved
+decoded PSNR over initialization by \texttt{+0.0101} to
+\texttt{+0.0256\ dB} across the four tested presets. Step 11000 was
+strongest on cleaner presets but regressed
+\texttt{photo\_v3\_noise\_mix} by \texttt{-0.0063\ dB}. Fixed contact
+sheets showed almost no visible difference from initialization, and
+missing fine texture remained smoothed. The run is preserved as a
+partial metric/latent success but is not promoted into the public path.
+The completed run is tracked at
+\url{https://wandb.ai/jwheo/LuSIR/runs/nrqhw05u}.
+
+\hypertarget{dual-context-unique-data-stage-2-scale-up}{%
+\section{Dual-Context Unique-Data Stage 2
+Scale-up}\label{dual-context-unique-data-stage-2-scale-up}}
+
+The VGG continuation\textquotesingle s \texttt{+0.0101} to
+\texttt{+0.0256\ dB} cross-preset improvements were not visually
+distinguishable and did not recover missing texture. Capacity and data
+uniqueness are therefore changed together instead of extending the same
+objective again. The previous HQ-balanced manifest had 203,600 rows but
+only 103,550 unique images because DIV2K and Flickr2K were repeatedly
+exposed.
+
+The new manifest adds 30,000 unique LSDIR images for 133,450 unique
+training images plus the unchanged 100-image validation set. The
+predictor retains the selected 55.50M-parameter multiscale model and
+adds a second zero-output- initialized multiscale context branch.
+Partial initialization exactly preserves the selected step 46000 output
+before training while increasing capacity to 119.24M parameters.
+
+The one-L40S smoke test reproduced the initial \texttt{24.48\ dB}
+decoded PSNR and \texttt{0.291} detail ratio. Batch 8 with gradient
+accumulation 4 used approximately \texttt{37.8/46.1GB} VRAM, reached
+\texttt{99\%} GPU utilization, and sustained approximately \texttt{0.75}
+micro-step/s. The completed long run targeted 100,000 micro-steps, or
+25,000 optimizer updates. Evaluation ran every 1,000 micro-steps, while
+ordinary milestone checkpoints were limited to every 5,000 micro-steps
+to stay within the disk budget. The run is tracked at
+\url{https://wandb.ai/jwheo/LuSIR/runs/4akqckxu}.
 
 The run completed all 100,000 micro-steps. Step 98,000 is the automatic
-\texttt{eval/decoded\_psnr} best on \texttt{photo\_detail\_mix}; step 100,000
-is slightly better on stronger degradations. Against selected step 46,000 under
-the same comparison tool, step 98,000 improves \texttt{photo\_detail\_mix} by
-0.1362 dB and \texttt{mild} by 0.1086 dB, while \texttt{photo\_v2} improves by
-0.0540 dB and \texttt{photo\_v3\_noise\_mix} regresses by 0.0356 dB. The final
-checkpoint changes the strong-preset deltas to +0.0668 dB and +0.0132 dB. This
-is a modest reconstruction gain, not a solved perceptual-detail problem.
+\texttt{eval/decoded\_psnr} best checkpoint on
+\texttt{photo\_detail\_mix}; step 100,000 is slightly better on stronger
+degradations. Re-evaluated with the same comparison tool against
+selected step 46,000, the gains are \texttt{+0.1362\ dB} on
+\texttt{photo\_detail\_mix}, \texttt{+0.1086\ dB} on \texttt{mild},
+\texttt{+0.0540\ dB} on \texttt{photo\_v2}, and \texttt{-0.0356\ dB} on
+\texttt{photo\_v3\_noise\_mix} for the best checkpoint. The final
+checkpoint changes those to \texttt{+0.1256}, \texttt{+0.1025},
+\texttt{+0.0668}, and \texttt{+0.0132\ dB}. This is a modest
+reconstruction improvement, not a solved perceptual-detail problem.
 
-\section{High-Frequency Detail Branch v1}
+\hypertarget{high-frequency-detail-branch-v1}{%
+\section{High-Frequency Detail Branch
+v1}\label{high-frequency-detail-branch-v1}}
 
-The latest deterministic detail candidate is image-space, not another Stage 4
-continuation. It runs
-\[
-\mathrm{LR} \rightarrow \mathrm{Stage\ 2\ dual\ condition}
-\rightarrow \mathrm{Stage\ 1\ decoder} \rightarrow \mathrm{base\ SR},
-\]
-then applies a gated high-frequency detail branch using the base SR and
-bicubic-upsampled LR image. Stage 2 and Stage 1 remain frozen, and Stage 3/4
-diffusion sampling is not used.
+The latest deterministic detail candidate is an image-space detail
+branch, not another Stage 4 continuation. The path is:
 
-The branch predicts a bounded RGB residual and a per-pixel gate. The residual
-is projected through a local highpass operation before addition to the base SR,
-limiting the model's route for global color or low-frequency structure changes.
-The output convolution is zero-initialized, so step 0 exactly reproduces the
-frozen Stage 2 + Stage 1 base output. The implementation is in
-\texttt{tools/train/train\_detail\_branch.py},
-\texttt{tools/eval/run\_fixed\_review\_detail\_branch.py}, and
-\texttt{configs/detail\_branch\_v1b\_aug\_photo130k\_lsdir.yaml}.
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{LR {-}\textgreater{} frozen Stage 2 dual{-}context condition {-}\textgreater{} frozen Stage 1 decoder {-}\textgreater{} base SR}
+\NormalTok{base SR + bicubic LR upsample {-}\textgreater{} gated high{-}frequency detail branch {-}\textgreater{} detail SR}
+\end{Highlighting}
+\end{Shaded}
 
-A four-micro-step smoke test completed loading, evaluation, backpropagation,
-one optimizer update, and checkpoint saving. Step 0 matched the base output
-exactly at 24.6188 dB val100 PSNR; after one optimizer update the aggregate
-PSNR delta was +0.00005 dB with 69/100 wins versus base. This is an integration
-check only.
+The branch predicts a bounded RGB residual and a per-pixel gate. The
+residual is projected through a local highpass operation before being
+added to the base SR, which limits the model\textquotesingle s ability
+to change global color or low-frequency structure. The output
+convolution is zero-initialized, so step 0 exactly reproduces the frozen
+Stage 2 + Stage 1 base output.
 
-The first v1 long run was stopped at 7,800 micro-steps, or 0.234 epoch over the
-133,450-image train manifest, because the early residual was safe but visually
-too small. The v1b run kept the same model and loss, but added horizontal flip,
-texture-biased crop retry, and weak HR color jitter while excluding rotation,
-vertical flip, affine/perspective transforms, erasing, and mixup. It completed
-40,000 micro-steps, equal to 10,000 optimizer updates with gradient accumulation
-4, and selected step 39,500 by \texttt{eval/detail\_score}. At that checkpoint,
-base PSNR is 24.6188, detail PSNR is 24.6649, the PSNR delta is +0.0461 dB,
-base SSIM is 0.80013, detail SSIM is 0.80281, the SSIM delta is +0.00268, mean
-PSNR delta is +0.0575, and wins versus base are 98/100. PSNR delta peaks at
-step 38,500 (+0.0489 dB), SSIM delta peaks at step 37,000 (+0.00336), and final
-step 40,000 reaches +0.0444 dB PSNR and +0.00277 SSIM with 98/100 wins. The
-selected step 39,500 is therefore the current detail research candidate. It is
-artifact-light and slightly sharper on texture-heavy crops, but still
-conservative and below GT on fine surface detail. It is not yet the public
-Colab default because the WebUI currently wraps the residual-refiner and
-diffusion single-image runners.
+Implemented files:
 
-\section{Limitations}
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{configs/detail\_branch\_v1\_photo130k\_lsdir.yaml}
+\NormalTok{configs/detail\_branch\_v1b\_aug\_photo130k\_lsdir.yaml}
+\NormalTok{configs/detail\_branch\_v1c\_condition\_open\_photo130k\_lsdir.yaml}
+\NormalTok{configs/detail\_branch\_v1d\_deep3m\_photo130k\_lsdir\_3ep.yaml}
+\NormalTok{tools/train/train\_detail\_branch.py}
+\NormalTok{tools/eval/run\_fixed\_review\_detail\_branch.py}
+\NormalTok{tests/test\_detail\_branch.py}
+\end{Highlighting}
+\end{Shaded}
 
-This is an engineering report for an active experiment, not a claim of a final
-published method. The large-scale completed results are photo-domain only, while
-anime/illustration domain conditioning remains implemented but not yet validated
-at the same scale. The reported sampled PSNR values are useful for internal
-checkpoint comparison, but they are not a full benchmark suite against external
-SR methods. The detail-preserving curriculum improved sampled Stage 4 accuracy,
-but the selected diffusion output remains conservative and does not recover all
-visible fine detail. The latest deterministic detail branch improves the frozen
-Stage 2 base slightly but remains conservative. The highest-signal next
-directions are the \texttt{detail\_v1} fixed visual/perceptual review workflow,
-single-image/tiled detail branch inference for Colab integration, a small
-SSIM/MS-SSIM or gate-opening v1c ablation, and separation of the rare strong
-degradation tail into a robustness curriculum or evaluation slice.
-The completed VGG-feature continuation was not promoted into the public Colab
-default because its small metric gains did not translate into visible detail
-recovery.
+A four-micro-step smoke test completed
+load/eval/backprop/update/checkpoint successfully. Step 0 matched the
+base output exactly at \texttt{24.6188\ dB} val100 PSNR; after one
+optimizer update, the branch produced a tiny \texttt{+0.00005\ dB}
+aggregate PSNR delta and \texttt{69/100} wins versus base. This is only
+an integration check, not a quality claim.
 
-\begin{thebibliography}{9}
-\bibitem{rombach2022latent}
-Robin Rombach, Andreas Blattmann, Dominik Lorenz, Patrick Esser, and Bjorn
-Ommer. High-Resolution Image Synthesis with Latent Diffusion Models. CVPR,
-2022.
+The first v1 run was stopped at 7800 micro-steps, or 0.234 epoch over
+the 133450-image train manifest, because early samples showed that the
+residual was safe but visually too small. The v1b run kept the same
+model and loss, but added horizontal flips, texture-biased crop retry,
+and weak HR color jitter while excluding rotation, vertical flip,
+affine/perspective transforms, erasing, and mixup.
 
-\bibitem{saharia2022sr3}
-Chitwan Saharia et al. Image Super-Resolution via Iterative Refinement. IEEE
-TPAMI, 2022.
-\end{thebibliography}
+The v1b run completed 40000 micro-steps, equal to 10000 optimizer
+updates with \texttt{grad\_accum\_steps:\ 4}. It selected step 39500 by
+\texttt{eval/detail\_score}:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{base PSNR:        24.6188}
+\NormalTok{detail PSNR:      24.6649}
+\NormalTok{PSNR delta:       +0.0461 dB}
+\NormalTok{base SSIM:        0.80013}
+\NormalTok{detail SSIM:      0.80281}
+\NormalTok{SSIM delta:       +0.00268}
+\NormalTok{mean PSNR delta:  +0.0575}
+\NormalTok{wins vs base:     98/100}
+\NormalTok{detail wins:      100/100}
+\end{Highlighting}
+\end{Shaded}
+
+Different metrics peak at nearby checkpoints: PSNR delta is highest at
+step 38500 (\texttt{+0.0489\ dB}), SSIM delta is highest at step 37000
+(\texttt{+0.00336}), and the final step 40000 reaches
+\texttt{+0.0444\ dB} PSNR and \texttt{+0.00277} SSIM with
+\texttt{98/100} wins. The selected step 39500 remains the latest
+preserved public detail artifact because it has the best combined detail
+score from the completed v1b run. Qualitatively, it is artifact-light
+and slightly sharper on texture-heavy crops, but still conservative and
+below GT on fine surface detail. It is not yet the public Colab default
+because the WebUI currently wraps the residual-refiner and diffusion
+single-image runners.
+
+V1c initialized from the selected v1b checkpoint, exposed the frozen
+Stage 2 condition latent directly to the image-space branch, increased
+the bounded residual scale, and opened the gate slightly. The selected
+step 6000 improves the fixed \texttt{photo\_detail\_mix} val100 base by
+\texttt{+0.0554\ dB} aggregate PSNR and \texttt{+0.00332} SSIM with
+\texttt{99/100} wins. This was better than v1b but plateaued quickly
+enough to motivate a controlled capacity test.
+
+V1d keeps the v1c width and objective but increases residual depth from
+8 to 18 blocks, raising branch capacity from \texttt{1.35M} to
+\texttt{3.02M} parameters. The original blocks are copied from v1c step
+6000 and the ten appended blocks are identity-initialized, so the step-0
+output exactly reproduces v1c. The run is configured for 100,086
+micro-steps, exactly three passes over the 133,450-image manifest at
+batch size 4. It remains in progress. At the strict-bicubic snapshot
+selected step 9500, it reaches \texttt{31.8247\ dB}, only
+\texttt{+0.0093\ dB} above v1c. On the ordinary fixed
+\texttt{photo\_detail\_mix} val100 it reaches \texttt{+0.0638\ dB}
+aggregate PSNR and \texttt{+0.00337} SSIM over the frozen base with
+\texttt{100/100} wins. This is a real but still incremental gain; the
+larger branch has not yet resolved the visible fine-texture gap.
+
+\hypertarget{public-artifacts}{%
+\section{Public Artifacts}\label{public-artifacts}}
+
+The latest LuSIR public artifacts are stored in \texttt{jwheo/LuSIR} on
+Hugging Face:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{checkpoints/stage4\_photo100k\_xl\_edge\_b16\_best\_eval\_condition\_decoded.pt}
+\NormalTok{checkpoints/residual\_refiner\_stage2\_xl\_mild\_best\_eval\_refined.pt}
+\NormalTok{checkpoints/stage4\_photo100k\_xl\_teacher\_residual\_photo\_v3\_step\_0002000.pt}
+\NormalTok{checkpoints/stage4\_photo100k\_xl\_teacher\_residual\_photo\_detail\_best8000.pt}
+\NormalTok{checkpoints/residual\_refiner\_stage2\_xl\_photo\_detail\_v2\_best39000.pt}
+\NormalTok{checkpoints/stage2\_photo100k\_multiscale\_hqmix\_step\_0046000.pt}
+\NormalTok{checkpoints/stage2\_photo100k\_multiscale\_hqmix\_perceptual\_step\_0008000.pt}
+\NormalTok{checkpoints/stage2\_photo130k\_lsdir\_dual\_multiscale\_best98000.pt}
+\NormalTok{checkpoints/detail\_branch\_v1b\_aug\_photo130k\_lsdir\_best39500.pt}
+\NormalTok{metrics/stage4\_photo100k\_xl\_edge\_b16\_val100\_t50\_32step\_summary.json}
+\NormalTok{metrics/diagnose\_stage2\_xl\_residuals\_mild\_val100\_summary.json}
+\NormalTok{metrics/residual\_refiner\_stage2\_xl\_mild\_probe\_early\_stop\_summary.json}
+\NormalTok{metrics/eval\_residual\_refiner\_stage2\_xl\_photo\_v3\_noise\_mix\_val100\_summary.json}
+\NormalTok{metrics/stage4\_photo100k\_xl\_teacher\_residual\_photo\_v3\_step2000\_val100\_t25\_32step\_summary.json}
+\NormalTok{metrics/stage4\_photo100k\_xl\_teacher\_residual\_photo\_v3\_step2000\_val100\_t50\_32step\_summary.json}
+\NormalTok{metrics/stage4\_photo100k\_xl\_teacher\_residual\_photo\_detail\_best8000\_val100\_t25\_summary.json}
+\NormalTok{metrics/residual\_refiner\_stage2\_xl\_photo\_detail\_v2\_long\_summary.json}
+\NormalTok{metrics/residual\_refiner\_v2\_best39000\_strength\_sweep\_summary.json}
+\NormalTok{metrics/eval\_residual\_refiner\_v2\_best39000\_stage2\_xl\_mild\_val100\_summary.json}
+\NormalTok{metrics/eval\_residual\_refiner\_v2\_best39000\_stage2\_xl\_photo\_v2\_val100\_summary.json}
+\NormalTok{metrics/eval\_residual\_refiner\_v2\_best39000\_stage2\_xl\_photo\_v3\_noise\_mix\_val100\_summary.json}
+\NormalTok{metrics/stage2\_multiscale\_hqmix\_step46000\_cross\_preset\_summary.json}
+\NormalTok{metrics/stage2\_multiscale\_perceptual\_photo\_detail\_mix\_candidates.json}
+\NormalTok{metrics/stage2\_multiscale\_perceptual\_mild\_candidates.json}
+\NormalTok{metrics/stage2\_multiscale\_perceptual\_photo\_v2\_candidates.json}
+\NormalTok{metrics/stage2\_multiscale\_perceptual\_photo\_v3\_noise\_mix\_candidates.json}
+\NormalTok{metrics/stage2\_photo130k\_lsdir\_dual\_multiscale\_final\_summary.json}
+\NormalTok{metrics/detail\_branch\_v1b\_aug\_photo130k\_lsdir\_summary.json}
+\NormalTok{samples/stage4\_photo100k\_xl\_edge\_b16\_val100\_t50\_32step\_grid\_lr\_bicubic\_sr\_gt.png}
+\NormalTok{samples/diagnose\_stage2\_xl\_residuals\_mild\_val100\_grid.png}
+\NormalTok{samples/residual\_refiner\_stage2\_xl\_mild\_probe\_step500\_grid.png}
+\NormalTok{samples/eval\_residual\_refiner\_stage2\_xl\_photo\_v3\_noise\_mix\_val100\_grid.png}
+\NormalTok{samples/compare\_residual\_refiner\_vs\_stage4\_edge\_0801\_photo\_v3.png}
+\NormalTok{samples/stage4\_photo100k\_xl\_teacher\_residual\_photo\_v3\_step2000\_val100\_t25\_grid.png}
+\NormalTok{samples/stage4\_photo100k\_xl\_teacher\_residual\_photo\_detail\_best8000\_val100\_t25\_grid.png}
+\NormalTok{samples/residual\_refiner\_stage2\_xl\_photo\_detail\_v2\_best39000\_grid.png}
+\NormalTok{samples/eval\_residual\_refiner\_v2\_best39000\_stage2\_xl\_mild\_val100\_grid.png}
+\NormalTok{samples/eval\_residual\_refiner\_v2\_best39000\_stage2\_xl\_photo\_v2\_val100\_grid.png}
+\NormalTok{samples/eval\_residual\_refiner\_v2\_best39000\_stage2\_xl\_photo\_v3\_noise\_mix\_val100\_grid.png}
+\NormalTok{samples/stage2\_multiscale\_hqmix\_checkpoint\_comparison.png}
+\NormalTok{samples/stage2\_multiscale\_perceptual\_photo\_detail\_mix\_candidates.png}
+\NormalTok{samples/stage2\_multiscale\_perceptual\_photo\_v3\_noise\_mix\_candidates.png}
+\NormalTok{samples/stage2\_dual\_lsdir\_photo\_detail\_mix\_best98k\_final100k\_contact\_sheet.png}
+\NormalTok{samples/stage2\_dual\_lsdir\_mild\_best98k\_final100k\_contact\_sheet.png}
+\NormalTok{samples/stage2\_dual\_lsdir\_photo\_v2\_best98k\_final100k\_contact\_sheet.png}
+\NormalTok{samples/stage2\_dual\_lsdir\_photo\_v3\_noise\_mix\_best98k\_final100k\_contact\_sheet.png}
+\NormalTok{samples/detail\_branch\_v1b\_aug\_photo130k\_lsdir\_best39500\_grid.png}
+\NormalTok{configs/diffusion\_photo100k\_xl\_stage4\_condition\_v3\_edge\_b16.yaml}
+\NormalTok{configs/residual\_refiner\_stage2\_xl\_mild\_probe.yaml}
+\NormalTok{configs/diffusion\_photo100k\_xl\_stage4\_condition\_v3\_teacher\_residual\_photo\_v3\_b8\_probe.yaml}
+\NormalTok{configs/diffusion\_photo100k\_xl\_stage4\_condition\_v3\_teacher\_residual\_photo\_detail\_b8\_long.yaml}
+\NormalTok{configs/residual\_refiner\_stage2\_xl\_photo\_detail\_v2\_continue\_40k.yaml}
+\NormalTok{configs/hf/residual\_refiner\_stage2\_xl\_photo\_detail\_v2.yaml}
+\NormalTok{configs/latent\_pretrain\_photo100k\_multiscale\_hqmix\_perceptual\_continue.yaml}
+\NormalTok{configs/latent\_pretrain\_photo130k\_lsdir\_dual\_multiscale\_long.yaml}
+\NormalTok{configs/detail\_branch\_v1\_photo130k\_lsdir.yaml}
+\NormalTok{configs/detail\_branch\_v1b\_aug\_photo130k\_lsdir.yaml}
+\NormalTok{configs/hf/detail\_branch\_v1b\_aug\_photo130k\_lsdir.yaml}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{next-work}{%
+\section{Next Work}\label{next-work}}
+
+The selected residual refiner remains the public Colab default until the
+detail branch has a single-image inference runner and WebUI integration.
+The completed perceptual Stage 2 continuation is not promoted. Candidate
+next steps are:
+
+\begin{itemize}
+\tightlist
+\item
+  continue v1d to at least one epoch unless fixed validation or visual
+  quality clearly regresses, then compare its selected checkpoint
+  against v1b/v1c;
+\item
+  build the formal full-image DIV2K, Set5, Set14, and Urban100 benchmark
+  with Y-channel PSNR, border shave, and benchmark-compatible bicubic
+  generation;
+\item
+  run Real-ESRGAN and other public baselines on the same fixed visual
+  set and add LPIPS, DISTS, and blind human comparison rather than
+  relying on PSNR alone;
+\item
+  if v1d remains visually conservative, change the supervision toward
+  perceptual/adversarial detail recovery instead of increasing branch
+  capacity again;
+\item
+  keep a degradation-aware gate or strong-input guardrail as the primary
+  response to the remaining strong-preset failure tail.
+\end{itemize}
 
 \end{document}

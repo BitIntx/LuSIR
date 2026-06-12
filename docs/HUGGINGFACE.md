@@ -68,6 +68,10 @@ Download the completed detail branch v1b review artifact set:
 python scripts/download_hf_checkpoints.py --preset detail_branch_v1b
 ```
 
+V1b is the latest public detail-branch artifact. V1c and the active v1d
+capacity experiment remain local research runs until checkpoint selection and
+fixed visual review are complete.
+
 Each preset creates the local `checkpoints/`, `configs/`, `metrics/`, and
 `samples/` files expected by its matching inference or review config.
 
@@ -330,9 +334,10 @@ review artifacts:
   --artifact /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v1b_aug_photo130k_lsdir/eval_step_039500/eval_grid_lr_bicubic_base_detail_residual_gt.png=samples/detail_branch_v1b_aug_photo130k_lsdir_best39500_grid.png
 ```
 
-This checkpoint is the current detail research candidate. It is not yet the
-public Colab default because the WebUI does not have a detail branch
-single-image/tiled inference runner.
+This checkpoint is the latest public detail artifact. V1c and the active v1d
+capacity run remain local research candidates. It is not yet the public Colab
+default because the WebUI does not have a detail branch single-image/tiled
+inference runner.
 
 Make the Hub repository public after license files and the model card are in
 place:

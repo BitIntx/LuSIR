@@ -3,6 +3,10 @@
 Snapshot: dual-context Stage 2 scale-up complete and 3.02M-parameter detail
 branch v1d capacity run in progress.
 
+`paper/TECHNICAL_REPORT.md` is the canonical report source.
+`paper/sr_diffusion_report.pdf` and `paper/main.tex` are generated from it with
+`paper/build_report.sh`, so the Markdown and PDF contain the same report.
+
 ## Objective
 
 LuSIR trains a vision-only x4 latent diffusion super-resolution model
@@ -487,6 +491,27 @@ correction strength. This is an architectural and visual assessment, not a
 direct SOTA benchmark. A defensible comparison requires same-input blind A/B
 testing plus LPIPS/DISTS/MANIQA/MUSIQ and user-preference evaluation.
 
+### Representative Visual Examples
+
+The following two examples use the same lime image so that the role of the
+base reconstruction and the later detail branch can be inspected separately.
+They are representative diagnostic examples, not cherry-picked evidence of a
+formal benchmark win.
+
+![The selected multiscale Stage 2 model restores color and large structure from
+the degraded LR input, but remains visibly smoother than ground truth on rind
+texture.](../docs/assets/stage2_multiscale_demo.jpg)
+
+*Figure 1. Multiscale Stage 2 restores the degraded input while retaining a
+visible fine-texture gap to ground truth.*
+
+![The v1b high-frequency detail branch makes a conservative texture correction
+over the dual-context base. It remains artifact-light, but the gap to ground
+truth fine detail is still clear.](../docs/assets/detail_branch_v1b_lime_demo.jpg)
+
+*Figure 2. Detail branch v1b adds a small, artifact-light correction over the
+base; this illustrates both its stability and its conservative behavior.*
+
 ## Stage 2 Multiscale Redesign
 
 A decoded pixel/edge/highpass fine-tuning probe confirmed that the flat Stage 2
@@ -635,8 +660,9 @@ detail wins:      100/100
 Different metrics peak at nearby checkpoints: PSNR delta is highest at step
 38500 (`+0.0489 dB`), SSIM delta is highest at step 37000 (`+0.00336`), and the
 final step 40000 reaches `+0.0444 dB` PSNR and `+0.00277` SSIM with `98/100`
-wins. The selected step 39500 is the current detail research candidate because
-it has the best combined detail score. Qualitatively, it is artifact-light and
+wins. The selected step 39500 remains the latest preserved public detail
+artifact because it has the best combined detail score from the completed v1b
+run. Qualitatively, it is artifact-light and
 slightly sharper on texture-heavy crops, but still conservative and below GT on
 fine surface detail. It is not yet the public Colab default because the WebUI
 currently wraps the residual-refiner and diffusion single-image runners.

@@ -71,6 +71,8 @@ tools/train/train_detail_branch.py
 tools/eval/run_fixed_review_detail_branch.py
 configs/detail_branch_v1_photo130k_lsdir.yaml
 configs/detail_branch_v1b_aug_photo130k_lsdir.yaml
+configs/detail_branch_v1c_condition_open_photo130k_lsdir.yaml
+configs/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml
 configs/hf/detail_branch_v1b_aug_photo130k_lsdir.yaml
 tests/test_detail_branch.py
 ```
@@ -178,7 +180,7 @@ HF path:
   키우는 방향은 아니다.
 - 라임/털/풀/건물 edge처럼 texture-heavy crop에서 얇은 고주파 보강이 보인다.
 - 다만 base와 detail 차이는 작고, GT 수준의 표면 질감 복원에는 아직 못 미친다.
-- 따라서 v1b는 현재 detail research candidate로 보존하되, Colab 기본값으로
+- 따라서 v1b는 최신 public detail artifact로 보존하되, Colab 기본값으로
   승격하려면 단일 이미지/tiled inference runner와 WebUI 통합이 먼저 필요하다.
 
 fixed review set 평가:
@@ -196,6 +198,48 @@ python tools/eval/eval_fixed_review_outputs.py \
   --candidate base=/home/ubuntu/scratch/sr-diffusion/review_outputs/detail_branch_v1b_aug_detail_v1/samples/{id}/base.png \
   --candidate detail=/home/ubuntu/scratch/sr-diffusion/review_outputs/detail_branch_v1b_aug_detail_v1/samples/{id}/detail.png
 ```
+
+## v1c와 v1d capacity 실험
+
+V1b는 안정적이지만 residual/gate가 너무 보수적이었다. V1c는 v1b selected
+checkpoint에서 시작해 frozen Stage 2 condition latent를 branch 입력에 직접
+노출하고, residual scale과 초기 gate를 조금 더 열었다.
+
+```text
+v1c config: configs/detail_branch_v1c_condition_open_photo130k_lsdir.yaml
+selected:   step 6000
+PSNR delta: +0.0554 dB
+SSIM delta: +0.00332
+wins:       99/100
+```
+
+V1d는 v1c의 objective와 width를 유지하고 residual block만 `8 -> 18`로
+늘려 branch 파라미터를 `1.35M -> 3.02M`으로 확장한다. 기존 block은 복사하고
+추가 block은 identity-init하므로 시작 출력은 v1c와 정확히 같다.
+
+```text
+v1d config: configs/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml
+target:     100086 micro-steps = exactly 3 epoch
+active W&B: https://wandb.ai/jwheo/LuSIR/runs/ctg4r7n9
+```
+
+technical report의 selected step `9500` snapshot:
+
+| protocol | result |
+| --- | ---: |
+| `photo_detail_mix` aggregate PSNR delta | +0.0638 dB |
+| `photo_detail_mix` SSIM delta | +0.00337 |
+| `photo_detail_mix` wins | 100/100 |
+| strict-bicubic DIV2K five-crop RGB PSNR | 31.8247 dB |
+| strict-bicubic gain over v1c | +0.0093 dB |
+
+판단:
+
+- v1c와 v1d 모두 v1b보다 수치상 개선됐지만 변화는 여전히 작다.
+- v1d의 추가 1.67M 파라미터가 만든 strict-bicubic 이득은 현재
+  `+0.0093 dB`뿐이다.
+- v1d가 계속 보수적이면 다음 단계는 용량 추가보다 perceptual/detail-only
+  adversarial supervision과 blind visual comparison이다.
 
 ## 학습 목표
 

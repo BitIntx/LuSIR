@@ -4,6 +4,64 @@
 계속 누적하기 위한 기록이다. 최종 성능표가 아니라, 왜 다음 실험을 그렇게 잡았는지
 추적하는 용도다.
 
+## 2026-06-12 detail branch v1c와 v1d capacity 실험
+
+V1b는 안정적이지만 visible residual이 너무 작았다. 같은 branch를 단순히 더
+오래 학습하는 대신, v1c에서는 frozen Stage 2 condition latent를 직접 입력하고
+gate/residual 범위를 조금 열었다.
+
+```text
+v1c selected step: 6000
+photo_detail_mix PSNR delta: +0.0554 dB
+SSIM delta:                 +0.00332
+wins:                       99/100
+```
+
+V1c가 빠르게 plateau한 뒤, 용량 자체가 병목인지 확인하기 위해 v1d를 만들었다.
+V1d는 width/objective를 유지한 채 residual block을 `8 -> 18`, branch
+파라미터를 `1.35M -> 3.02M`으로 늘린다. 새 block은 identity-init하여 시작
+출력을 v1c와 동일하게 유지했다.
+
+```text
+config: configs/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml
+target: 100086 micro-steps = 3 epoch
+W&B:    https://wandb.ai/jwheo/LuSIR/runs/ctg4r7n9
+```
+
+technical report snapshot의 selected step `9500`은 ordinary fixed
+`photo_detail_mix`에서 `+0.0638 dB`, SSIM `+0.00337`, wins `100/100`이다.
+진전은 있지만 여전히 사용자 체감 fine-detail 돌파로 판단할 크기는 아니다.
+
+## 2026-06-12 strict-bicubic 모델 규모 비교
+
+기존 validation preset은 blur/noise/compression 등이 섞여 있어 공개
+bicubic-only SR 논문의 PSNR과 직접 비교할 수 없었다. 또한 기존 `clean`
+preset도 downsample kernel을 bicubic/bilinear/lanczos 중 무작위로 골랐다.
+따라서 추가 훼손 없이 PIL bicubic x4만 쓰는 `benchmark_bicubic` preset을
+추가하고 DIV2K val `0801-0805` center crop 5장으로 진단했다.
+
+| path | loaded params | RGB PSNR |
+| --- | ---: | ---: |
+| bicubic | n/a | 29.5999 |
+| Stage2 XL condition-only | 40.040M | 30.5677 |
+| Stage2 multiscale | 76.591M | 31.6068 |
+| Stage2 dual-context | 140.334M | 31.7411 |
+| dual + detail v1c | 141.689M | 31.8154 |
+| dual + detail v1d step9500 | 143.354M | 31.8247 |
+| Stage4 XL edge sampled | 509.658M | 29.5487 |
+
+판단:
+
+- LuSIR의 `24 dB`대 ordinary 수치는 강한 degradation 조건의 난이도를 크게
+  반영한다. clean bicubic에서는 deterministic 경로가 `31~32 dB`에 도달한다.
+- Stage2 XL에서 multiscale/dual-context로 확장한 것은 실제 reconstruction
+  이득을 만들었다.
+- 509.658M Stage4 XL은 clean input을 과수정해 bicubic보다도 낮다. 파라미터
+  수가 곧 품질 순위는 아니다.
+- v1d는 v1c보다 `+0.0093 dB`라서 3M capacity만으로는 돌파가 아니다.
+- 이 결과는 RGB, 5 center crops, PIL bicubic, border shave 없음 조건이므로
+  정식 SOTA benchmark 주장이 아니다.
+
 ## 2026-06-11 detail branch v1 구현
 
 배경:
@@ -115,7 +173,7 @@ augmentation + 장기 학습은 수치상 진전이 있었다. 특히 wins가 fi
 
 결론:
 
-- v1b step `39500`을 현재 detail research candidate로 보존한다.
+- v1b step `39500`을 최신 public detail artifact로 보존한다.
 - final `40000`이 아니라 `best_eval_detail.pt`를 기준으로 문서/HF/리뷰를 맞춘다.
 - public Colab 기본값은 아직 residual refiner v2다. detail branch를 사용자 기본
   경로로 승격하려면 단일 이미지/tiled inference runner와 WebUI 통합이 필요하다.

@@ -11,8 +11,8 @@
 
 ![Representative deterministic x4 detail branch result](docs/assets/detail_branch_v1b_lime_demo.jpg)
 
-A representative `photo_detail_mix` validation crop from the current
-high-frequency detail branch candidate. Columns are base Stage 2 output, detail
+A representative `photo_detail_mix` validation crop from the latest public
+high-frequency detail branch artifact. Columns are base Stage 2 output, detail
 branch output, and ground truth. The branch is deterministic and runs on top of
 the frozen dual-context LSDIR Stage 2 step 98000 checkpoint plus the frozen
 Stage 1 decoder. It adds a small gated high-frequency residual, improving the
@@ -27,8 +27,11 @@ from `checkpoints/detail_branch_v1b_aug_photo130k_lsdir_best39500.pt` with
 sheet.
 
 LuSIR is a vision-only x4 latent diffusion super-resolution research project.
-Report source: [paper/main.tex](paper/main.tex), with a plain Markdown snapshot
-in [paper/TECHNICAL_REPORT.md](paper/TECHNICAL_REPORT.md).
+The canonical report source is
+[paper/TECHNICAL_REPORT.md](paper/TECHNICAL_REPORT.md);
+[paper/sr_diffusion_report.pdf](paper/sr_diffusion_report.pdf) and
+[paper/main.tex](paper/main.tex) are generated from it with
+`paper/build_report.sh`.
 The current residual-refiner visual review procedure and honest qualitative
 positioning are documented in [docs/VISUAL_REVIEW_KO.md](docs/VISUAL_REVIEW_KO.md).
 
@@ -95,7 +98,7 @@ Research deterministic candidate:
 
 Current detail research candidate:
   LR -> dual-context LSDIR Stage 2 step 98000 -> Stage 1 VAE decoder
-     -> high-frequency detail branch v1b step 39500 -> SR
+     -> high-frequency detail branch v1d capacity run -> SR
 
 Generative comparison:
   LR -> Stage 2 condition encoder -> Stage 3 OR Stage 4 diffusion U-Net
@@ -113,10 +116,11 @@ continuation of multiscale Stage 2 step 46000 is complete but not promoted.
 The later dual-context LSDIR Stage 2 run is also complete: step 98000 is the
 cleaner-preset best checkpoint, while step 100000 is slightly safer on strong
 degradations.
-The high-frequency detail branch v1b run is complete and is the current detail
-research candidate. The selected checkpoint is step 39500 by
-`eval/detail_score`; final step 40000 is slightly lower on that selection
-metric.
+The high-frequency detail branch v1b run is complete and remains the latest
+preserved public detail artifact. V1c opened the condition/gate path and
+selected step 6000. The active v1d capacity experiment expands the branch from
+1.35M to 3.02M parameters and identity-initializes the added blocks, so it
+starts exactly from v1c behavior.
 
 Historical first-pass photo100k Stage 3/4 comparison:
 
@@ -404,15 +408,36 @@ Other checkpoint peaks:
   final step 40000: +0.0444 dB PSNR, +0.00277 SSIM, wins 98/100
 ```
 
-The branch is the current detail research candidate, but not yet the public
-Colab default because the WebUI still wraps the residual-refiner and diffusion
-single-image runners. Its qualitative change is stable and artifact-light but
-still visually conservative; it does not close the fine-texture gap to GT.
+The branch remains the latest preserved public detail artifact, but not the
+public Colab default because the WebUI still wraps the residual-refiner and
+diffusion single-image runners. Its qualitative change is stable and
+artifact-light but still visually conservative; it does not close the
+fine-texture gap to GT.
 Download the preserved review artifact set with:
 
 ```bash
 python scripts/download_hf_checkpoints.py --preset detail_branch_v1b
 ```
+
+V1c and the active v1d capacity experiment continue from v1b:
+
+```text
+v1c selected step 6000:
+  photo_detail_mix PSNR delta +0.0554 dB
+  SSIM delta +0.00332, wins 99/100
+
+v1d strict-bicubic snapshot, selected step 9500:
+  3.02M detail branch, 31.8247 dB
+  +0.0093 dB over v1c on the same five-image diagnostic
+```
+
+A strict PIL-bicubic x4 diagnostic on five DIV2K validation center crops was
+added to separate clean reconstruction capacity from degradation difficulty.
+It is exploratory, not a formal SOTA benchmark. The best deterministic path in
+that snapshot is dual-context + detail v1d at `31.8247 dB`; the much larger
+509.658M Stage4 XL path reaches `29.5487 dB` because its strong-cleanup training
+over-edits clean bicubic inputs. Full results are in
+`metrics/benchmark_bicubic5_lusir_model_comparison.json`.
 
 That teacher-supervision path was then tested in the gated-residual Stage 4
 U-Net on `photo_v3_noise_mix`. It produced a small, stable PSNR cleanup gain,
@@ -1345,8 +1370,9 @@ Stage 4: perceptual / GAN fine-tune
   `checkpoints/detail_branch_v1b_aug_photo130k_lsdir_best39500.pt`
   (`best_eval_detail.pt` locally): PSNR delta `+0.0461 dB`, SSIM delta
   `+0.00268`, mean PSNR delta `+0.0575`, and wins `98/100` versus the frozen
-  base. This is the current detail research candidate, but its visible effect
-  remains conservative.
+  base. This remains the latest public detail artifact; v1c and the active v1d
+  capacity run are newer local research candidates. Its visible effect remains
+  conservative.
 
 Run the Stage 4-lite low-timestep fine-tune:
 

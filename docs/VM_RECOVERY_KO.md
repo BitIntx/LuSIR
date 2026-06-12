@@ -67,6 +67,11 @@ python scripts/download_hf_checkpoints.py --preset stage2_photo130k_lsdir_dual
 python scripts/download_hf_checkpoints.py --preset detail_branch_v1b
 ```
 
+V1b는 최신 public detail artifact다. V1c/v1d는 현재 로컬 연구 run이며 아직
+HF 복구 preset으로 승격하지 않았다. 기존 VM을 지우기 전에는
+`detail_branch_v1c_condition_open_photo130k_lsdir`와
+`detail_branch_v1d_deep3m_photo130k_lsdir_3ep` run/checkpoint를 별도로 보존한다.
+
 다운로드 위치:
 
 ```text
@@ -225,28 +230,29 @@ cp checkpoints/stage4_photo100k_condition_v2_b32_best_eval_condition_decoded.pt 
 
 ## 7. 이어서 할 작업
 
-현재 이어서 할 작업은 새 학습 시작이 아니라 완료된 dual-context LSDIR Stage2
-결과를 눈으로 판정하는 것이다.
+현재 활성 작업은 v1c에서 identity-preserving 초기화한 3.02M detail branch
+v1d capacity run을 관찰하는 것이다.
 
 ```text
-best checkpoint: checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt
-final local checkpoint: latest.pt at step 100000
-W&B: https://wandb.ai/jwheo/LuSIR/runs/4akqckxu
+tmux:   detail-v1d
+config: configs/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml
+W&B:    https://wandb.ai/jwheo/LuSIR/runs/ctg4r7n9
+target: 100086 micro-steps = 3 epoch
 ```
 
-같은 compare tool 기준 selected multiscale step46000 대비:
+technical report snapshot의 selected step `9500`:
 
 ```text
-photo_detail_mix:   best98000 +0.1362 dB, final100000 +0.1256 dB
-mild:               best98000 +0.1086 dB, final100000 +0.1025 dB
-photo_v2:           best98000 +0.0540 dB, final100000 +0.0668 dB
-photo_v3_noise_mix: best98000 -0.0356 dB, final100000 +0.0132 dB
+photo_detail_mix PSNR delta: +0.0638 dB
+photo_detail_mix SSIM delta: +0.00337
+wins:                        100/100
+strict-bicubic five-crop:    31.8247 dB
 ```
 
-HF의 `samples/stage2_dual_lsdir_*_contact_sheet.png` 네 장을 확인해
-step98000을 clean/mild 후보로 둘지, final100000을 strong-tail 후보로 둘지
-판단한다. detail branch v1b는 step39500이 현재 detail research candidate다.
-현재 public Colab 기본 경로는 여전히 residual refiner v2다.
+v1d는 적어도 1 epoch까지 관찰하되 fixed validation 또는 시각 품질이 명확히
+후퇴하면 중단한다. 이후 v1b/v1c/v1d를 같은 fixed review에서 비교하고, 정식
+DIV2K/Set5/Set14/Urban100 benchmark와 public baseline 비교를 진행한다. 현재
+public Colab 기본 경로는 여전히 residual refiner v2다.
 
 ## 8. tmux / 모니터링
 
