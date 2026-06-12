@@ -1,6 +1,7 @@
 # LuSIR: Latent Upscaling via Self-trained Image Restoration without T2I Pretraining
 
-Snapshot: dual-context Stage 2 scale-up and high-frequency detail branch v1b complete.
+Snapshot: dual-context Stage 2 scale-up complete and 3.02M-parameter detail
+branch v1d capacity run in progress.
 
 ## Objective
 
@@ -28,7 +29,7 @@ public Colab default:
   LR -> Stage 2 XL condition encoder -> residual refiner v2 -> Stage 1 decoder
 
 current detail research candidate:
-  LR -> dual-context LSDIR Stage 2 -> Stage 1 decoder -> detail branch v1b
+  LR -> dual-context LSDIR Stage 2 -> Stage 1 decoder -> detail branch v1d
 
 generative comparison:
   LR -> Stage 2 condition encoder -> Stage 3 OR Stage 4 diffusion U-Net
@@ -63,6 +64,76 @@ while shifting the primary objective toward user-facing detail restoration.
 
 The v2 task has a stronger degradation distribution, so its absolute PSNR is
 not directly comparable with the earlier mild photo100k run.
+
+## Exploratory Strict-Bicubic Five-Image Comparison
+
+The ordinary LuSIR validation metrics use task-specific degradations, so their
+absolute PSNR values should not be compared directly with published bicubic-only
+SR benchmarks. A small strict-bicubic diagnostic was added to separate
+degradation difficulty from reconstruction capacity. The new
+`benchmark_bicubic` preset applies only PIL bicubic factor-4 downsampling and
+does not add blur, noise, compression, color changes, or sharpening.
+
+The shared diagnostic protocol is:
+
+```text
+source images: DIV2K validation 0801-0805
+HR input: deterministic center 512x512 crop
+LR input: strict PIL bicubic x4 downsample to 128x128
+metric: mean per-image RGB PSNR over the full 512x512 crop
+deterministic inference: CPU FP32
+diffusion inference: condition initialization, start timestep 50, 32 DDIM steps
+```
+
+Loaded parameter counts include the entire 21.10M-parameter Stage 1 VAE because
+the current runners load the full module, although inference executes only its
+10.52M-parameter decoder. This matches the existing `509.658M` Stage 4 XL
+accounting.
+
+| Inference path | Selected checkpoint | Loaded params | Mean RGB PSNR | vs bicubic |
+| --- | ---: | ---: | ---: | ---: |
+| Bicubic | n/a | n/a | `29.5999` | n/a |
+| Stage 2 XL condition-only | step 72000 | `40.040M` | `30.5677` | `+0.9678` |
+| Stage 2 XL + residual refiner v2 | step 39000 | `48.106M` | `30.8205` | `+1.2206` |
+| Stage 2 multiscale | step 46000 | `76.591M` | `31.6068` | `+2.0069` |
+| Stage 2 dual-context LSDIR | step 98000 | `140.334M` | `31.7411` | `+2.1412` |
+| Dual-context + detail v1b | step 39500 | `141.675M` | `31.8135` | `+2.2136` |
+| Dual-context + detail v1c | step 6000 | `141.689M` | `31.8154` | `+2.2155` |
+| Dual-context + detail v1d, in progress | step 9500 | `143.354M` | `31.8247` | `+2.2248` |
+| Stage 4 XL edge, 32-step sampled | step 4250 | `509.658M` | `29.5487` | `-0.0512` |
+
+The strict-bicubic result confirms that LuSIR already operates in the 30-32 dB
+range when the LR input is not additionally corrupted. The much lower
+`photo_detail_mix` and strong-preset values primarily reflect degradation
+difficulty rather than a direct 6-7 dB gap to bicubic-only SR papers.
+
+The capacity trend is also informative. Stage 2 XL to multiscale gains
+`+1.0391 dB`, and multiscale to dual-context gains another `+0.1343 dB`.
+The detail branches then provide smaller but consistent gains over dual-context:
+v1b `+0.0725 dB`, v1c `+0.0744 dB`, and the in-progress 3.02M v1d
+`+0.0837 dB`. V1d currently improves v1c by only `+0.0093 dB`, so increasing
+detail-branch capacity alone is not yet a perceptual-detail breakthrough.
+
+The 509.7M Stage 4 XL edge checkpoint is the clearest counterexample to treating
+parameter count as a quality ranking. On this clean bicubic diagnostic it falls
+`-0.0512 dB` below bicubic and `-1.0190 dB` below its own Stage 2 XL
+condition-only path. Visual inspection shows that it can add apparent
+sharpness, but it also changes clean input details enough to reduce
+reconstruction fidelity. This is consistent with its strong-noise
+denoise/color-cleanup training role; it should not be routed unconditionally
+for clean inputs.
+
+This diagnostic is deliberately small and is not a published-benchmark claim.
+It uses five center crops, RGB PSNR, no border shave, and PIL bicubic rather
+than the full-image Y-channel/Matlab-bicubic conventions used by many SR
+papers. A formal comparison still requires full DIV2K, Set5, Set14, and
+Urban100 evaluation under each benchmark's exact protocol.
+
+The machine-readable snapshot is stored in:
+
+```text
+metrics/benchmark_bicubic5_lusir_model_comparison.json
+```
 
 ## Stage 2 XL Candidate Selection
 
@@ -526,6 +597,8 @@ Implemented files:
 ```text
 configs/detail_branch_v1_photo130k_lsdir.yaml
 configs/detail_branch_v1b_aug_photo130k_lsdir.yaml
+configs/detail_branch_v1c_condition_open_photo130k_lsdir.yaml
+configs/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml
 tools/train/train_detail_branch.py
 tools/eval/run_fixed_review_detail_branch.py
 tests/test_detail_branch.py
@@ -567,6 +640,25 @@ it has the best combined detail score. Qualitatively, it is artifact-light and
 slightly sharper on texture-heavy crops, but still conservative and below GT on
 fine surface detail. It is not yet the public Colab default because the WebUI
 currently wraps the residual-refiner and diffusion single-image runners.
+
+V1c initialized from the selected v1b checkpoint, exposed the frozen Stage 2
+condition latent directly to the image-space branch, increased the bounded
+residual scale, and opened the gate slightly. The selected step 6000 improves
+the fixed `photo_detail_mix` val100 base by `+0.0554 dB` aggregate PSNR and
+`+0.00332` SSIM with `99/100` wins. This was better than v1b but plateaued
+quickly enough to motivate a controlled capacity test.
+
+V1d keeps the v1c width and objective but increases residual depth from 8 to
+18 blocks, raising branch capacity from `1.35M` to `3.02M` parameters. The
+original blocks are copied from v1c step 6000 and the ten appended blocks are
+identity-initialized, so the step-0 output exactly reproduces v1c. The run is
+configured for 100,086 micro-steps, exactly three passes over the 133,450-image
+manifest at batch size 4. It remains in progress. At the strict-bicubic
+snapshot selected step 9500, it reaches `31.8247 dB`, only `+0.0093 dB` above
+v1c. On the ordinary fixed `photo_detail_mix` val100 it reaches `+0.0638 dB`
+aggregate PSNR and `+0.00337` SSIM over the frozen base with `100/100` wins.
+This is a real but still incremental gain; the larger branch has not yet
+resolved the visible fine-texture gap.
 
 ## Public Artifacts
 
@@ -639,13 +731,15 @@ The selected residual refiner remains the public Colab default until the detail
 branch has a single-image inference runner and WebUI integration. The completed
 perceptual Stage 2 continuation is not promoted. Candidate next steps are:
 
-- run the selected detail branch v1b checkpoint through the full `detail_v1`
-  fixed review workflow against residual refiner v2, including optional LPIPS
-  and DISTS when available;
-- implement the single-image/tiled detail branch inference runner before
-  promoting it to the Colab WebUI default;
-- test a small v1c ablation with weak SSIM/MS-SSIM supervision or slightly more
-  open residual/gate settings, while monitoring whether higher SSIM makes the
-  output smoother;
+- continue v1d to at least one epoch unless fixed validation or visual quality
+  clearly regresses, then compare its selected checkpoint against v1b/v1c;
+- build the formal full-image DIV2K, Set5, Set14, and Urban100 benchmark with
+  Y-channel PSNR, border shave, and benchmark-compatible bicubic generation;
+- run Real-ESRGAN and other public baselines on the same fixed visual set and
+  add LPIPS, DISTS, and blind human comparison rather than relying on PSNR
+  alone;
+- if v1d remains visually conservative, change the supervision toward
+  perceptual/adversarial detail recovery instead of increasing branch capacity
+  again;
 - keep a degradation-aware gate or strong-input guardrail as the primary
   response to the remaining strong-preset failure tail.

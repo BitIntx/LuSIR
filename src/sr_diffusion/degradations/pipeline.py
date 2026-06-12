@@ -57,6 +57,18 @@ def _to_uint8(array: np.ndarray) -> np.ndarray:
     return np.clip(array, 0, 255).round().astype(np.uint8)
 
 
+def _resolve_downsample_mode(name: str) -> Image.Resampling:
+    modes = {
+        "bicubic": Image.Resampling.BICUBIC,
+        "bilinear": Image.Resampling.BILINEAR,
+        "lanczos": Image.Resampling.LANCZOS,
+    }
+    normalized = str(name).lower()
+    if normalized not in modes:
+        raise ValueError(f"Unsupported downsample_mode {name!r}. Available: {sorted(modes)}")
+    return modes[normalized]
+
+
 class DegradationPipeline:
     def __init__(self, config: dict[str, Any], scale: int = 4):
         self.config = config
@@ -97,13 +109,17 @@ class DegradationPipeline:
             hr = hr.filter(ImageFilter.GaussianBlur(radius=radius))
 
         target_size = out_size or max(1, min(hr.size) // self.scale)
-        resample = rng.choice(
-            [
-                Image.Resampling.BICUBIC,
-                Image.Resampling.BILINEAR,
-                Image.Resampling.LANCZOS,
-            ]
-        )
+        downsample_mode = cfg.get("downsample_mode")
+        if downsample_mode is None:
+            resample = rng.choice(
+                [
+                    Image.Resampling.BICUBIC,
+                    Image.Resampling.BILINEAR,
+                    Image.Resampling.LANCZOS,
+                ]
+            )
+        else:
+            resample = _resolve_downsample_mode(str(downsample_mode))
         lr = hr.resize((target_size, target_size), resample=resample)
 
         if float(cfg.get("lr_blur_prob", 0.0)) > 0.0 and _chance(rng, cfg.get("lr_blur_prob", 0.0)):

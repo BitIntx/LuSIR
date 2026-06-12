@@ -1,0 +1,97 @@
+{
+  "benchmark": {
+    "degradation_preset": "benchmark_bicubic",
+    "downsample": "PIL bicubic x4",
+    "hr_crop": "deterministic center 512x512",
+    "metric": "mean per-image RGB PSNR over full crop",
+    "num_images": 5,
+    "sources": [
+      "DIV2K validation 0801",
+      "DIV2K validation 0802",
+      "DIV2K validation 0803",
+      "DIV2K validation 0804",
+      "DIV2K validation 0805"
+    ],
+    "standard_benchmark_comparable": false,
+    "standard_benchmark_caveat": "Exploratory five-crop RGB/PIL-bicubic diagnostic; no Y-channel conversion, border shave, Matlab bicubic, or full-image evaluation."
+  },
+  "results": [
+    {
+      "loaded_params": null,
+      "mean_rgb_psnr": 29.5998957465143,
+      "name": "bicubic",
+      "vs_bicubic": 0.0
+    },
+    {
+      "checkpoint": "checkpoints/stage2_photo100k_v3_noise_xl_b64_step_0072000.pt",
+      "checkpoint_step": 72000,
+      "loaded_params": 40040051,
+      "mean_rgb_psnr": 30.56767502343868,
+      "name": "stage2_xl_condition_only",
+      "vs_bicubic": 0.9677792769243823
+    },
+    {
+      "checkpoint": "residual_refiner_stage2_xl_photo_detail_v2_long/checkpoints/best_eval_refined.pt",
+      "checkpoint_step": 39000,
+      "loaded_params": 48105619,
+      "mean_rgb_psnr": 30.820453643798828,
+      "name": "stage2_xl_residual_refiner_v2",
+      "vs_bicubic": 1.220557897284528
+    },
+    {
+      "checkpoint": "checkpoints/stage2_photo100k_multiscale_hqmix_step_0046000.pt",
+      "checkpoint_step": 46000,
+      "loaded_params": 76591155,
+      "mean_rgb_psnr": 31.606788501003535,
+      "name": "stage2_multiscale",
+      "vs_bicubic": 2.006892754489236
+    },
+    {
+      "checkpoint": "checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt",
+      "checkpoint_step": 98000,
+      "loaded_params": 140334387,
+      "mean_rgb_psnr": 31.741052013258326,
+      "name": "stage2_dual_context_lsdir",
+      "vs_bicubic": 2.1411562667440265
+    },
+    {
+      "checkpoint": "detail_branch_v1b_aug_photo130k_lsdir/checkpoints/best_eval_detail.pt",
+      "checkpoint_step": 39500,
+      "loaded_params": 141675223,
+      "mean_rgb_psnr": 31.81350173950195,
+      "name": "stage2_dual_detail_v1b",
+      "vs_bicubic": 2.2136059929876504
+    },
+    {
+      "checkpoint": "detail_branch_v1c_condition_open_photo130k_lsdir/checkpoints/best_eval_detail.pt",
+      "checkpoint_step": 6000,
+      "loaded_params": 141689047,
+      "mean_rgb_psnr": 31.815444564819337,
+      "name": "stage2_dual_detail_v1c",
+      "vs_bicubic": 2.215548818305037
+    },
+    {
+      "checkpoint": "detail_branch_v1d_deep3m_photo130k_lsdir_3ep/checkpoints/best_eval_detail.pt",
+      "checkpoint_step": 9500,
+      "loaded_params": 143353687,
+      "mean_rgb_psnr": 31.824705123901367,
+      "name": "stage2_dual_detail_v1d_in_progress",
+      "vs_bicubic": 2.224809377387067
+    },
+    {
+      "checkpoint": "checkpoints/stage4_photo100k_xl_edge_b16_best_eval_condition_decoded.pt",
+      "checkpoint_step": 4250,
+      "cpu_eval_elapsed_seconds": 1130.73,
+      "cpu_eval_max_rss_kb": 8093824,
+      "init": "condition",
+      "loaded_params": 509658115,
+      "mean_rgb_psnr": 29.548668461073227,
+      "name": "stage4_xl_edge_32step",
+      "sampling_steps": 32,
+      "start_timestep": 50,
+      "vs_bicubic": -0.05122728544107247,
+      "vs_stage2_xl_condition_only": -1.0190065623654547
+    }
+  ],
+  "snapshot_date": "2026-06-12"
+}

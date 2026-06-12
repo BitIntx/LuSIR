@@ -40,6 +40,17 @@ def test_photo_detail_mix_outputs_expected_size() -> None:
     assert lr.mode == "RGB"
 
 
+def test_benchmark_bicubic_matches_pil_bicubic_downsample() -> None:
+    gradient = np.tile(np.arange(128, dtype=np.uint8), (128, 1))
+    image = Image.fromarray(np.stack([gradient, gradient.T, np.flipud(gradient)], axis=-1), mode="RGB")
+    pipeline = DegradationPipeline.from_preset("benchmark_bicubic", scale=4)
+
+    lr = pipeline.apply(image, rng=random.Random(0), out_size=32)
+    expected = image.resize((32, 32), resample=Image.Resampling.BICUBIC)
+
+    assert np.array_equal(np.asarray(lr), np.asarray(expected))
+
+
 def test_forced_artifact_degradation_stays_rgb_uint8() -> None:
     gradient = np.tile(np.linspace(0, 255, 128, dtype=np.uint8), (128, 1))
     image = Image.fromarray(np.stack([gradient, np.flipud(gradient), gradient.T], axis=-1), mode="RGB")

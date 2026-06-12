@@ -1,4 +1,21 @@
 presets:
+  benchmark_bicubic:
+    downsample_mode: bicubic
+    blur_prob: 0.0
+    lr_blur_prob: 0.0
+    sensor_noise_prob: 0.0
+    gaussian_noise_prob: 0.0
+    poisson_noise_prob: 0.0
+    jpeg_prob: 0.0
+    webp_prob: 0.0
+    ringing_prob: 0.0
+    color_prob: 0.0
+    color_shift_prob: 0.0
+    sharpen_prob: 0.0
+    oversharpen_prob: 0.0
+    anime_line_prob: 0.0
+    banding_prob: 0.0
+
   clean:
     blur_prob: 0.0
     lr_blur_prob: 0.0
