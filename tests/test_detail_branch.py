@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import torch
 
-from tools.train.train_detail_branch import GatedHighFrequencyDetailBranch, training_loss
+from tools.train.train_detail_branch import GatedHighFrequencyDetailBranch, init_model_from_checkpoint, training_loss
 
 
 def test_detail_branch_zero_init_preserves_base_image() -> None:
@@ -44,6 +44,49 @@ def test_detail_branch_accepts_condition_latent() -> None:
     assert refined.shape == base.shape
     assert residual.shape == base.shape
     assert gate.shape == (1, 1, 24, 24)
+
+
+def test_detail_branch_model_init_preserves_old_path_with_condition_latent(tmp_path) -> None:
+    torch.manual_seed(2)
+    old_model = GatedHighFrequencyDetailBranch(
+        hidden_channels=16,
+        num_blocks=1,
+        norm_groups=8,
+        residual_scale=0.18,
+        gate_bias=-2.0,
+        highpass_kernel=5,
+        use_condition_latent=False,
+    )
+    for parameter in old_model.parameters():
+        parameter.data.normal_(mean=0.0, std=0.02)
+    checkpoint = tmp_path / "old.pt"
+    torch.save({"step": 123, "model": old_model.state_dict()}, checkpoint)
+
+    new_model = GatedHighFrequencyDetailBranch(
+        latent_channels=4,
+        hidden_channels=16,
+        num_blocks=1,
+        norm_groups=8,
+        residual_scale=0.18,
+        gate_bias=-2.0,
+        highpass_kernel=5,
+        use_condition_latent=True,
+    )
+    stats = init_model_from_checkpoint(checkpoint, new_model, torch.device("cpu"))
+
+    base = torch.rand(1, 3, 24, 24)
+    bicubic = torch.rand(1, 3, 24, 24)
+    condition = torch.rand(1, 4, 6, 6)
+    domain_id = torch.tensor([1], dtype=torch.long)
+    old_refined, old_residual, old_gate, old_raw = old_model(base, bicubic, domain_id=domain_id)
+    new_refined, new_residual, new_gate, new_raw = new_model(base, bicubic, condition, domain_id)
+
+    assert stats["checkpoint_step"] == 123
+    assert stats["partial_tensors"] == 1
+    assert torch.allclose(new_refined, old_refined, atol=1e-6)
+    assert torch.allclose(new_residual, old_residual, atol=1e-6)
+    assert torch.allclose(new_gate, old_gate, atol=1e-6)
+    assert torch.allclose(new_raw, old_raw, atol=1e-6)
 
 
 def test_detail_branch_training_loss_backpropagates() -> None:

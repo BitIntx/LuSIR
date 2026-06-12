@@ -244,6 +244,53 @@ def load_checkpoint(path: Path, model: nn.Module, optimizer: torch.optim.Optimiz
     return int(checkpoint.get("step", 0))
 
 
+def init_model_from_checkpoint(path: Path, model: nn.Module, device: torch.device) -> dict[str, Any]:
+    checkpoint = torch.load(path, map_location=device)
+    source_state = checkpoint["model"]
+    target_state = model.state_dict()
+    exact_tensors = 0
+    partial_tensors = 0
+    skipped_tensors = 0
+    exact_params = 0
+    partial_params = 0
+
+    for key, source in source_state.items():
+        target = target_state.get(key)
+        if target is None:
+            skipped_tensors += 1
+            continue
+        if tuple(source.shape) == tuple(target.shape):
+            target_state[key] = source.to(device=device, dtype=target.dtype)
+            exact_tensors += 1
+            exact_params += int(source.numel())
+            continue
+        if key == "input.weight" and source.ndim == target.ndim == 4 and source.shape[0] == target.shape[0]:
+            initialized = torch.zeros_like(target)
+            out_channels = min(source.shape[0], target.shape[0])
+            in_channels = min(source.shape[1], target.shape[1])
+            kernel_h = min(source.shape[2], target.shape[2])
+            kernel_w = min(source.shape[3], target.shape[3])
+            initialized[:out_channels, :in_channels, :kernel_h, :kernel_w] = source[
+                :out_channels, :in_channels, :kernel_h, :kernel_w
+            ].to(device=device, dtype=target.dtype)
+            target_state[key] = initialized
+            partial_tensors += 1
+            partial_params += int(out_channels * in_channels * kernel_h * kernel_w)
+            continue
+        skipped_tensors += 1
+
+    model.load_state_dict(target_state)
+    return {
+        "checkpoint": str(path),
+        "checkpoint_step": int(checkpoint.get("step", 0)),
+        "exact_tensors": exact_tensors,
+        "partial_tensors": partial_tensors,
+        "skipped_tensors": skipped_tensors,
+        "exact_params": exact_params,
+        "partial_params": partial_params,
+    }
+
+
 def init_wandb(config: dict[str, Any], output_dir: Path, model: nn.Module) -> Any | None:
     wandb_cfg = config.get("logging", {}).get("wandb", {})
     if not bool(wandb_cfg.get("enabled", False)):
@@ -522,6 +569,10 @@ def main() -> None:
         lr=float(config["train"].get("lr", 1e-4)),
         weight_decay=float(config["train"].get("weight_decay", 0.0)),
     )
+    init_cfg = config.get("initialization", {})
+    if init_cfg.get("checkpoint"):
+        init_stats = init_model_from_checkpoint(Path(init_cfg["checkpoint"]), model, device)
+        print(f"model_init={json.dumps(init_stats, sort_keys=True)}", flush=True)
     start_step = 0
     if args.resume is not None:
         start_step = load_checkpoint(args.resume, model, optimizer, device)

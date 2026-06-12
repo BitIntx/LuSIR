@@ -1,0 +1,95 @@
+project:
+  name: detail_branch_v1c_condition_open_photo130k_lsdir
+  output_dir: /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v1c_condition_open_photo130k_lsdir
+
+logging:
+  wandb:
+    enabled: true
+    project: LuSIR
+    entity: jwheo
+    name: detail_branch_v1c_condition_open_photo130k_lsdir
+    mode: online
+    dir: /home/ubuntu/scratch/sr-diffusion/wandb
+    group: stage-detail
+    job_type: detail-branch
+    tags: [detail-branch, stage2-base, high-frequency, photo130k-lsdir, photo-detail-mix, hflip, texture-crop, hr-color-jitter, condition-latent, gate-open, model-init-v1b, v1c]
+    watch: false
+
+seed: 1337
+
+initialization:
+  checkpoint: /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v1b_aug_photo130k_lsdir/checkpoints/best_eval_detail.pt
+  model_only: true
+  note: copy v1b weights, partially copy input conv, zero-init new condition-latent channels
+
+autoencoder:
+  config: configs/autoencoder_photo10k.yaml
+  checkpoint: checkpoints/stage1_autoencoder_best_eval_recon.pt
+
+condition_encoder:
+  config: configs/latent_pretrain_photo130k_lsdir_dual_multiscale_long.yaml
+  checkpoint: checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt
+  trainable: false
+
+data:
+  manifest: /home/ubuntu/scratch/sr-diffusion/data/manifest_photo130k_lsdir.csv
+  split: train
+  hr_size: 512
+  scale: 4
+  degradation_preset: photo_detail_mix
+  domains:
+    photo: 0
+    anime: 1
+  hflip_prob: 0.5
+  texture_crop_retries: 4
+  texture_crop_downsample: 128
+  hr_color_jitter_prob: 0.25
+  hr_color_jitter: [0.97, 1.03]
+  num_workers: 4
+
+model:
+  image_channels: 3
+  latent_channels: 16
+  hidden_channels: 96
+  num_blocks: 8
+  norm_groups: 32
+  num_domains: 2
+  residual_scale: 0.24
+  gate_bias: -1.5
+  highpass_kernel: 15
+  use_condition_latent: true
+
+loss:
+  image_weight: 1.0
+  residual_target_weight: 0.85
+  highpass_weight: 1.5
+  laplacian_weight: 0.75
+  lowpass_anchor_weight: 1.0
+  gate_l1_weight: 0.0005
+  residual_l1_weight: 0.0005
+  highpass_kernel: 15
+  lowpass_kernel: 31
+  charbonnier_eps: 0.001
+
+train:
+  device: auto
+  dtype: bf16
+  batch_size: 4
+  max_steps: 60000
+  lr: 0.00005
+  weight_decay: 0.0
+  grad_accum_steps: 4
+  log_every: 25
+  save_every: 2000
+
+eval:
+  enabled: true
+  split: val
+  limit: 100
+  batch_size: 4
+  num_workers: 4
+  every: 500
+  run_at_start: true
+  best_metric: eval/detail_score
+  best_mode: max
+  sample_count: 8
