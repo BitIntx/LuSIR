@@ -1031,9 +1031,9 @@ step 38500 (\texttt{+0.0489\ dB}), SSIM delta is highest at step 37000
 earlier public detail artifact because it has the best combined detail
 score from the completed v1b run. Qualitatively, it is artifact-light
 and slightly sharper on texture-heavy crops, but still conservative and
-below GT on fine surface detail. It is not yet the public Colab default
-because the WebUI currently wraps the residual-refiner and diffusion
-single-image runners.
+below GT on fine surface detail. It remains a historical comparison
+artifact; the later selected v1d checkpoint is exposed through the Colab
+WebUI detail runner.
 
 V1c initialized from the selected v1b checkpoint, exposed the frozen
 Stage 2 condition latent directly to the image-space branch, increased
@@ -1148,10 +1148,10 @@ Hugging Face:
 \hypertarget{next-work}{%
 \section{Next Work}\label{next-work}}
 
-The selected residual refiner remains the public Colab default until the
-detail branch has a single-image inference runner and WebUI integration.
-The completed perceptual Stage 2 continuation is not promoted. Candidate
-next steps are:
+The selected residual refiner remains the public Colab default, while
+detail branch v1d is available as a selectable single-image/tiled Colab
+research option. The completed perceptual Stage 2 continuation is not
+promoted. Candidate next steps are:
 
 \begin{itemize}
 \tightlist

@@ -110,8 +110,8 @@ Stage 3. The planned Stage 5 distillation would replace the slower Stage 3/4
 sampler with a faster one; it would not be appended after Stage 4.
 
 The Colab notebook defaults to the deterministic residual refiner v2 path.
-Users can explicitly select Stage 3/4 diffusion comparisons in the notebook,
-but those are not the recommended default. The latest VGG-feature-supervised
+Users can explicitly select the latest detail branch v1d or Stage 3/4 diffusion
+comparisons in the notebook, but those are not the recommended default. The latest VGG-feature-supervised
 continuation of multiscale Stage 2 step 46000 is complete but not promoted.
 The later dual-context LSDIR Stage 2 run is also complete: step 98000 is the
 cleaner-preset best checkpoint, while step 100000 is slightly safer on strong
@@ -449,6 +449,16 @@ Download the selected v1d checkpoint and evaluation artifacts with:
 
 ```bash
 python scripts/download_hf_checkpoints.py --preset detail_branch_v1d
+```
+
+Run the selected deterministic detail path on a user LR image with:
+
+```bash
+python tools/infer/infer_detail_branch.py \
+  --config configs/hf/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml \
+  --input-lr input.png \
+  --output-dir outputs/detail_v1d \
+  --tile --tile-overlap 32 --tile-batch-size 1
 ```
 
 That teacher-supervision path was then tested in the gated-residual Stage 4
@@ -861,8 +871,10 @@ residual diffusion checkpoint is documented as an experiment but not promoted.
 The decoded-detail residual refiner v2 is the current Colab default because it
 beats Stage 2 condition-only across the tested validation presets while keeping
 changes conservative. The notebook now launches a Gradio WebUI: users upload an
-image in the browser, adjust residual strength/tile settings with sliders, and
+image in the browser, adjust correction strength/tile settings with sliders, and
 compare bicubic or Stage 2 condition against SR with a before/after slider.
+The selected detail branch v1d is available as a deterministic research option
+with single-image and tiled inference; residual refiner v2 remains the default.
 The completed dual-context LSDIR Stage 2 research checkpoint can be downloaded
 with `python scripts/download_hf_checkpoints.py --preset stage2_photo130k_lsdir_dual`.
 The selected detail branch v1d research checkpoint can be downloaded with

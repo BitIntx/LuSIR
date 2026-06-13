@@ -667,8 +667,8 @@ wins. The selected step 39500 remains preserved as the earlier public detail
 artifact because it has the best combined detail score from the completed v1b
 run. Qualitatively, it is artifact-light and
 slightly sharper on texture-heavy crops, but still conservative and below GT on
-fine surface detail. It is not yet the public Colab default because the WebUI
-currently wraps the residual-refiner and diffusion single-image runners.
+fine surface detail. It remains a historical comparison artifact; the later
+selected v1d checkpoint is exposed through the Colab WebUI detail runner.
 
 V1c initialized from the selected v1b checkpoint, exposed the frozen Stage 2
 condition latent directly to the image-space branch, increased the bounded
@@ -773,9 +773,10 @@ configs/hf/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml
 
 ## Next Work
 
-The selected residual refiner remains the public Colab default until the detail
-branch has a single-image inference runner and WebUI integration. The completed
-perceptual Stage 2 continuation is not promoted. Candidate next steps are:
+The selected residual refiner remains the public Colab default, while detail
+branch v1d is available as a selectable single-image/tiled Colab research
+option. The completed perceptual Stage 2 continuation is not promoted.
+Candidate next steps are:
 
 - build the formal full-image DIV2K, Set5, Set14, and Urban100 benchmark with
   Y-channel PSNR, border shave, and benchmark-compatible bicubic generation;

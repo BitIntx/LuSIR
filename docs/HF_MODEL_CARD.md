@@ -75,8 +75,8 @@ photo100k_xl_stage4_edge
 
 The public Colab default remains the conservative deterministic residual
 refiner v2 path. Detail v1d is preserved as the latest research detail
-candidate and is not yet integrated into the Colab WebUI single-image/tiled
-runner.
+candidate and is available in the Colab WebUI with single-image and tiled
+inference.
 
 ## Runtime Paths
 

@@ -181,8 +181,9 @@ HF path:
   키우는 방향은 아니다.
 - 라임/털/풀/건물 edge처럼 texture-heavy crop에서 얇은 고주파 보강이 보인다.
 - 다만 base와 detail 차이는 작고, GT 수준의 표면 질감 복원에는 아직 못 미친다.
-- 따라서 v1b는 이전 비교용 public detail artifact로 보존하되, Colab 기본값으로
-  승격하려면 단일 이미지/tiled inference runner와 WebUI 통합이 먼저 필요하다.
+- 따라서 v1b는 이전 비교용 public detail artifact로 보존한다. 이후 선택된 v1d는
+  단일 이미지/tiled inference runner와 Colab WebUI 연구 옵션으로 통합했다.
+  다만 사용자 기본값은 여전히 더 보수적인 residual refiner v2다.
 
 fixed review set 평가:
 

@@ -82,6 +82,16 @@ V1d is the latest public detail-branch artifact. It completed exactly three
 epochs and selected step 99500 by `eval/detail_score`. V1b remains available as
 the earlier comparison artifact.
 
+Run its deterministic single-image/tiled inference path with:
+
+```bash
+python tools/infer/infer_detail_branch.py \
+  --config configs/hf/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml \
+  --input-lr input.png \
+  --output-dir outputs/detail_v1d \
+  --tile --tile-overlap 32 --tile-batch-size 1
+```
+
 Each preset creates the local `checkpoints/`, `configs/`, `metrics/`, and
 `samples/` files expected by its matching inference or review config.
 
@@ -373,8 +383,9 @@ photo_detail_mix val100 SSIM delta: +0.00647
 strict-bicubic five-crop mean PSNR: 31.9513 dB
 ```
 
-The detail branch is still not the public Colab default because the WebUI does
-not have a detail branch single-image/tiled inference runner.
+The detail branch is available as a selectable Colab WebUI research option with
+single-image and tiled inference. The conservative residual refiner v2 remains
+the public Colab default.
 
 Make the Hub repository public after license files and the model card are in
 place:

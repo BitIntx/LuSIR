@@ -33,6 +33,9 @@ W&B:    https://wandb.ai/jwheo/LuSIR/runs/ctg4r7n9
 `+0.1646 dB`, mean PSNR `+0.1888 dB`, SSIM `+0.00647`, wins `99/100`,
 detail wins `100/100`이다. strict-bicubic DIV2K five-crop에서는 `31.9513 dB`,
 base 대비 `+0.2102 dB`, v1c 대비 `+0.1358 dB`, `5/5` wins를 기록했다.
+선택 checkpoint는 단일 이미지/tiled inference runner와 Colab WebUI의
+`Latest detail research - Detail Branch v1d` 옵션으로 노출했다. public 기본값은
+T4와 사용자 안정성을 위해 residual refiner v2를 유지한다.
 
 final step `100086`의 strict-bicubic mean PSNR은 `31.9516 dB`로 선택
 checkpoint와 사실상 같지만, ordinary val aggregate PSNR/SSIM/highpass/detail
@@ -189,8 +192,9 @@ augmentation + 장기 학습은 수치상 진전이 있었다. 특히 wins가 fi
 
 - v1b step `39500`을 이전 비교용 public detail artifact로 보존한다.
 - final `40000`이 아니라 `best_eval_detail.pt`를 기준으로 문서/HF/리뷰를 맞춘다.
-- public Colab 기본값은 아직 residual refiner v2다. detail branch를 사용자 기본
-  경로로 승격하려면 단일 이미지/tiled inference runner와 WebUI 통합이 필요하다.
+- public Colab 기본값은 아직 residual refiner v2다. detail branch v1d는 비교용
+  WebUI 옵션으로 제공하며, 사용자 기본 경로 승격은 정식 benchmark와 human
+  review 이후에 판단한다.
 - 다음 ablation은 무작정 더 길게 돌리기보다 약한 SSIM/MS-SSIM loss, gate/residual
   개방, 또는 degradation-aware detail gate를 비교하는 편이 낫다.
 

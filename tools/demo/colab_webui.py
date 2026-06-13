@@ -20,6 +20,7 @@ OUTPUT_ROOT = ROOT / "outputs" / "colab_webui"
 
 MODEL_OPTIONS = {
     "Recommended quality - Residual Refiner v2": "residual_refiner_v2",
+    "Latest detail research - Detail Branch v1d": "detail_branch_v1d",
     "Sharper diffusion comparison - XL Edge": "photo100k_xl_edge_b16",
     "Smaller diffusion comparison - Stage 4 v2": "photo100k_v2_stage4",
     "Mild diffusion comparison - Stage 4": "photo100k_stage4",
@@ -40,6 +41,15 @@ VARIANTS: dict[str, dict[str, Any]] = {
             "checkpoints/residual_refiner_stage2_xl_photo_detail_v2_best39000.pt",
         ],
         "note": "Deterministic public default: Stage 2 XL -> residual refiner v2 -> Stage 1 decoder.",
+    },
+    "detail_branch_v1d": {
+        "runner": "detail_branch",
+        "config": "configs/hf/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml",
+        "files": [
+            "checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt",
+            "checkpoints/detail_branch_v1d_deep3m_photo130k_lsdir_best99500.pt",
+        ],
+        "note": "Latest deterministic detail research path: dual-context Stage 2 -> Stage 1 decoder -> detail branch v1d.",
     },
     "photo100k_xl_edge_b16": {
         "runner": "diffusion",
@@ -233,9 +243,18 @@ def build_command(
     seed: int,
 ) -> tuple[list[str], str, bool]:
     selected = VARIANTS[variant]
-    is_refiner = selected["runner"] == "residual_refiner"
-    runner_script = "tools/infer/infer_residual_refiner.py" if is_refiner else "tools/infer/infer_diffusion.py"
-    result_file = "refined.png" if is_refiner else "sr_00.png"
+    runner = selected["runner"]
+    uses_strength = runner in {"residual_refiner", "detail_branch"}
+    runner_script = {
+        "residual_refiner": "tools/infer/infer_residual_refiner.py",
+        "detail_branch": "tools/infer/infer_detail_branch.py",
+        "diffusion": "tools/infer/infer_diffusion.py",
+    }[runner]
+    result_file = {
+        "residual_refiner": "refined.png",
+        "detail_branch": "detail.png",
+        "diffusion": "sr_00.png",
+    }[runner]
     input_flag = "--input-lr" if input_mode == "Low-resolution image to upscale" else "--input-hr"
     cmd = [
         "python",
@@ -250,8 +269,10 @@ def build_command(
         "--seed",
         str(int(seed)),
     ]
-    if is_refiner:
+    if runner == "residual_refiner":
         cmd += ["--residual-strength", f"{float(residual_strength):.3f}"]
+    elif runner == "detail_branch":
+        cmd += ["--detail-strength", f"{float(residual_strength):.3f}"]
     else:
         cmd += ["--steps", str(int(steps)), "--progress-every", "4"]
     if input_flag == "--input-lr" and use_tiling:
@@ -262,7 +283,7 @@ def build_command(
             "--tile-batch-size",
             str(int(tile_batch_size)),
         ]
-    return cmd, result_file, is_refiner
+    return cmd, result_file, uses_strength
 
 
 def run_sr(
@@ -286,7 +307,7 @@ def run_sr(
     output_dir = OUTPUT_ROOT / f"{variant}_{timestamp}"
     input_path = save_input(image, output_dir)
     ensure_model(variant, REPO_ID)
-    cmd, result_file, is_refiner = build_command(
+    cmd, result_file, uses_strength = build_command(
         variant=variant,
         input_mode=input_mode,
         input_path=input_path,
@@ -319,8 +340,8 @@ def run_sr(
         f"GPU: {gpu_name}",
         f"model: {model_preset}",
         f"path: {selected['note']}",
-        f"steps: {'deterministic' if is_refiner else int(steps)}",
-        f"residual strength: {float(residual_strength):.2f}" if is_refiner else "residual strength: n/a",
+        f"steps: {'deterministic' if uses_strength else int(steps)}",
+        f"correction strength: {float(residual_strength):.2f}" if uses_strength else "correction strength: n/a",
         f"tiling: {bool(use_tiling)}",
         f"output: {output_dir}",
     ]
@@ -340,6 +361,8 @@ Upload an image, run x4 SR, then use the slider to compare before and after.
 
 Default path: **LR -> Stage 2 XL condition encoder -> residual refiner v2 -> Stage 1 decoder**.
 This deterministic path is the public Colab default and does not run Stage 3/4 diffusion.
+Select **Latest detail research - Detail Branch v1d** to compare the selected
+dual-context Stage 2 + 3.02M-parameter detail branch checkpoint.
 """
         )
         with gr.Row():
@@ -360,7 +383,7 @@ This deterministic path is the public Colab default and does not run Stage 3/4 d
                     maximum=1.25,
                     value=1.0,
                     step=0.05,
-                    label="Residual correction strength (refiner only)",
+                    label="Correction strength (refiner/detail only)",
                 )
                 comparison_left = gr.Radio(
                     choices=["Bicubic x4", "Stage 2 condition", "Input LR nearest"],

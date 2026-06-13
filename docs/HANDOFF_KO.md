@@ -36,7 +36,8 @@ generative:
   최신 보존 연구 후보는 dual-context LSDIR Stage 2 step `98000`이다.
 - 최신 완료/public detail artifact는 v1d step `99500`이다. 3.02M branch를
   정확히 3 epoch 학습했고, v1c에서 identity-preserving 초기화했다.
-- public Colab 기본값은 아직 residual refiner v2다.
+- public Colab 기본값은 아직 residual refiner v2다. detail branch v1d는
+  단일 이미지/tiled inference 연구 옵션으로 선택 가능하다.
 
 ### 최신 완료 detail v1d와 strict-bicubic 진단
 
@@ -207,7 +208,7 @@ generative:
   - full `1.0`: 평균 품질 최고.
   - balanced `0.75`: 평균 이득 대부분 유지, strong preset 승률 `83/100`.
   - conservative `0.5`: strong preset 승률 `86/100`, 평균 이득은 감소.
-  - CLI `--residual-strength`, Colab WebUI `Residual correction strength`
+  - CLI `--residual-strength`, Colab WebUI `Correction strength`
     slider로 선택 가능.
 - 공식 선택 checkpoint:
   `checkpoints/residual_refiner_stage2_xl_photo_detail_v2_best39000.pt`
@@ -456,10 +457,10 @@ Stage 4 XL config: configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
 - fixed sample image logging: LR / GT / Pred.
 - sampled validation/eval tooling.
 - HF artifact upload/download scripts.
-- Colab demo: Gradio WebUI 기반. 유저 업로드가 기본이고, residual strength,
+- Colab demo: Gradio WebUI 기반. 유저 업로드가 기본이고, correction strength,
   tile overlap, tile batch size, diffusion steps를 slider로 조정한다. 출력은
   bicubic/Stage 2 condition/Input LR nearest 중 하나와 SR output을 before/after
-  slider로 비교한다.
+  slider로 비교한다. detail branch v1d도 연구 옵션으로 선택 가능하다.
 - tiled inference:
   - `--tile`
   - 128x128 LR tiles
@@ -851,8 +852,9 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
    human comparison을 추가한다.
 3. v1d가 계속 보수적이므로 branch 파라미터를 더 늘리지 말고 perceptual 또는
    detail-only adversarial supervision을 검토한다.
-4. public Colab 기본 경로는 residual refiner v2를 유지한다. detail branch를
-   승격하려면 단일 이미지/tiled inference runner와 WebUI 옵션이 먼저 필요하다.
+4. public Colab 기본 경로는 residual refiner v2를 유지한다. detail branch v1d는
+   단일 이미지/tiled inference와 WebUI 옵션으로 이미 노출했으며, 기본값 승격은
+   정식 benchmark와 human review 이후에 판단한다.
 
 ## 새 VM에서 Codex에게 줄 짧은 프롬프트
 
@@ -874,8 +876,8 @@ image-space high-frequency detail branch v1d는 정확히 3 epoch를 완료했�
 과수정 때문에 29.5487 dB다. 이 진단은 정식 SOTA benchmark가 아니다.
 다음은 formal benchmark, 동일 입력 public baseline/human review, perceptual 또는
 detail-only adversarial supervision 검토다.
-public Colab 기본값으로 올리려면 detail branch 단일 이미지/tiled inference
-runner가 먼저 필요하다.
+detail branch v1d는 Colab WebUI에서 단일 이미지/tiled inference 연구 옵션으로
+선택 가능하지만, public 기본값은 residual refiner v2를 유지한다.
 Colab demo는 notebooks/sr_diffusion_colab_demo.ipynb 에서 Gradio WebUI로 실행되며,
 업로드/slider 조정/before-after 비교 slider를 제공한다.
 상업적 이용은 금지이고, raw dataset은 GitHub/HF에 올리지 않는다.

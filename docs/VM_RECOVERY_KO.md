@@ -114,10 +114,11 @@ Colab:
 https://colab.research.google.com/github/BitIntx/LuSIR/blob/main/notebooks/sr_diffusion_colab_demo.ipynb
 ```
 
-현재 Colab은 Gradio WebUI를 실행한다. 유저 업로드가 기본이고 residual strength,
+현재 Colab은 Gradio WebUI를 실행한다. 유저 업로드가 기본이고 correction strength,
 tile overlap, tile batch size, diffusion steps는 slider로 조정한다. 결과 화면은
 bicubic/Stage 2 condition/Input LR nearest 중 하나와 SR output을 before/after
-slider로 비교한다.
+slider로 비교한다. residual refiner v2가 public 기본값이며, 선택된 detail branch
+v1d는 단일 이미지/tiled inference 연구 옵션으로 선택할 수 있다.
 
 ## 5. Scratch/data 복구
 
@@ -251,7 +252,8 @@ strict-bicubic five-crop:         31.9513 dB
 
 다음은 정식 DIV2K/Set5/Set14/Urban100 benchmark와 public baseline/blind human
 비교다. 같은 objective의 추가 continuation이나 단순 capacity 증가는 우선하지
-않는다. 현재 public Colab 기본 경로는 여전히 residual refiner v2다.
+않는다. 현재 public Colab 기본 경로는 여전히 residual refiner v2이며, v1d는
+선택 가능한 연구 비교 옵션이다.
 
 ## 8. tmux / 모니터링
 
