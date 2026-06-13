@@ -23,6 +23,11 @@ perceptual = [
   "lpips",
   "DISTS-pytorch",
 ]
+benchmark-baselines = [
+  "basicsr>=1.4.2",
+  "opencv-python",
+  "realesrgan>=0.3.0",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]

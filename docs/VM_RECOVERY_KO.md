@@ -71,6 +71,15 @@ python scripts/download_hf_checkpoints.py --preset detail_branch_v1d
 V1d step `99500`은 최신 public detail artifact다. V1b도 이전 비교용
 `detail_branch_v1b` preset으로 보존되어 있다.
 
+정식 x4 benchmark dataset과 manifest를 scratch에 복구하려면:
+
+```bash
+python scripts/download_sr_benchmarks.py
+```
+
+protocol과 재현 명령은 `docs/SR_BENCHMARK.md`에 있다. dataset 원본은 GitHub나
+HF artifact에 재배포하지 않는다.
+
 다운로드 위치:
 
 ```text

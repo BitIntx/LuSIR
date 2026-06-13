@@ -131,13 +131,59 @@ for clean inputs.
 This diagnostic is deliberately small and is not a published-benchmark claim.
 It uses five center crops, RGB PSNR, no border shave, and PIL bicubic rather
 than the full-image Y-channel/Matlab-bicubic conventions used by many SR
-papers. A formal comparison still requires full DIV2K, Set5, Set14, and
-Urban100 evaluation under each benchmark's exact protocol.
+papers. The formal full-image benchmark described next supersedes it for
+clean-bicubic fidelity comparison.
 
 The machine-readable snapshot is stored in:
 
 ```text
 metrics/benchmark_bicubic5_lusir_model_comparison.json
+```
+
+## Formal Full-Image x4 Benchmark
+
+A formal evaluator now measures full-image DIV2K validation, Set5, Set14, and
+Urban100 using their public x4 bicubic LR pairs. It uses MATLAB-compatible
+BT.601 Y conversion, a four-pixel border shave, and MATLAB-style SSIM. All
+candidate outputs are required to match the HR dimensions exactly; the
+evaluator never hides an error by resizing an output.
+
+| Candidate | DIV2K | Set5 | Set14 | Urban100 |
+| --- | ---: | ---: | ---: | ---: |
+| Bicubic | 28.1044 | 28.4318 | 26.0928 | 23.1412 |
+| RealESRNet x4plus | 28.8250 | 29.3828 | 27.1465 | 24.4613 |
+| RealESRGAN x4plus | 26.6125 | 26.6160 | 25.4216 | 22.6709 |
+| SwinIR classical x4 | **31.0838** | not run | not run | not run |
+| LuSIR refiner v2 | 28.7857 | 28.1896 | 27.3704 | 24.9176 |
+| LuSIR dual-context base | 29.9575 | 31.6621 | 28.2441 | 25.4816 |
+| **LuSIR detail v1d** | **30.1602** | **31.8892** | **28.4123** | **25.8755** |
+
+The table reports Y PSNR; full Y SSIM and RGB PSNR values are preserved in the
+machine-readable results. V1d improves the frozen dual-context base on all four
+datasets. Its Y PSNR gains are `+0.2027`, `+0.2271`, `+0.1682`, and
+`+0.3939 dB`, respectively. Its Y SSIM is `0.83421`, `0.89440`, `0.77998`,
+and `0.77875`. This validates the branch redesign under a standard full-image
+protocol, with the strongest gain on texture-heavy Urban100.
+
+The official SwinIR classical x4 checkpoint reaches `31.0838 / 0.85228` on
+the same DIV2K evaluator. It is `+0.9235 dB` Y PSNR and `+0.01807` Y SSIM
+ahead of detail v1d. The detail branch is doing useful corrective work, but
+this remaining gap identifies the Stage 2/base reconstruction path as the
+primary clean-fidelity bottleneck.
+
+RealESRNet and RealESRGAN target real-world degradation and perceptual quality,
+so their clean-bicubic fidelity scores do not establish a general visual
+quality ranking. Likewise, beating these checkpoints under this protocol does
+not establish classical-SR SOTA. A classical fidelity baseline, perceptual
+metrics, real-degradation evaluation, and blind human review remain necessary.
+The reproducible protocol and commands are in `docs/SR_BENCHMARK.md`; full
+machine-readable results are in:
+
+```text
+metrics/formal_x4_benchmark_lusir_realesr_summary.json
+metrics/formal_x4_benchmark_lusir_realesr_metrics.csv
+metrics/formal_x4_benchmark_div2k_swinir_summary.json
+metrics/formal_x4_benchmark_div2k_swinir_metrics.csv
 ```
 
 ## Stage 2 XL Candidate Selection
@@ -778,11 +824,10 @@ branch v1d is available as a selectable single-image/tiled Colab research
 option. The completed perceptual Stage 2 continuation is not promoted.
 Candidate next steps are:
 
-- build the formal full-image DIV2K, Set5, Set14, and Urban100 benchmark with
-  Y-channel PSNR, border shave, and benchmark-compatible bicubic generation;
-- run Real-ESRGAN and other public baselines on the same fixed visual set and
-  add LPIPS, DISTS, and blind human comparison rather than relying on PSNR
-  alone;
+- close the measured Stage 2/base clean-fidelity gap to SwinIR before
+  increasing detail branch capacity again;
+- add LPIPS, DISTS, real-degradation tests, and blind human comparison rather
+  than relying on clean-bicubic PSNR alone;
 - because v1d remains visually conservative, change the supervision toward
   perceptual/adversarial detail recovery instead of increasing branch capacity
   again;

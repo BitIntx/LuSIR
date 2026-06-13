@@ -56,6 +56,25 @@ The strict-bicubic result is not a formal SOTA benchmark. It uses five
 512x512 center crops, PIL bicubic x4 degradation, full-image RGB PSNR, and no
 border shave.
 
+Formal full-image clean-bicubic benchmark, reported as Y PSNR / Y SSIM:
+
+| Dataset | Dual-context base | Detail v1d |
+| --- | ---: | ---: |
+| DIV2K validation | 29.9575 / 0.82887 | **30.1602 / 0.83421** |
+| Set5 | 31.6621 / 0.88952 | **31.8892 / 0.89440** |
+| Set14 | 28.2441 / 0.77340 | **28.4123 / 0.77998** |
+| Urban100 | 25.4816 / 0.76473 | **25.8755 / 0.77875** |
+
+This uses public x4 LR pairs, MATLAB-compatible BT.601 Y, a four-pixel border
+shave, and MATLAB-style SSIM. V1d improves its frozen base on all four
+datasets. These clean-bicubic fidelity results are not a claim of classical-SR
+SOTA or a substitute for real-degradation and perceptual evaluation.
+
+For scale, the official SwinIR classical x4 checkpoint reaches
+`31.0838 / 0.85228` on the same DIV2K evaluator, `+0.9235 dB` Y PSNR ahead of
+detail v1d. The next clean-fidelity priority is therefore the Stage 2/base
+reconstruction path rather than a larger detail branch.
+
 ## Download
 
 From a LuSIR GitHub clone:

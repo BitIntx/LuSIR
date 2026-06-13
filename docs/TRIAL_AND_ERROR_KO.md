@@ -4,6 +4,35 @@
 계속 누적하기 위한 기록이다. 최종 성능표가 아니라, 왜 다음 실험을 그렇게 잡았는지
 추적하는 용도다.
 
+## 2026-06-13 정식 full-image x4 benchmark
+
+five-crop RGB PSNR 진단만으로는 공개 SR 결과와 비교할 수 없어서 DIV2K
+validation, Set5, Set14, Urban100의 공식 x4 pair를 복구하고 정식 evaluator를
+추가했다. 평가는 MATLAB-compatible BT.601 Y, scale=4 border shave,
+MATLAB-style SSIM을 사용하며, candidate 크기가 HR과 다르면 자동 resize 없이
+실패한다.
+
+| path | DIV2K | Set5 | Set14 | Urban100 |
+| --- | ---: | ---: | ---: | ---: |
+| dual-context base | 29.9575 | 31.6621 | 28.2441 | 25.4816 |
+| detail v1d | **30.1602** | **31.8892** | **28.4123** | **25.8755** |
+| v1d gain | +0.2027 | +0.2271 | +0.1682 | +0.3939 |
+
+표는 Y PSNR이다. V1d는 네 dataset 모두에서 base의 PSNR과 SSIM을 개선했고,
+texture-heavy Urban100에서 가장 큰 이득을 냈다. 따라서 v1d 재설계와 3-epoch
+학습은 정식 protocol에서도 의미가 있었다.
+
+같은 evaluator에서 RealESRNet/RealESRGAN보다 clean fidelity가 높았지만, 두
+모델은 real-world/perceptual 목적이라 이것을 SOTA 주장으로 해석하면 안 된다.
+다음 병목 판단에는 SwinIR 같은 classical baseline, LPIPS/DISTS,
+real-degradation 평가, blind human review가 필요하다.
+
+공식 SwinIR classical x4 checkpoint를 DIV2K validation에 실행하고 같은
+evaluator로 다시 계산한 결과는 `31.0838 / 0.85228`이다. V1d보다 Y PSNR
+`+0.9235 dB`, Y SSIM `+0.01807` 높다. 따라서 detail branch는 제 역할을
+하지만, 다음 clean-fidelity 병목은 branch 용량이 아니라 Stage2/base
+reconstruction 경로다.
+
 ## 2026-06-13 detail branch v1d 3 epoch 완료
 
 V1b는 안정적이지만 visible residual이 너무 작았다. 같은 branch를 단순히 더

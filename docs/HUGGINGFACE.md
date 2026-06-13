@@ -80,7 +80,9 @@ python scripts/download_hf_checkpoints.py --preset detail_branch_v1d
 
 V1d is the latest public detail-branch artifact. It completed exactly three
 epochs and selected step 99500 by `eval/detail_score`. V1b remains available as
-the earlier comparison artifact.
+the earlier comparison artifact. The v1d preset also includes the formal
+full-image x4 benchmark summary and per-image metrics. Benchmark source images
+are not redistributed.
 
 Run its deterministic single-image/tiled inference path with:
 
@@ -124,6 +126,19 @@ python tools/infer/infer_diffusion.py \
 
 The default `tools/infer/infer_diffusion.py` config is the HF-friendly Stage 4 config. It
 uses relative checkpoint paths, so it works outside the original training VM.
+
+Recover and rerun the formal clean-bicubic x4 benchmark with:
+
+```bash
+python scripts/download_sr_benchmarks.py
+python tools/eval/run_sr_benchmark.py \
+  --variant detail_v1d \
+  --manifest /home/ubuntu/scratch/sr-diffusion/benchmarks/x4_benchmark_manifest.csv \
+  --output-dir /home/ubuntu/scratch/sr-diffusion/benchmark_outputs/detail_v1d
+```
+
+The full protocol, external baseline commands, and selected result table are in
+`docs/SR_BENCHMARK.md`.
 
 ## Upload Selected Artifacts
 

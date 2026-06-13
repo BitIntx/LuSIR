@@ -166,6 +166,10 @@ DETAIL_BRANCH_V1D_FILES = [
     "configs/hf/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml",
     "metrics/detail_branch_v1d_deep3m_photo130k_lsdir_3ep_summary.json",
     "metrics/benchmark_bicubic5_detail_v1d_best99500_summary.json",
+    "metrics/formal_x4_benchmark_lusir_realesr_summary.json",
+    "metrics/formal_x4_benchmark_lusir_realesr_metrics.csv",
+    "metrics/formal_x4_benchmark_div2k_swinir_summary.json",
+    "metrics/formal_x4_benchmark_div2k_swinir_metrics.csv",
     "samples/detail_branch_v1d_deep3m_photo130k_lsdir_best99500_grid.png",
     "samples/benchmark_bicubic5_detail_v1d_best99500_grid.png",
 ]

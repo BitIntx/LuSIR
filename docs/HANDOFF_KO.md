@@ -76,6 +76,29 @@ generative:
 - HF preset:
   `python scripts/download_hf_checkpoints.py --preset detail_branch_v1d`
 
+### 정식 full-image x4 benchmark
+
+- dataset: DIV2K validation 100, Set5 5, Set14 14, Urban100 100, 총 219장.
+- protocol: 공개 x4 LR pair, MATLAB-compatible BT.601 Y, 4-pixel shave,
+  MATLAB-style SSIM, full-image tiled inference.
+- detail v1d Y PSNR/SSIM:
+  - DIV2K `30.1602 / 0.83421`
+  - Set5 `31.8892 / 0.89440`
+  - Set14 `28.4123 / 0.77998`
+  - Urban100 `25.8755 / 0.77875`
+- frozen dual-context base 대비 Y PSNR gain:
+  `+0.2027 / +0.2271 / +0.1682 / +0.3939 dB`.
+- v1d는 네 dataset 모두에서 base의 PSNR/SSIM을 개선했다. v1d redesign은
+  정식 full-image protocol에서도 유효하다.
+- 같은 clean-bicubic protocol에서 테스트한 RealESRNet/RealESRGAN보다
+  fidelity는 높지만, real-world/perceptual 목적 모델과의 결과이므로 SOTA
+  주장으로 해석하지 않는다.
+- official SwinIR classical x4 DIV2K: `31.0838 / 0.85228`. V1d보다 Y PSNR
+  `+0.9235 dB`, Y SSIM `+0.01807` 높다. 다음 clean-fidelity 병목은
+  detail branch 용량보다 Stage2/base reconstruction 경로다.
+- protocol/results: `docs/SR_BENCHMARK.md`,
+  `metrics/formal_x4_benchmark_lusir_realesr_summary.json`.
+
 ### 최신 완료 장기 실험
 
 - perceptual continuation의 `+0.01~0.03 dB`는 고정 sample에서 거의 구분되지
@@ -846,15 +869,14 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
 
 우선순위:
 
-1. 정식 full-image DIV2K/Set5/Set14/Urban100 benchmark를 Y-channel, border
-   shave, benchmark-compatible bicubic 규칙으로 구현한다.
-2. Real-ESRGAN 등 공개 baseline을 같은 입력에 실행하고 LPIPS/DISTS 및 blind
-   human comparison을 추가한다.
+1. 측정된 SwinIR 대비 `0.9235 dB` clean-fidelity gap을 줄이도록 Stage2/base
+   reconstruction 경로를 개선한다. detail branch 단순 증량은 우선하지 않는다.
+2. LPIPS/DISTS, real-degradation 평가, blind human comparison을 추가한다.
 3. v1d가 계속 보수적이므로 branch 파라미터를 더 늘리지 말고 perceptual 또는
    detail-only adversarial supervision을 검토한다.
 4. public Colab 기본 경로는 residual refiner v2를 유지한다. detail branch v1d는
    단일 이미지/tiled inference와 WebUI 옵션으로 이미 노출했으며, 기본값 승격은
-   정식 benchmark와 human review 이후에 판단한다.
+   real-degradation 및 human review 이후에 판단한다.
 
 ## 새 VM에서 Codex에게 줄 짧은 프롬프트
 
@@ -874,8 +896,11 @@ image-space high-frequency detail branch v1d는 정확히 3 epoch를 완료했�
 +0.1646 dB, SSIM +0.00647, wins 99/100이다. strict-bicubic DIV2K five-crop
 진단은 31.9513 dB이고, v1c보다 +0.1358 dB다. 509.658M Stage4 XL은 clean input
 과수정 때문에 29.5487 dB다. 이 진단은 정식 SOTA benchmark가 아니다.
-다음은 formal benchmark, 동일 입력 public baseline/human review, perceptual 또는
-detail-only adversarial supervision 검토다.
+정식 full-image x4 benchmark에서 v1d는 DIV2K/Set5/Set14/Urban100 모두
+dual-context base를 개선했다. DIV2K Y PSNR/SSIM은 30.1602/0.83421이며 official
+SwinIR classical x4는 같은 evaluator에서 31.0838/0.85228이다. 다음 핵심은
+측정된 0.9235 dB gap을 줄이도록 Stage2/base reconstruction을 개선하고,
+real-degradation/LPIPS/DISTS/human review를 추가하는 것이다.
 detail branch v1d는 Colab WebUI에서 단일 이미지/tiled inference 연구 옵션으로
 선택 가능하지만, public 기본값은 residual refiner v2를 유지한다.
 Colab demo는 notebooks/sr_diffusion_colab_demo.ipynb 에서 Gradio WebUI로 실행되며,

@@ -122,6 +122,20 @@ blocks, and selects step 99500 after exactly three epochs. It is the latest
 preserved public detail artifact, while the public Colab default remains the
 residual refiner v2 path.
 
+The formal full-image x4 benchmark is now implemented and complete for DIV2K
+validation, Set5, Set14, and Urban100. Detail v1d improves its frozen
+dual-context base on every dataset under MATLAB-compatible Y-channel PSNR/SSIM
+with a four-pixel border shave. Its Y PSNR is `30.1602`, `31.8892`, `28.4123`,
+and `25.8755 dB`, respectively. The largest branch gain is `+0.3939 dB` on
+Urban100. See [`docs/SR_BENCHMARK.md`](docs/SR_BENCHMARK.md) for the protocol,
+external baseline results, and interpretation.
+
+The official SwinIR classical x4 baseline reaches `31.0838 dB` Y PSNR and
+`0.85228` Y SSIM on the same DIV2K validation evaluator, ahead of detail v1d
+by `0.9235 dB` and `0.01807`. This makes the next clean-fidelity priority
+clear: improve the Stage 2/base reconstruction path before increasing detail
+branch capacity again.
+
 Historical first-pass photo100k Stage 3/4 comparison:
 
 ```text
@@ -444,6 +458,14 @@ the same clean diagnostic. Step 99500 is preferred over final step 100086
 because it has the stronger ordinary-val aggregate PSNR, SSIM, highpass
 improvement, and combined detail score. Further same-objective continuation is
 not planned.
+
+The later formal 219-image full-image benchmark confirms the same trend. V1d
+improves the dual-context base on DIV2K, Set5, Set14, and Urban100 by
+`+0.2027`, `+0.2271`, `+0.1682`, and `+0.3939 dB` Y PSNR, respectively, while
+also improving Y SSIM on all four datasets. It outperforms the tested
+RealESRNet/RealESRGAN real-world checkpoints on this clean-bicubic fidelity
+protocol, but that is not a classical-SR SOTA claim or a substitute for
+real-degradation and perceptual evaluation.
 
 Download the selected v1d checkpoint and evaluation artifacts with:
 

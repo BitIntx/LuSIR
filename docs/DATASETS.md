@@ -182,10 +182,11 @@ bicubic x4 downsampling and no blur, noise, compression, sharpening, ringing,
 color shift, or banding. It exists because the older `clean` preset still
 randomly selected bicubic, bilinear, or Lanczos downsampling.
 
-The current five-image DIV2K center-crop result is an exploratory diagnostic,
-not a published-benchmark claim. A formal benchmark still requires full-image
-evaluation, Y-channel PSNR, border shave, and benchmark-compatible bicubic
-generation.
+The five-image DIV2K center-crop result remains an exploratory diagnostic, not
+a published-benchmark claim. The later formal benchmark uses the public
+full-image DIV2K validation, Set5, Set14, and Urban100 x4 pairs with Y-channel
+PSNR/SSIM and border shave. Its protocol and recovery command are in
+`docs/SR_BENCHMARK.md` and `scripts/download_sr_benchmarks.py`.
 
 ## Scaling Photo Data
 

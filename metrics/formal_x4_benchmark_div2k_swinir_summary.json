@@ -1,0 +1,144 @@
+{
+  "candidates": {
+    "RealESRGAN_x4plus": {
+      "by_dataset": {
+        "DIV2K": {
+          "count": 100,
+          "mean_rgb_psnr": 24.805532115038776,
+          "mean_y_psnr": 26.612506801262434,
+          "mean_y_ssim": 0.7576580263026099
+        }
+      },
+      "count": 100,
+      "mean_rgb_psnr": 24.805532115038776,
+      "mean_rgb_psnr_delta_vs_bicubic": -1.8773567908852642,
+      "mean_y_psnr": 26.612506801262434,
+      "mean_y_psnr_delta_vs_bicubic": -1.4919402765666334,
+      "mean_y_ssim": 0.7576580263026099,
+      "mean_y_ssim_delta_vs_bicubic": -0.016776417790001955,
+      "wins_rgb_psnr_vs_bicubic": 7,
+      "wins_y_psnr_vs_bicubic": 12,
+      "wins_y_ssim_vs_bicubic": 24
+    },
+    "RealESRNet_x4plus": {
+      "by_dataset": {
+        "DIV2K": {
+          "count": 100,
+          "mean_rgb_psnr": 26.959102068416268,
+          "mean_y_psnr": 28.825019309256856,
+          "mean_y_ssim": 0.8094136540381708
+        }
+      },
+      "count": 100,
+      "mean_rgb_psnr": 26.959102068416268,
+      "mean_rgb_psnr_delta_vs_bicubic": 0.2762131624922276,
+      "mean_y_psnr": 28.825019309256856,
+      "mean_y_psnr_delta_vs_bicubic": 0.7205722314277888,
+      "mean_y_ssim": 0.8094136540381708,
+      "mean_y_ssim_delta_vs_bicubic": 0.03497920994555872,
+      "wins_rgb_psnr_vs_bicubic": 70,
+      "wins_y_psnr_vs_bicubic": 82,
+      "wins_y_ssim_vs_bicubic": 96
+    },
+    "SwinIR_classical_x4": {
+      "by_dataset": {
+        "DIV2K": {
+          "count": 100,
+          "mean_rgb_psnr": 29.62628048669801,
+          "mean_y_psnr": 31.08375174323328,
+          "mean_y_ssim": 0.8522774051757831
+        }
+      },
+      "count": 100,
+      "mean_rgb_psnr": 29.62628048669801,
+      "mean_rgb_psnr_delta_vs_bicubic": 2.94339158077396,
+      "mean_y_psnr": 31.08375174323328,
+      "mean_y_psnr_delta_vs_bicubic": 2.979304665404207,
+      "mean_y_ssim": 0.8522774051757831,
+      "mean_y_ssim_delta_vs_bicubic": 0.07784296108317122,
+      "wins_rgb_psnr_vs_bicubic": 100,
+      "wins_y_psnr_vs_bicubic": 100,
+      "wins_y_ssim_vs_bicubic": 100
+    },
+    "bicubic": {
+      "by_dataset": {
+        "DIV2K": {
+          "count": 100,
+          "mean_rgb_psnr": 26.682888905924038,
+          "mean_y_psnr": 28.104447077829068,
+          "mean_y_ssim": 0.7744344440926121
+        }
+      },
+      "count": 100,
+      "mean_rgb_psnr": 26.682888905924038,
+      "mean_y_psnr": 28.104447077829068,
+      "mean_y_ssim": 0.7744344440926121
+    },
+    "detail_base": {
+      "by_dataset": {
+        "DIV2K": {
+          "count": 100,
+          "mean_rgb_psnr": 28.46526937059969,
+          "mean_y_psnr": 29.957512323096033,
+          "mean_y_ssim": 0.8288655456675805
+        }
+      },
+      "count": 100,
+      "mean_rgb_psnr": 28.46526937059969,
+      "mean_rgb_psnr_delta_vs_bicubic": 1.7823804646756478,
+      "mean_y_psnr": 29.957512323096033,
+      "mean_y_psnr_delta_vs_bicubic": 1.8530652452669645,
+      "mean_y_ssim": 0.8288655456675805,
+      "mean_y_ssim_delta_vs_bicubic": 0.05443110157496852,
+      "wins_rgb_psnr_vs_bicubic": 100,
+      "wins_y_psnr_vs_bicubic": 100,
+      "wins_y_ssim_vs_bicubic": 100
+    },
+    "detail_v1d": {
+      "by_dataset": {
+        "DIV2K": {
+          "count": 100,
+          "mean_rgb_psnr": 28.67277141075686,
+          "mean_y_psnr": 30.16023303283565,
+          "mean_y_ssim": 0.8342066693587601
+        }
+      },
+      "count": 100,
+      "mean_rgb_psnr": 28.67277141075686,
+      "mean_rgb_psnr_delta_vs_bicubic": 1.9898825048328137,
+      "mean_y_psnr": 30.16023303283565,
+      "mean_y_psnr_delta_vs_bicubic": 2.0557859550065785,
+      "mean_y_ssim": 0.8342066693587601,
+      "mean_y_ssim_delta_vs_bicubic": 0.059772225266148095,
+      "wins_rgb_psnr_vs_bicubic": 100,
+      "wins_y_psnr_vs_bicubic": 100,
+      "wins_y_ssim_vs_bicubic": 100
+    },
+    "refiner_v2": {
+      "by_dataset": {
+        "DIV2K": {
+          "count": 100,
+          "mean_rgb_psnr": 27.274576987315417,
+          "mean_y_psnr": 28.78568137170573,
+          "mean_y_ssim": 0.8193082100143588
+        }
+      },
+      "count": 100,
+      "mean_rgb_psnr": 27.274576987315417,
+      "mean_rgb_psnr_delta_vs_bicubic": 0.5916880813913705,
+      "mean_y_psnr": 28.78568137170573,
+      "mean_y_psnr_delta_vs_bicubic": 0.6812342938766633,
+      "mean_y_ssim": 0.8193082100143588,
+      "mean_y_ssim_delta_vs_bicubic": 0.04487376592174696,
+      "wins_rgb_psnr_vs_bicubic": 89,
+      "wins_y_psnr_vs_bicubic": 90,
+      "wins_y_ssim_vs_bicubic": 98
+    }
+  },
+  "crop_border": 4,
+  "include_rgb_ssim": false,
+  "manifest": "<benchmark_root>/x4_benchmark_manifest.csv",
+  "num_images": 100,
+  "protocol": "official x4 LR pairs; MATLAB BT.601 Y; scale-pixel shave; MATLAB-style SSIM",
+  "workers": 4
+}

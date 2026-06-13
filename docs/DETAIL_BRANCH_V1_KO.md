@@ -251,8 +251,10 @@ HF checkpoint:
 - 흰 점/grid/과도한 sharpening 없이 안정적이지만 GT fine texture를 완전히
   복원하지는 못한다.
 - 같은 objective의 추가 continuation이나 단순 capacity 증가는 우선하지 않는다.
-  다음 단계는 정식 benchmark, public baseline/blind visual comparison,
-  perceptual 또는 detail-only adversarial supervision 검토다.
+  정식 benchmark에서 v1d는 네 dataset 모두 base를 개선했지만, DIV2K에서
+  official SwinIR classical x4보다 `0.9235 dB` 낮다. 다음 단계는
+  Stage2/base reconstruction 개선, blind visual comparison, perceptual 또는
+  detail-only adversarial supervision 검토다.
 
 복구:
 
