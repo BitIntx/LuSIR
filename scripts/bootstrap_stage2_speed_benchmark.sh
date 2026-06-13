@@ -11,6 +11,7 @@ SYNTH_SIZE="${LUSIR_SYNTH_SIZE:-512}"
 NUM_WORKERS="${LUSIR_NUM_WORKERS:-4}"
 BATCH_SIZE="${LUSIR_BENCH_BATCH_SIZE:-auto}"
 GRAD_ACCUM_STEPS="${LUSIR_BENCH_GRAD_ACCUM_STEPS:-auto}"
+TARGET_EFFECTIVE_BATCH="${LUSIR_TARGET_EFFECTIVE_BATCH:-32}"
 SKIP_APT="${LUSIR_SKIP_APT:-0}"
 
 USER_NAME="$(id -un 2>/dev/null || echo root)"
@@ -52,7 +53,9 @@ Environment:
   LUSIR_NUM_WORKERS=N         Default: 4
   LUSIR_BENCH_BATCH_SIZE=N    Default: auto based on visible GPU VRAM.
   LUSIR_BENCH_GRAD_ACCUM_STEPS=N
-                              Default: auto to keep per-GPU effective batch near 32.
+                              Default: auto to keep global effective batch near 32.
+  LUSIR_TARGET_EFFECTIVE_BATCH=N
+                              Default: 32.
   PYTORCH_INDEX_URL=URL       Optional pip index-url for torch/torchvision.
   LUSIR_SKIP_APT=1            Skip apt-get package install.
 EOF
@@ -178,7 +181,10 @@ SCRATCH_PROJECT="${SCRATCH_PROJECT}" \
 NUM_WORKERS="${NUM_WORKERS}" \
 BATCH_SIZE="${BATCH_SIZE}" \
 GRAD_ACCUM_STEPS="${GRAD_ACCUM_STEPS}" \
+NPROC_PER_NODE="${NPROC_PER_NODE}" \
+TARGET_EFFECTIVE_BATCH="${TARGET_EFFECTIVE_BATCH}" \
 python - <<'PY'
+import math
 import os
 from pathlib import Path
 
@@ -192,6 +198,8 @@ scratch_project = Path(os.environ["SCRATCH_PROJECT"]).resolve()
 num_workers = int(os.environ["NUM_WORKERS"])
 batch_size_env = os.environ["BATCH_SIZE"]
 grad_accum_env = os.environ["GRAD_ACCUM_STEPS"]
+nproc_env = os.environ["NPROC_PER_NODE"]
+target_effective_batch = int(os.environ["TARGET_EFFECTIVE_BATCH"])
 
 def auto_batch_size() -> int:
     if not torch.cuda.is_available():
@@ -210,7 +218,13 @@ def auto_batch_size() -> int:
     return 1
 
 batch_size = auto_batch_size() if batch_size_env == "auto" else int(batch_size_env)
-grad_accum_steps = max(1, 32 // batch_size) if grad_accum_env == "auto" else int(grad_accum_env)
+world_size = torch.cuda.device_count() if nproc_env == "auto" else int(nproc_env)
+world_size = max(1, world_size)
+if grad_accum_env == "auto":
+    grad_accum_steps = max(1, math.ceil(target_effective_batch / float(batch_size * world_size)))
+else:
+    grad_accum_steps = int(grad_accum_env)
+effective_batch = batch_size * grad_accum_steps * world_size
 
 with source.open("r", encoding="utf-8") as handle:
     config = yaml.safe_load(handle)
@@ -234,7 +248,10 @@ target.parent.mkdir(parents=True, exist_ok=True)
 with target.open("w", encoding="utf-8") as handle:
     yaml.safe_dump(config, handle, sort_keys=False)
 print(f"wrote {target}")
-print(f"bench_batch_size={batch_size} grad_accum_steps={grad_accum_steps}")
+print(
+    f"bench_batch_size={batch_size} grad_accum_steps={grad_accum_steps} "
+    f"world_size={world_size} effective_batch={effective_batch}"
+)
 PY
 
 echo "== run Stage 2 DDP quick benchmark =="

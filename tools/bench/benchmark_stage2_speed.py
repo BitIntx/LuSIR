@@ -17,6 +17,8 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG = REPO_ROOT / "configs" / "latent_pretrain_photo130k_lsdir_dual_bicubic_fidelity_continue.yaml"
 STEP_RE = re.compile(r"step=(\d+).*steps_per_sec=([0-9.]+)")
+BASELINE_GLOBAL_IMAGES_PER_SEC = 9.2
+BASELINE_LABEL = "single L40S, batch 8, grad_accum 4"
 
 COLORS = {
     "reset": "\033[0m",
@@ -133,6 +135,7 @@ def summary_metrics(
     if batch_size is not None:
         metrics["global_images_per_sec"] = mean * batch_size * world_size
         metrics["local_images_per_sec"] = mean * batch_size
+        metrics["lusir_score"] = 1000.0 * metrics["global_images_per_sec"] / BASELINE_GLOBAL_IMAGES_PER_SEC
     if grad_accum is not None:
         metrics["optimizer_updates_per_sec"] = mean / grad_accum
     if batch_size is not None and grad_accum is not None:
@@ -151,6 +154,7 @@ def format_plain_summary(metrics: dict[str, float]) -> str:
         f"  max_steps_per_sec: {metrics['max_steps_per_sec']:.4f}",
     ]
     if "global_images_per_sec" in metrics:
+        lines.append(f"  lusir_score: {metrics['lusir_score']:.0f}")
         lines.append(f"  global_images_per_sec: {metrics['global_images_per_sec']:.4f}")
         lines.append(f"  local_images_per_sec: {metrics['local_images_per_sec']:.4f}")
     if "optimizer_updates_per_sec" in metrics:
@@ -169,6 +173,11 @@ def format_color_result(metrics: dict[str, float], log_path: Path, output_dir: P
         if "global_images_per_sec" in metrics
         else None
     )
+    score_text = (
+        paint(f"{metrics['lusir_score']:.0f}", "green", enabled)
+        if "lusir_score" in metrics
+        else None
+    )
     lines = [
         "",
         paint("=" * 72, "cyan", enabled),
@@ -180,6 +189,7 @@ def format_color_result(metrics: dict[str, float], log_path: Path, output_dir: P
         f"  range       {metrics['min_steps_per_sec']:.4f} - {metrics['max_steps_per_sec']:.4f} step/s",
     ]
     if images_text is not None:
+        lines.append(f"  score       {score_text}  {paint('(single L40S reference = 1000)', 'dim', enabled)}")
         lines.append(f"  images      {images_text}")
         lines.append(f"  local       {metrics['local_images_per_sec']:.4f} img/s per GPU")
     if "optimizer_updates_per_sec" in metrics:
@@ -190,6 +200,7 @@ def format_color_result(metrics: dict[str, float], log_path: Path, output_dir: P
         [
             f"  log         {log_path}",
             f"  temp        {output_dir} {'(removed)' if removed_output else '(kept)'}",
+            f"  baseline    {BASELINE_LABEL}",
             paint("=" * 72, "cyan", enabled),
         ]
     )

@@ -47,6 +47,7 @@ LUSIR_BENCH_STEPS=250
 LUSIR_BENCH_WARMUP_STEP=50
 LUSIR_BENCH_BATCH_SIZE=auto    # VRAM에 따라 8/4/2/1 자동 선택
 LUSIR_BENCH_GRAD_ACCUM_STEPS=auto
+LUSIR_TARGET_EFFECTIVE_BATCH=32
 LUSIR_WORKDIR=$HOME/LuSIR
 LUSIR_SCRATCH=$HOME/scratch
 LUSIR_VENV=$HOME/venvs/lusir-bench
@@ -62,16 +63,16 @@ VRAM을 사용한다. 그래서 24GB급 GPU에서는 기본 학습 설정 그대
 one-command quick benchmark는 VRAM을 보고 batch size를 자동으로 낮춘다:
 
 ```text
->=44GB: batch_size=8, grad_accum=4
->=28GB: batch_size=4, grad_accum=8
->=18GB: batch_size=2, grad_accum=16
-<18GB:  batch_size=1, grad_accum=32
+>=44GB: batch_size=8
+>=28GB: batch_size=4
+>=18GB: batch_size=2
+<18GB:  batch_size=1
 ```
 
-즉 48GB GPU가 아니어도 benchmark는 시도할 수 있다. 다만 batch가 작아지면
-속도 수치는 `batch_size=8` 기준 L40S와 직접 비교하면 안 되고, 결과 블록의
-`global images/s`, `updates/s`, `eff_batch`를 같이 봐야 한다. `batch=1`에서도
-OOM이 나면 그 VM은 현재 Stage 2 XL 학습용으로는 맞지 않다.
+grad accumulation은 `batch_size * world_size * grad_accum_steps`가
+`LUSIR_TARGET_EFFECTIVE_BATCH=32`에 가깝게 자동 설정된다. 즉 48GB GPU가
+아니어도 benchmark는 시도할 수 있다. `batch=1`에서도 OOM이 나면 그 VM은
+현재 Stage 2 XL 학습용으로는 맞지 않다.
 
 강제로 batch를 지정하려면:
 
@@ -90,23 +91,29 @@ RESULT LuSIR Stage 2 Quick Benchmark
   world_size  2
   mean        2.08 step/s
   median      2.09 step/s
+  score       3617  (single L40S reference = 1000)
   images      33.28 img/s global
   local       16.64 img/s per GPU
-  updates     0.52 optimizer updates/s
-  eff_batch   64
+  updates     1.04 optimizer updates/s
+  eff_batch   32
 ```
 
 여기서 `step/s`는 `train_latent_pretrain.py`의 global micro-step/s다. config의
 기본값은 `batch_size=8`, `grad_accum_steps=4`이므로:
 
 ```text
-global images/s = step/s * 8 * world_size
-optimizer updates/s = step/s / 4
-effective batch = 8 * 4 * world_size
+global images/s = step/s * batch_size * world_size
+optimizer updates/s = step/s / grad_accum_steps
+effective batch = batch_size * grad_accum_steps * world_size
 ```
 
-현재 단일 L40S 기준 quick/real 학습 속도는 warmup 이후 약 `1.15 step/s`다.
-2장 DDP VM이면 통신 overhead 때문에 완전 2배는 아니어도, global images/s와
+`score`는 single L40S, `batch_size=8`, `grad_accum=4`, 약 `9.2 global
+images/s`를 1000점으로 둔 통합 throughput 점수다. batch size가 달라도
+`global images/s` 기준으로 환산하므로 소비자용 benchmark처럼 한 숫자로
+비교하기 쉽다. 그래도 최종 판단에는 `eff_batch`와 OOM 여부를 같이 본다.
+
+현재 단일 L40S 기준 quick/real 학습 속도는 warmup 이후 약 `1.15 step/s`, score
+약 `1000`이다. 2장 DDP VM이면 통신 overhead 때문에 완전 2배는 아니어도, score와
 optimizer updates/s가 단일 GPU보다 충분히 올라가는지를 보면 된다.
 
 ## Manual Rerun
