@@ -132,8 +132,9 @@ without T2I Pretraining}
 \setcounter{tocdepth}{3}
 \tableofcontents
 }
-Snapshot: dual-context Stage 2 scale-up and the 3.02M-parameter detail
-branch v1d three-epoch capacity run complete.
+Snapshot: formal x4 benchmark complete, Stage 2 clean-fidelity
+learning-rate probes complete, and a separate high-frequency residual
+diffusion path selected as the next generative experiment.
 
 \texttt{paper/TECHNICAL\_REPORT.md} is the canonical report source.
 \texttt{paper/sr\_diffusion\_report.pdf} and \texttt{paper/main.tex} are
@@ -384,6 +385,46 @@ results are in:
 \NormalTok{metrics/formal\_x4\_benchmark\_div2k\_swinir\_metrics.csv}
 \end{Highlighting}
 \end{Shaded}
+
+\hypertarget{stage-2-clean-fidelity-continuation-and-learning-rate-probes}{%
+\section{Stage 2 Clean-Fidelity Continuation and Learning-Rate
+Probes}\label{stage-2-clean-fidelity-continuation-and-learning-rate-probes}}
+
+The clean-bicubic continuation starts from dual-context Stage 2
+best98000 and uses \texttt{benchmark\_bicubic} with a PSNR-oriented
+decoded loss balance. Its task-specific val100 decoded-PSNR proxy
+improved gradually:
+
+\begin{longtable}[]{@{}rr@{}}
+\toprule\noalign{}
+Step & Decoded PSNR proxy \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+1000 & \texttt{25.019} \\
+4000 & \texttt{25.031} \\
+9000 & \texttt{25.045} \\
+15000 & \textbf{\texttt{25.057}} \\
+17000 & \texttt{25.054} \\
+\end{longtable}
+
+These values are not directly comparable with the formal full-image
+Y-channel results. The formal DIV2K comparison remains LuSIR detail v1d
+at \texttt{30.1602\ dB} and SwinIR classical x4 at \texttt{31.0838\ dB}.
+
+Separate learning-rate probes preserved the original step-15000
+checkpoint. A \texttt{20x} continuation collapsed to \texttt{15.72\ dB}
+at its first evaluation. A \texttt{5x} continuation remained below the
+original run, while a \texttt{5x} from-initialization run reached
+\texttt{25.033\ dB} at step 4000 versus \texttt{25.031\ dB} for the
+original learning rate. The difference is too small to treat as a gain.
+The original \texttt{5e-6} learning rate is retained, and learning-rate
+scarcity is rejected as the main bottleneck.
+
+The result also clarifies the objective boundary. Same-objective Stage 2
+continuation can refine deterministic fidelity, but it is unlikely to
+produce the visibly new fine texture expected from a generative model.
 
 \hypertarget{stage-2-xl-candidate-selection}{%
 \section{Stage 2 XL Candidate
@@ -1217,18 +1258,27 @@ promoted. Candidate next steps are:
 \begin{itemize}
 \tightlist
 \item
-  close the measured Stage 2/base clean-fidelity gap to SwinIR before
-  increasing detail branch capacity again;
+  preserve the deterministic base as the fidelity path and train a
+  separate gated, bounded high-frequency residual diffusion model for
+  stochastic texture synthesis;
 \item
-  add LPIPS, DISTS, real-degradation tests, and blind human comparison
-  rather than relying on clean-bicubic PSNR alone;
+  select the generative path with LPIPS, DISTS, fixed visual review,
+  high-frequency metrics, lowpass drift, and seed diversity instead of
+  PSNR alone;
 \item
-  because v1d remains visually conservative, change the supervision
-  toward perceptual/adversarial detail recovery instead of increasing
-  branch capacity again;
+  continue Stage 2/base architecture research as a separate
+  clean-fidelity track for the measured \texttt{0.9235\ dB} DIV2K gap,
+  rather than mixing that goal into the generative detail objective;
+\item
+  because v1d remains visually conservative, consider detail-only
+  perceptual or adversarial supervision instead of increasing branch
+  capacity again;
 \item
   keep a degradation-aware gate or strong-input guardrail as the primary
   response to the remaining strong-preset failure tail.
 \end{itemize}
+
+The first residual diffusion probe is specified in
+\texttt{docs/HIGH\_FREQUENCY\_RESIDUAL\_DIFFUSION\_KO.md}.
 
 \end{document}

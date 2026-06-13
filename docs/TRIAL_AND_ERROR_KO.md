@@ -33,6 +33,47 @@ evaluator로 다시 계산한 결과는 `31.0838 / 0.85228`이다. V1d보다 Y P
 하지만, 다음 clean-fidelity 병목은 branch 용량이 아니라 Stage2/base
 reconstruction 경로다.
 
+## 2026-06-13 Stage2 clean-fidelity LR 실험과 목표 분리
+
+clean-bicubic fidelity continuation은 원래 LR `5e-6`에서 다음처럼 완만하게
+올랐다.
+
+```text
+step 1000:  eval/decoded_psnr 25.019
+step 4000:  eval/decoded_psnr 25.031
+step 9000:  eval/decoded_psnr 25.045
+step 15000: eval/decoded_psnr 25.057, current best
+step 17000: eval/decoded_psnr 25.054
+```
+
+이 값은 task-specific val100 학습 proxy이며 정식 full-image Y-channel
+benchmark와 직접 비교하지 않는다. 정식 DIV2K 비교는 LuSIR detail v1d
+`30.1602`, SwinIR `31.0838`, gap `0.9235 dB`다.
+
+LR이 너무 낮아서 plateau한 것인지 확인하기 위해 원본 step15000을 보존하고
+별도 실험을 돌렸다.
+
+| experiment | result | 판단 |
+| --- | ---: | --- |
+| LR `20x` continuation | first eval step15500 `15.72 dB` | 즉시 붕괴, 폐기 |
+| LR `5x` continuation | step15500 `24.963`, step16000 `25.012` | 원본보다 낮음 |
+| LR `5x` from-init | step4000 `25.033` | 원래 LR step4000 `25.031`과 동률 |
+
+결론:
+
+- LR 증가는 clean-fidelity gap이나 visible detail 병목을 바꾸지 못했다.
+- 같은 objective에서 `+0.01 dB`씩 움직이는 것은 모델이 현재 구조/손실의
+  근처 최적점에 들어갔다는 신호다.
+- deterministic base는 fidelity 경로로 보존한다.
+- 다음 별도 학습은 전체 x0를 다시 그리는 Stage4 continuation이 아니라,
+  frozen base 위에 bounded/gated high-frequency residual만 생성하는 stochastic
+  diffusion 경로로 분리한다.
+- 성공 판단은 PSNR 단독이 아니라 LPIPS/DISTS, fixed visual review,
+  high-frequency metric, lowpass drift, seed diversity를 함께 사용한다.
+
+설계 메모:
+`docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md`.
+
 ## 2026-06-13 Stage2 clean-bicubic fidelity continuation 준비
 
 SwinIR gap을 줄이기 위해 새 Stage2 continuation을 별도 config로 분리했다.
@@ -61,7 +102,7 @@ eval:   val100 every 1000 micro steps, run_at_start=false
 - 첫 launch에서 run-at-start val100 eval이 4분 이상 step 1을 잡아 학습을
   시작하지 못했다. 해당 run은 끊고 `eval.every=1000`, `run_at_start=false`로
   조정했다.
-- active run:
+- 당시 초기 launch 기록:
   - tmux `stage2-bicubic-fidelity`
   - W&B <https://wandb.ai/jwheo/LuSIR/runs/6cvkm4cc>
   - log
@@ -70,8 +111,10 @@ eval:   val100 every 1000 micro steps, run_at_start=false
   - restarted run reached step `125` at about `1.15 micro-step/s`, GPU util
     `100%`, VRAM `37.8/46.1GB`
 
-이 continuation이 좋아지면 그 다음은 같은 benchmark에서 v1d를 새 base 위에
-다시 붙일지, 아니면 Stage2/base 자체를 더 키울지 판단한다.
+이후 continuation은 원래 LR에서 step `15000` val100 proxy `25.057`까지
+올랐지만 plateau했고, LR probe도 병목을 바꾸지 못했다. 현재 판단과 다음
+stochastic residual diffusion 방향은 바로 위
+`Stage2 clean-fidelity LR 실험과 목표 분리` 항목에 기록한다.
 
 ## 2026-06-13 detail branch v1d 3 epoch 완료
 

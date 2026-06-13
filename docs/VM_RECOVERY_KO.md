@@ -253,7 +253,7 @@ cp checkpoints/stage4_photo100k_condition_v2_b32_best_eval_condition_decoded.pt 
 
 ## 7. 이어서 할 작업
 
-3.02M detail branch v1d capacity run은 완료됐다.
+3.02M detail branch v1d capacity run과 정식 benchmark는 완료됐다.
 
 ```text
 config:    configs/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml
@@ -273,10 +273,22 @@ wins:                             99/100
 strict-bicubic five-crop:         31.9513 dB
 ```
 
-다음은 정식 DIV2K/Set5/Set14/Urban100 benchmark와 public baseline/blind human
-비교다. 같은 objective의 추가 continuation이나 단순 capacity 증가는 우선하지
-않는다. 현재 public Colab 기본 경로는 여전히 residual refiner v2이며, v1d는
-선택 가능한 연구 비교 옵션이다.
+정식 full-image benchmark에서 v1d DIV2K Y PSNR/SSIM은
+`30.1602 / 0.83421`, SwinIR classical x4는 `31.0838 / 0.85228`이다.
+Stage2 clean-bicubic continuation은 원래 LR `5e-6`에서 step `15000`
+task-specific val100 proxy `25.057`까지 오른 뒤 plateau했다. LR `20x`는
+붕괴했고, LR `5x` from-init은 원래 LR과 사실상 동률이라 LR 부족이 핵심
+병목은 아니다.
+
+다음 별도 학습은 deterministic base를 frozen으로 유지하고 gated/bounded
+high-frequency residual만 생성하는 stochastic diffusion probe다. 시작 전에
+`docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md`를 읽는다. 이 probe는 classical
+PSNR SOTA를 직접 목표로 하지 않으며 LPIPS/DISTS, fixed visual review,
+high-frequency metric, lowpass drift, seed diversity로 판단한다.
+
+현재 public Colab 기본 경로는 여전히 residual refiner v2이며, v1d는 선택 가능한
+연구 비교 옵션이다. 같은 Stage2/detail objective의 단순 장기 continuation이나
+capacity 증가는 우선하지 않는다.
 
 ## 8. tmux / 모니터링
 

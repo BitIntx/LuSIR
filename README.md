@@ -136,11 +136,30 @@ by `0.9235 dB` and `0.01807`. This makes the next clean-fidelity priority
 clear: improve the Stage 2/base reconstruction path before increasing detail
 branch capacity again.
 
-The next Stage2 experiment is isolated in
+The clean-bicubic Stage2 continuation is isolated in
 `configs/latent_pretrain_photo130k_lsdir_dual_bicubic_fidelity_continue.yaml`.
 It continues from dual-context best98000 on `benchmark_bicubic` with a
 PSNR-oriented decoded loss balance and uses the new `stage2_base` benchmark
-runner variant for formal full-image evaluation.
+runner variant for formal full-image evaluation. Its task-specific val100 proxy
+improved gradually from `25.019` at step 1000 to a best `25.057` at step 15000,
+then remained effectively flat (`25.054` at step 17000). These values are not
+the formal full-image Y-channel benchmark above.
+
+Learning-rate probes confirmed that optimization speed is not the main
+bottleneck. A `20x` LR continuation collapsed to `15.72 dB` at its first eval.
+A `5x` LR from-init run reached `25.033` at step 4000 versus `25.031` for the
+original LR, an evaluation-noise-level difference. The original `5e-6` LR is
+therefore retained, but another long same-objective continuation is not
+expected to close the full SwinIR gap or create visibly new texture.
+
+The next generative experiment separates the goals: keep the deterministic
+base for fidelity and train a stochastic gated high-frequency residual
+diffusion path for visible texture synthesis. It must preserve base
+low-frequency structure and will be selected with fixed visual review,
+LPIPS/DISTS, high-frequency metrics, and seed diversity rather than PSNR alone.
+See
+[`docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md`](docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md).
+
 For comparing training throughput on another GPU VM, use the DDP quick benchmark in
 [`docs/GPU_SPEED_BENCHMARK_KO.md`](docs/GPU_SPEED_BENCHMARK_KO.md). The current
 single-L40S reference for this config is about `1.15` micro-steps/s after warmup.
@@ -1435,6 +1454,11 @@ Stage 4: perceptual / GAN fine-tune
   versus the frozen base. The run completed `100086` micro-steps, exactly
   three epochs, and the selected checkpoint is now the latest public detail
   artifact. Its visible effect remains stable and conservative.
+- The next separate generative path is a stochastic high-frequency residual
+  diffusion model. It keeps the deterministic Stage2 base frozen and uses
+  gated bounded residual prediction, residual highpass supervision, and a
+  strong lowpass anchor. It is a perceptual/detail experiment, not another
+  claim that the task-specific val100 PSNR should match a classical-SR table.
 
 Run the Stage 4-lite low-timestep fine-tune:
 

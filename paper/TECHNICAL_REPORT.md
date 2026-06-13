@@ -1,7 +1,8 @@
 # LuSIR: Latent Upscaling via Self-trained Image Restoration without T2I Pretraining
 
-Snapshot: dual-context Stage 2 scale-up and the 3.02M-parameter detail branch
-v1d three-epoch capacity run complete.
+Snapshot: formal x4 benchmark complete, Stage 2 clean-fidelity learning-rate
+probes complete, and a separate high-frequency residual diffusion path selected
+as the next generative experiment.
 
 `paper/TECHNICAL_REPORT.md` is the canonical report source.
 `paper/sr_diffusion_report.pdf` and `paper/main.tex` are generated from it with
@@ -185,6 +186,36 @@ metrics/formal_x4_benchmark_lusir_realesr_metrics.csv
 metrics/formal_x4_benchmark_div2k_swinir_summary.json
 metrics/formal_x4_benchmark_div2k_swinir_metrics.csv
 ```
+
+## Stage 2 Clean-Fidelity Continuation and Learning-Rate Probes
+
+The clean-bicubic continuation starts from dual-context Stage 2 best98000 and
+uses `benchmark_bicubic` with a PSNR-oriented decoded loss balance. Its
+task-specific val100 decoded-PSNR proxy improved gradually:
+
+| Step | Decoded PSNR proxy |
+| ---: | ---: |
+| 1000 | `25.019` |
+| 4000 | `25.031` |
+| 9000 | `25.045` |
+| 15000 | **`25.057`** |
+| 17000 | `25.054` |
+
+These values are not directly comparable with the formal full-image Y-channel
+results. The formal DIV2K comparison remains LuSIR detail v1d at `30.1602 dB`
+and SwinIR classical x4 at `31.0838 dB`.
+
+Separate learning-rate probes preserved the original step-15000 checkpoint.
+A `20x` continuation collapsed to `15.72 dB` at its first evaluation. A `5x`
+continuation remained below the original run, while a `5x` from-initialization
+run reached `25.033 dB` at step 4000 versus `25.031 dB` for the original
+learning rate. The difference is too small to treat as a gain. The original
+`5e-6` learning rate is retained, and learning-rate scarcity is rejected as
+the main bottleneck.
+
+The result also clarifies the objective boundary. Same-objective Stage 2
+continuation can refine deterministic fidelity, but it is unlikely to produce
+the visibly new fine texture expected from a generative model.
 
 ## Stage 2 XL Candidate Selection
 
@@ -824,12 +855,19 @@ branch v1d is available as a selectable single-image/tiled Colab research
 option. The completed perceptual Stage 2 continuation is not promoted.
 Candidate next steps are:
 
-- close the measured Stage 2/base clean-fidelity gap to SwinIR before
-  increasing detail branch capacity again;
-- add LPIPS, DISTS, real-degradation tests, and blind human comparison rather
-  than relying on clean-bicubic PSNR alone;
-- because v1d remains visually conservative, change the supervision toward
-  perceptual/adversarial detail recovery instead of increasing branch capacity
-  again;
+- preserve the deterministic base as the fidelity path and train a separate
+  gated, bounded high-frequency residual diffusion model for stochastic
+  texture synthesis;
+- select the generative path with LPIPS, DISTS, fixed visual review,
+  high-frequency metrics, lowpass drift, and seed diversity instead of PSNR
+  alone;
+- continue Stage 2/base architecture research as a separate clean-fidelity
+  track for the measured `0.9235 dB` DIV2K gap, rather than mixing that goal
+  into the generative detail objective;
+- because v1d remains visually conservative, consider detail-only perceptual
+  or adversarial supervision instead of increasing branch capacity again;
 - keep a degradation-aware gate or strong-input guardrail as the primary
   response to the remaining strong-preset failure tail.
+
+The first residual diffusion probe is specified in
+`docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md`.

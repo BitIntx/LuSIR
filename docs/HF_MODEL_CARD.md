@@ -75,6 +75,18 @@ For scale, the official SwinIR classical x4 checkpoint reaches
 detail v1d. The next clean-fidelity priority is therefore the Stage 2/base
 reconstruction path rather than a larger detail branch.
 
+A clean-bicubic Stage 2 continuation improved its task-specific val100 proxy
+only gradually and plateaued around `25.05`. Learning-rate probes did not
+change that conclusion: `20x` LR collapsed, while a `5x` from-init run matched
+the original LR within evaluation noise. These val100 values are not directly
+comparable with the formal full-image Y-channel benchmark above.
+
+The next separate generative research path keeps the deterministic base frozen
+and trains a gated, bounded high-frequency residual diffusion model. It targets
+visible stochastic texture synthesis and will be evaluated with perceptual,
+high-frequency, fixed visual review, and seed-diversity criteria rather than
+PSNR alone.
+
 ## Download
 
 From a LuSIR GitHub clone:

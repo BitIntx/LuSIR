@@ -254,7 +254,9 @@ HF checkpoint:
   정식 benchmark에서 v1d는 네 dataset 모두 base를 개선했지만, DIV2K에서
   official SwinIR classical x4보다 `0.9235 dB` 낮다. 다음 단계는
   Stage2/base reconstruction 개선, blind visual comparison, perceptual 또는
-  detail-only adversarial supervision 검토다.
+  detail-only adversarial supervision 검토다. Deterministic v1d와 별도로
+  stochastic texture synthesis를 시험하는 다음 설계는
+  `docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md`에 기록한다.
 
 복구:
 

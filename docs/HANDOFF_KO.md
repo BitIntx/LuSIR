@@ -119,16 +119,25 @@ generative:
   실제 Dataset으로 전달하도록 수정했다.
 - `tools/eval/run_sr_benchmark.py --variant stage2_base`를 추가했다. 새 Stage2
   checkpoint가 나오면 formal x4 benchmark에 바로 투입할 수 있다.
-- active run:
+- 현재 선택/active run:
   - tmux: `stage2-bicubic-fidelity`
-  - W&B: <https://wandb.ai/jwheo/LuSIR/runs/hpxmjjrz>
+  - W&B: <https://wandb.ai/jwheo/LuSIR/runs/xf7xdefw>
   - log:
     `/home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_bicubic_fidelity_continue/train_console.log`
-  - current restart uses unbuffered Python logging. By step `50`, speed
-    stabilized at about `1.15 micro-step/s`, GPU util `100%`, VRAM
-    `37.8/46.1GB`.
-  - expected wall time for 60000 micro steps: roughly `19-22h` including eval
-    overhead.
+  - selected preserved checkpoint before LR probes:
+    `.../checkpoints/step_0015000.pt`
+  - val100 proxy best: step `15000`, decoded PSNR `25.057`
+  - step `17000`: decoded PSNR `25.054`; 사실상 plateau
+  - speed: 약 `1.15 micro-step/s`, GPU util `99-100%`, VRAM `37.8/46.1GB`.
+- 주의: 위 `25.05`대 값은 task-specific val100 proxy다. 정식 full-image
+  Y-channel benchmark의 LuSIR `30.1602` 및 SwinIR `31.0838`과 직접 비교하지
+  않는다.
+- LR probe 결론:
+  - `20x` continuation은 첫 eval에서 `15.72 dB`로 붕괴했다.
+  - `5x` continuation은 원본보다 낮았다.
+  - `5x` from-init step `4000`은 `25.033`, 원래 LR step `4000`은
+    `25.031`로 사실상 동률이다.
+  - 따라서 원래 LR `5e-6`로 복귀했다. LR 부족이 핵심 병목은 아니다.
 - reproducible GPU throughput comparison commands are documented in
   `docs/GPU_SPEED_BENCHMARK_KO.md`. The quick benchmark now runs the real
   Stage2 `train_latent_pretrain.py` DDP path via `torchrun` and automatically
@@ -905,12 +914,16 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
 
 우선순위:
 
-1. 측정된 SwinIR 대비 `0.9235 dB` clean-fidelity gap을 줄이도록 Stage2/base
-   reconstruction 경로를 개선한다. detail branch 단순 증량은 우선하지 않는다.
-2. LPIPS/DISTS, real-degradation 평가, blind human comparison을 추가한다.
-3. v1d가 계속 보수적이므로 branch 파라미터를 더 늘리지 말고 perceptual 또는
-   detail-only adversarial supervision을 검토한다.
-4. public Colab 기본 경로는 residual refiner v2를 유지한다. detail branch v1d는
+1. 현재 Stage2 continuation은 원래 LR로 보존하되, 같은 objective의 장기
+   continuation이 SwinIR gap이나 visible detail을 해결할 것으로 기대하지 않는다.
+2. 다음 별도 학습은 frozen deterministic base 위에 bounded/gated
+   high-frequency residual만 생성하는 stochastic diffusion probe다. 설계:
+   `docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md`.
+3. 생성형 probe는 PSNR 단독이 아니라 LPIPS/DISTS, fixed visual review,
+   lowpass drift, high-frequency metric, seed diversity로 판단한다.
+4. clean-fidelity gap 개선은 별도 Stage2/base 구조 연구로 유지하고,
+   생성형 detail 목표와 섞지 않는다.
+5. public Colab 기본 경로는 residual refiner v2를 유지한다. detail branch v1d는
    단일 이미지/tiled inference와 WebUI 옵션으로 이미 노출했으며, 기본값 승격은
    real-degradation 및 human review 이후에 판단한다.
 
@@ -934,9 +947,16 @@ image-space high-frequency detail branch v1d는 정확히 3 epoch를 완료했�
 과수정 때문에 29.5487 dB다. 이 진단은 정식 SOTA benchmark가 아니다.
 정식 full-image x4 benchmark에서 v1d는 DIV2K/Set5/Set14/Urban100 모두
 dual-context base를 개선했다. DIV2K Y PSNR/SSIM은 30.1602/0.83421이며 official
-SwinIR classical x4는 같은 evaluator에서 31.0838/0.85228이다. 다음 핵심은
-측정된 0.9235 dB gap을 줄이도록 Stage2/base reconstruction을 개선하고,
-real-degradation/LPIPS/DISTS/human review를 추가하는 것이다.
+SwinIR classical x4는 같은 evaluator에서 31.0838/0.85228이다.
+clean-bicubic Stage2 continuation은 원래 LR 5e-6에서 step15000 val100 proxy
+25.057까지 오른 뒤 plateau했다. LR20x는 15.72로 붕괴했고, LR5x from-init
+step4000은 25.033으로 원래 LR의 25.031과 사실상 같아 LR 부족이 핵심 병목은
+아니다. 현재 원래 LR continuation은 step15000 checkpoint에서 복귀해
+stage2-bicubic-fidelity tmux로 돌고 있다. 다음 별도 학습은 deterministic
+base를 frozen으로 두고 gated/bounded high-frequency residual만 생성하는
+stochastic diffusion probe다. 설계는 docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md
+에 있다. 생성형 목표는 classical PSNR과 분리하고 LPIPS/DISTS/fixed visual
+review/high-frequency metric/seed diversity로 판단한다.
 detail branch v1d는 Colab WebUI에서 단일 이미지/tiled inference 연구 옵션으로
 선택 가능하지만, public 기본값은 residual refiner v2를 유지한다.
 Colab demo는 notebooks/sr_diffusion_colab_demo.ipynb 에서 Gradio WebUI로 실행되며,
