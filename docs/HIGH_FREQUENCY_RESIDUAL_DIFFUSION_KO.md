@@ -194,6 +194,46 @@ initial checkpoint: wavelet_residual_diffusion_v2_probe step1000
 PSNR을 약 `18 dB -> 22.85 dB`, residual energy ratio를 `10배대 -> 3.95배`,
 lowpass drift를 `0.006대 -> 0.00157`로 개선했다.
 
+condition-start probe는 step `3000`, 즉 `375` optimizer update에서 정상
+종료했다. `start_timestep=50` 평가는 학습 내내 단조롭게 개선됐다.
+
+```text
+step 1250: PSNR 23.1287, signed wavelet L1 0.05855
+step 2000: PSNR 23.9915, signed wavelet L1 0.05118
+step 3000: PSNR 25.0289, signed wavelet L1 0.04331
+```
+
+그러나 step3000 checkpoint의 sampling 강도 비교 결과는 아직 모든 설정에서
+v1d base보다 나빴다.
+
+| start timestep | sampled PSNR | delta vs v1d | residual energy ratio | 판단 |
+| ---: | ---: | ---: | ---: | --- |
+| 15 | 28.1239 | -0.5768 dB | 0.708 | 시각적으로 안전하지만 명확한 유효 detail 없음 |
+| 25 | 27.4752 | -1.2256 dB | 1.116 | 미세 입자 증가, 승격 불가 |
+| 50 | 25.0289 | -3.6719 dB | 2.503 | 균일한 노이즈가 강함 |
+
+구조와 저주파는 유지됐지만 Laplacian/highpass GT 오차도 모든 강도에서
+악화했다. 표현 공간 실패로 단정하기에는 optimizer update가 너무 적고,
+noise/signed-wavelet 오차가 계속 감소 중이다. 동일 구조를 step `20000`까지
+이어 학습하고 `t=25`를 중간 stress test로 추적한다.
+
+```text
+config: configs/wavelet_residual_diffusion_v2_condition_start_long.yaml
+resume: condition-start probe step3000
+W&B:    https://wandb.ai/jwheo/LuSIR/runs/zh1fktq4
+```
+
+첫 장기-run `t=25` 평가는 step3000 대비 계속 개선됐다.
+
+```text
+step3000: PSNR 27.4752, delta -1.2256 dB, signed wavelet L1 0.02788
+step4000: PSNR 27.7734, delta -0.9274 dB, signed wavelet L1 0.02605
+```
+
+장기 run도 signed-wavelet/Laplacian 오차를 v1d보다 개선하지 못하면 단순
+학습 부족 가설을 폐기하고, EMA와 timestep-weighted objective 또는
+adversarial/perceptual detail supervision을 검토한다.
+
 ## 평가
 
 학습 중 확인:

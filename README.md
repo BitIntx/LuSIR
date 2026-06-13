@@ -1460,14 +1460,14 @@ Stage 4: perceptual / GAN fine-tune
   versus the frozen base. The run completed `100086` micro-steps, exactly
   three epochs, and the selected checkpoint is now the latest public detail
   artifact. Its visible effect remains stable and conservative.
-- The next separate generative path is a stochastic high-frequency residual
-  diffusion model. It keeps the deterministic Stage2 base frozen and uses
-  gated bounded residual prediction, residual highpass supervision, and a
-  strong lowpass anchor. It is a perceptual/detail experiment, not another
-  claim that the task-specific val100 PSNR should match a classical-SR table.
-  The first config is
-  `configs/diffusion_photo130k_lsdir_highfreq_residual_v1_b8.yaml`; its
-  zero-init smoke test reproduced the frozen condition exactly.
+- The current separate generative path diffuses only the signed Haar
+  high-frequency bands of `GT - detail v1d`; it cannot emit an LL band, so
+  low-frequency changes are structurally blocked. The first condition-start
+  probe reached step 3000 and improved monotonically, but it is not promoted:
+  start timestep 15 still trails v1d by `0.5768 dB`, while stronger settings
+  add visible stochastic grain. A step-20000 continuation is tracked with
+  `configs/wavelet_residual_diffusion_v2_condition_start_long.yaml`. See
+  `docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md`.
 
 Run the Stage 4-lite low-timestep fine-tune:
 

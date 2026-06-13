@@ -154,20 +154,35 @@ generative:
   - fixed sample Laplacian energy는 `0.00592 -> 0.00766`으로 증가했지만
     GT Laplacian L1 오차도 `0.00971 -> 0.01058`로 악화했다.
   - 결론: 실제 detail 복원이 아니라 고주파 에너지만 추가하여 중단했다.
-- 구현 완료, 다음 active 후보:
+- 구현 완료, 현재 active 후보:
   - config: `configs/wavelet_residual_diffusion_v2_probe.yaml`
   - trainer: `tools/train/train_wavelet_residual_diffusion.py`
   - 18.44M U-Net이 `GT - detail v1d`의 signed Haar LH/HL/HH residual에
     직접 diffusion을 수행한다. LL 출력은 구조적으로 없다.
   - val8 clipped oracle: v1d PSNR `28.7012 -> 31.4039`,
     Laplacian L1 `0.018342 -> 0.010721`
-  - probe: 2000 micro-step, eval every 250, 3 fixed seeds
+  - probe: step3000까지 완료, eval every 250, 3 fixed seeds
   - 첫 full-noise probe는 step1000에서 중단했다. noise loss는 수렴했지만
     sampled residual energy가 target의 약 10배로 남았다.
-  - 다음 config:
-    `configs/wavelet_residual_diffusion_v2_condition_start_probe.yaml`
-  - full-noise step1000을 이어받아 residual zero-start + `start_timestep=50`,
-    train timestep `0..75`로 2000 micro-step 추가 학습한다.
+  - condition-start probe step3000 강도 비교:
+    - `t=15`: PSNR `28.1239`, v1d 대비 `-0.5768 dB`, energy ratio `0.708`
+    - `t=25`: PSNR `27.4752`, v1d 대비 `-1.2256 dB`, energy ratio `1.116`
+    - `t=50`: PSNR `25.0289`, v1d 대비 `-3.6719 dB`, energy ratio `2.503`
+  - 시각적으로 `t=15`는 안전하지만 명확한 유효 detail이 없고, `t=25/50`은
+    입자 노이즈가 남는다. 아직 public/default 승격 후보가 아니다.
+  - 총 optimizer update가 `375`뿐이고 signed-wavelet 오차가 계속 감소해,
+    동일 구조 장기 continuation을 step `20000`까지 시작했다.
+  - active config:
+    `configs/wavelet_residual_diffusion_v2_condition_start_long.yaml`
+  - active tmux: `wavelet-condition-v2-long`
+  - active W&B: <https://wandb.ai/jwheo/LuSIR/runs/zh1fktq4>
+  - active log:
+    `/home/ubuntu/scratch/sr-diffusion/runs/wavelet_residual_diffusion_v2_condition_start_long/train_console.log`
+  - 첫 long-run `t=25` eval step4000: PSNR `27.7734`, v1d 대비
+    `-0.9274 dB`, signed wavelet L1 `0.02605`. step3000의
+    `27.4752 / -1.2256 / 0.02788`보다 개선되어 학습 부족 가설은 현재 유효하다.
+  - 장기 run도 GT-aligned Laplacian/highpass를 개선하지 못하면 EMA/objective
+    변경 또는 perceptual/adversarial detail supervision으로 전환한다.
 - reproducible GPU throughput comparison commands are documented in
   `docs/GPU_SPEED_BENCHMARK_KO.md`. The quick benchmark now runs the real
   Stage2 `train_latent_pretrain.py` DDP path via `torchrun` and automatically

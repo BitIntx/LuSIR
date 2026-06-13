@@ -4,6 +4,39 @@
 계속 누적하기 위한 기록이다. 최종 성능표가 아니라, 왜 다음 실험을 그렇게 잡았는지
 추적하는 용도다.
 
+## 2026-06-13 wavelet residual diffusion v2 condition-start probe
+
+pure-noise v2 step1000 checkpoint를 이어 condition-start 방식으로 step3000까지
+학습했다. `start_timestep=50` sampled PSNR은 `22.85 -> 25.03 dB`,
+signed wavelet L1은 `0.06111 -> 0.04331`로 계속 개선됐다. 따라서 학습 자체가
+붕괴하거나 역행한 것은 아니다.
+
+동일 step3000 checkpoint를 강도별로 다시 평가했다.
+
+| start timestep | PSNR | delta vs v1d | Laplacian gain vs v1d | energy ratio |
+| ---: | ---: | ---: | ---: | ---: |
+| 15 | 28.1239 | -0.5768 dB | -0.003906 | 0.708 |
+| 25 | 27.4752 | -1.2256 dB | -0.007562 | 1.116 |
+| 50 | 25.0289 | -3.6719 dB | -0.022338 | 2.503 |
+
+`t=15`는 시각적으로 base와 가까워졌지만 유효한 새 detail보다 약한 stochastic
+입자 변화에 가깝다. `t=25/50`은 생성 강도와 diversity가 커지는 대신
+GT-aligned high-frequency 오차가 악화했다. 현재 결론은 다음과 같다.
+
+- signed Haar residual과 LL 차단은 구조/색 보존에는 유효하다.
+- 현재 실패는 저주파 과수정이 아니라 덜 수렴한 residual noise prediction이다.
+- 총 `375` optimizer update만으로 구조를 폐기하기에는 이르다.
+- step `20000` 장기 continuation에서 동일 metric이 계속 개선되는지 확인한다.
+- 충분히 학습해도 Laplacian/highpass gain이 음수면 EMA/objective 변경 또는
+  perceptual/adversarial detail 경로로 전환한다.
+
+장기 run:
+`configs/wavelet_residual_diffusion_v2_condition_start_long.yaml`,
+<https://wandb.ai/jwheo/LuSIR/runs/zh1fktq4>.
+첫 `t=25` 중간 평가인 step4000은 PSNR `27.7734`, v1d 대비
+`-0.9274 dB`, signed wavelet L1 `0.02605`로 step3000의
+`27.4752 / -1.2256 / 0.02788`보다 개선됐다.
+
 ## 2026-06-13 high-frequency residual diffusion v1 조기 중단
 
 `configs/diffusion_photo130k_lsdir_highfreq_residual_v1_b8.yaml`은 frozen

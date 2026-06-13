@@ -48,6 +48,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--disable-wandb", action="store_true")
     parser.add_argument("--skip-final-eval", action="store_true")
     parser.add_argument("--resume", type=Path, default=None)
+    parser.add_argument("--eval-only-checkpoint", type=Path, default=None)
+    parser.add_argument("--eval-start-timestep", type=int, default=None)
     return parser.parse_args()
 
 
@@ -405,6 +407,8 @@ def main() -> None:
         config["project"]["output_dir"] = str(args.output_dir)
     if args.disable_wandb:
         config.setdefault("logging", {}).setdefault("wandb", {})["enabled"] = False
+    if args.eval_start_timestep is not None:
+        config.setdefault("eval", {})["start_timestep"] = int(args.eval_start_timestep)
     seed = int(config.get("seed", 1337))
     seed_everything(seed)
     device = get_device(str(config.get("train", {}).get("device", "auto")))
@@ -429,7 +433,10 @@ def main() -> None:
         weight_decay=float(train_cfg.get("weight_decay", 0.0)),
     )
     start_step = 0
-    if args.resume is not None:
+    if args.eval_only_checkpoint is not None:
+        start_step = load_training_checkpoint(args.eval_only_checkpoint, model, optimizer, device)
+        print(f"eval_only_checkpoint={args.eval_only_checkpoint} step={start_step}", flush=True)
+    elif args.resume is not None:
         start_step = load_training_checkpoint(args.resume, model, optimizer, device)
         print(f"resumed={args.resume} step={start_step}", flush=True)
     parameter_count = sum(parameter.numel() for parameter in model.parameters())
@@ -499,6 +506,24 @@ def main() -> None:
             wandb_data["samples/eval_grid"] = wandb.Image(str(grid_path), caption=f"wavelet diffusion step {step}")
         wandb_log(run, wandb_data, step=step)
         return metrics
+
+    if args.eval_only_checkpoint is not None:
+        metrics = run_eval(start_step)
+        summary = {
+            "config": str(args.config),
+            "checkpoint": str(args.eval_only_checkpoint),
+            "checkpoint_step": start_step,
+            "eval_start_timestep": config.get("eval", {}).get("start_timestep"),
+            "metrics": metrics,
+        }
+        (output_dir / "eval_only_summary.json").write_text(
+            json.dumps(summary, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        print(json.dumps(summary, indent=2, sort_keys=True), flush=True)
+        if run is not None:
+            run.finish()
+        return
 
     step = start_step
     optimizer_updates = start_step // max(1, grad_accum_steps)

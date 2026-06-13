@@ -1,0 +1,61 @@
+{
+  "base": {
+    "laplacian_l1": 0.018343789386563003,
+    "psnr": 28.700742721557617,
+    "ssim": 0.8255344927310944
+  },
+  "checkpoint": "wavelet_residual_diffusion_v2_condition_start_probe step3000",
+  "evaluation": {
+    "images": 8,
+    "sample_steps": 12,
+    "seeds": [
+      123,
+      456,
+      789
+    ]
+  },
+  "long_continuation_first_eval": {
+    "checkpoint_step": 4000,
+    "diversity_l1": 0.01544767408631742,
+    "laplacian_gain_vs_base": -0.005454339358645182,
+    "lowpass_drift": 0.00017602143755842312,
+    "psnr": 27.773372809092205,
+    "psnr_delta_vs_base": -0.9273699124654122,
+    "residual_energy_ratio": 0.9295446773370107,
+    "signed_wavelet_l1": 0.02605070872232318,
+    "ssim": 0.7727868805329005,
+    "start_timestep": 25
+  },
+  "start_timestep_results": {
+    "15": {
+      "diversity_l1": 0.011731371516361833,
+      "laplacian_gain_vs_base": -0.0039062225647891573,
+      "lowpass_drift": 0.00011549950310533556,
+      "psnr": 28.123934745788574,
+      "psnr_delta_vs_base": -0.576807975769043,
+      "residual_energy_ratio": 0.708230392386516,
+      "signed_wavelet_l1": 0.0240638575827082,
+      "ssim": 0.7939552317063013
+    },
+    "25": {
+      "diversity_l1": 0.01846120273694396,
+      "laplacian_gain_vs_base": -0.007561527309007943,
+      "lowpass_drift": 0.0002286413461357976,
+      "psnr": 27.47518507639567,
+      "psnr_delta_vs_base": -1.2255576451619454,
+      "residual_energy_ratio": 1.115676482518514,
+      "signed_wavelet_l1": 0.02787560038268566,
+      "ssim": 0.7535973886648814
+    },
+    "50": {
+      "diversity_l1": 0.04093967471271753,
+      "laplacian_gain_vs_base": -0.022337594185955822,
+      "lowpass_drift": 0.0007819240563549101,
+      "psnr": 25.02888520558675,
+      "psnr_delta_vs_base": -3.671857515970867,
+      "residual_energy_ratio": 2.502502446373304,
+      "signed_wavelet_l1": 0.04330756887793541,
+      "ssim": 0.5916196604569753
+    }
+  }
+}

@@ -1290,7 +1290,19 @@ promoted. Candidate next steps are:
   response to the remaining strong-preset failure tail.
 \end{itemize}
 
-The first residual diffusion probe is specified in
+The first latent residual probe increased high-frequency energy but
+worsened GT-aligned detail and was stopped. The replacement diffuses
+only signed Haar high bands of the image-space residual over the frozen
+v1d base. Its clipped oracle improves the val8 base from
+\texttt{28.7012} to \texttt{31.4039} dB, confirming that the
+representation can express useful corrections. The step-3000
+condition-start model is not yet promoted: start timesteps 15, 25, and
+50 trail the base by \texttt{0.5768}, \texttt{1.2256}, and
+\texttt{3.6719} dB respectively, and stronger settings retain visible
+stochastic grain. Because this probe contains only 375 optimizer updates
+and its signed-wavelet error is still decreasing, a step-20000
+continuation is running before the architecture is rejected.
+Implementation and evaluation details are in
 \texttt{docs/HIGH\_FREQUENCY\_RESIDUAL\_DIFFUSION\_KO.md}.
 
 \end{document}

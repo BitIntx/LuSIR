@@ -880,5 +880,15 @@ Candidate next steps are:
 - keep a degradation-aware gate or strong-input guardrail as the primary
   response to the remaining strong-preset failure tail.
 
-The first residual diffusion probe is specified in
+The first latent residual probe increased high-frequency energy but worsened
+GT-aligned detail and was stopped. The replacement diffuses only signed Haar
+high bands of the image-space residual over the frozen v1d base. Its clipped
+oracle improves the val8 base from `28.7012` to `31.4039` dB, confirming that
+the representation can express useful corrections. The step-3000
+condition-start model is not yet promoted: start timesteps 15, 25, and 50
+trail the base by `0.5768`, `1.2256`, and `3.6719` dB respectively, and
+stronger settings retain visible stochastic grain. Because this probe contains
+only 375 optimizer updates and its signed-wavelet error is still decreasing, a
+step-20000 continuation is running before the architecture is rejected.
+Implementation and evaluation details are in
 `docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md`.
