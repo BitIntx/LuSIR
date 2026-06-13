@@ -201,6 +201,9 @@ task-specific val100 decoded-PSNR proxy improved gradually:
 | 15000 | **`25.057`** |
 | 17000 | `25.054` |
 
+The run was stopped manually at step 17825 after no new best beyond step
+15000. Its checkpoints remain available for future clean-fidelity work.
+
 These values are not directly comparable with the formal full-image Y-channel
 results. The formal DIV2K comparison remains LuSIR detail v1d at `30.1602 dB`
 and SwinIR classical x4 at `31.0838 dB`.
@@ -216,6 +219,14 @@ the main bottleneck.
 The result also clarifies the objective boundary. Same-objective Stage 2
 continuation can refine deterministic fidelity, but it is unlikely to produce
 the visibly new fine texture expected from a generative model.
+
+The first separate generative probe is
+`configs/diffusion_photo130k_lsdir_highfreq_residual_v1_b8.yaml`. It freezes the
+dual-context Stage 2 base and Stage 1 decoder, then trains a 76.6M
+gated/bounded residual U-Net with strong high-frequency supervision and a
+lowpass anchor. The output layer is zero-initialized: the smoke-test prediction
+and condition images were byte-identical, with zero latent residual and zero
+decoded drift before the first optimizer update.
 
 ## Stage 2 XL Candidate Selection
 

@@ -70,24 +70,37 @@ Stochastic detail path:
 첫 실험은 구조를 완전히 새로 추가하기 전에 기존 검증된 경로를 강하게
 고주파 전용으로 제한하는 probe다.
 
-예정 설정:
+구현된 첫 설정:
 
 ```text
+config:            configs/diffusion_photo130k_lsdir_highfreq_residual_v1_b8.yaml
 condition encoder: frozen dual-context LSDIR Stage2 best98000
 data:              photo_detail_mix
 train init:        condition
 prediction:        gated_residual_x0
-timestep range:    low-to-mid, detail synthesis에 필요한 범위부터 시작
-decoded weight:    낮게 유지
-highpass/residual magnitude: 높게 유지
-lowpass anchor:    강하게 유지
+timestep range:    5..125, sample/eval timestep 50
+U-Net:             76.6M, output layer zero-init
+batch:             8, grad accumulation 4, effective batch 32
+decoded weight:    0.03
+highpass/residual highpass magnitude: 1.0 / 2.0
+lowpass anchor:    3.0
 teacher:           첫 probe에서는 사용하지 않음
 ```
 
 기존 XL Stage4 checkpoint를 무조건 이어받지 않는다. 기존 Stage4는
 strong-cleanup objective 때문에 clean input을 과수정한 기록이 있다. 새 probe는
-작은 검증 가능한 U-Net 또는 shape-compatible 부분 초기화 중 스모크 결과가 더
-안정적인 쪽을 선택한다.
+검증 가능한 중형 U-Net을 새로 학습한다.
+
+스모크 결과:
+
+- 출력층 zero-init 상태에서 `Condition`과 `PredX0` 저장 이미지가 byte-for-byte
+  동일했다.
+- initial `eval/latent_residual_l1=0`,
+  `eval/decoded_vs_condition_mse=0`, PSNR delta `0.000 dB`다.
+- 단일 L40S의 batch 8 peak VRAM은 약 `30.3GB / 46.1GB`로 장기 학습 여유가
+  있다.
+- 학습 로그에 condition PSNR, condition 대비 PSNR delta, residual L1,
+  gate mean을 추가했고 샘플에는 `Condition`과 `AbsDelta4x`를 추가했다.
 
 ## 평가
 

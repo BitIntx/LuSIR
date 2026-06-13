@@ -120,6 +120,7 @@ class ConditionalUNet(nn.Module):
         attention_resolutions: list[int] | tuple[int, ...] = (32, 16),
         base_resolution: int = 128,
         num_domains: int = 2,
+        zero_init_output: bool = False,
     ) -> None:
         super().__init__()
         self.latent_channels = latent_channels
@@ -222,6 +223,9 @@ class ConditionalUNet(nn.Module):
             nn.SiLU(),
             nn.Conv2d(current_channels, self.out_channels, kernel_size=3, padding=1),
         )
+        if zero_init_output:
+            nn.init.zeros_(self.output[-1].weight)
+            nn.init.zeros_(self.output[-1].bias)
 
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> "ConditionalUNet":
@@ -237,6 +241,7 @@ class ConditionalUNet(nn.Module):
             attention_resolutions=config.get("attention_resolutions", [32, 16]),
             base_resolution=config.get("base_resolution", 128),
             num_domains=config.get("num_domains", 2),
+            zero_init_output=config.get("zero_init_output", False),
         )
 
     def forward(

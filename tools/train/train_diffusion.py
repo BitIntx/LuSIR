@@ -51,6 +51,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Stage 3 conditional latent diffusion training.")
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--limit-steps", type=int, default=None)
+    parser.add_argument("--output-dir", type=Path, default=None)
+    parser.add_argument("--disable-wandb", action="store_true")
     parser.add_argument("--resume", type=Path, default=None)
     parser.add_argument("--init-checkpoint", type=Path, default=None)
     parser.add_argument(
@@ -151,6 +153,11 @@ def make_dataset(config: dict[str, Any], split: str, seed: int, deterministic: b
         degradation_preset=data_config.get("degradation_preset", "mild"),
         seed=seed,
         deterministic=deterministic,
+        hflip_prob=data_config.get("hflip_prob", 0.0),
+        texture_crop_retries=data_config.get("texture_crop_retries", 1),
+        texture_crop_downsample=data_config.get("texture_crop_downsample", 128),
+        hr_color_jitter_prob=data_config.get("hr_color_jitter_prob", 0.0),
+        hr_color_jitter=data_config.get("hr_color_jitter", (0.97, 1.03)),
     )
 
 
@@ -418,7 +425,15 @@ def evaluate(
     cond_was_training = condition_encoder.training
     model.eval()
     condition_encoder.eval()
-    totals = {"noise_mse": 0.0, "x0_mse": 0.0, "decoded_mse": 0.0}
+    totals = {
+        "noise_mse": 0.0,
+        "x0_mse": 0.0,
+        "decoded_mse": 0.0,
+        "condition_decoded_mse": 0.0,
+        "decoded_vs_condition_mse": 0.0,
+        "latent_residual_l1": 0.0,
+        "gate_mean": 0.0,
+    }
     count = 0
     with torch.no_grad():
         for batch in dataloader:
@@ -450,24 +465,46 @@ def evaluate(
                     diffusion_config,
                 )
                 decoded = vae.decode(x0)
+                condition_decoded = vae.decode(condition)
                 target = normalize_image(hr)
                 noise_mse = F.mse_loss(predicted_noise, target_noise)
                 x0_mse = F.mse_loss(x0, target_latent)
                 decoded_mse = F.mse_loss(decoded, target)
+                condition_decoded_mse = F.mse_loss(condition_decoded, target)
+                decoded_vs_condition_mse = F.mse_loss(decoded, condition_decoded)
+                latent_residual_l1 = F.l1_loss(x0, condition)
+                if str(diffusion_config.get("prediction_type", "noise")) == "gated_residual_x0":
+                    _, gate = gated_residual_components(model_output, condition, diffusion_config)
+                    gate_mean = gate.mean()
+                else:
+                    gate_mean = torch.zeros((), device=device, dtype=decoded_mse.dtype)
             totals["noise_mse"] += float(noise_mse.detach().cpu()) * batch_size
             totals["x0_mse"] += float(x0_mse.detach().cpu()) * batch_size
             totals["decoded_mse"] += float(decoded_mse.detach().cpu()) * batch_size
+            totals["condition_decoded_mse"] += float(condition_decoded_mse.detach().cpu()) * batch_size
+            totals["decoded_vs_condition_mse"] += float(decoded_vs_condition_mse.detach().cpu()) * batch_size
+            totals["latent_residual_l1"] += float(latent_residual_l1.detach().cpu()) * batch_size
+            totals["gate_mean"] += float(gate_mean.detach().cpu()) * batch_size
             count += batch_size
     if model_was_training:
         model.train()
     condition_encoder.train(mode=cond_was_training)
     count = max(1, count)
     decoded_mse = totals["decoded_mse"] / count
+    condition_decoded_mse = totals["condition_decoded_mse"] / count
+    decoded_psnr = psnr_from_mse(decoded_mse)
+    condition_decoded_psnr = psnr_from_mse(condition_decoded_mse)
     return {
         "eval/noise_mse": totals["noise_mse"] / count,
         "eval/x0_mse": totals["x0_mse"] / count,
         "eval/decoded_mse": decoded_mse,
-        "eval/decoded_psnr": psnr_from_mse(decoded_mse),
+        "eval/decoded_psnr": decoded_psnr,
+        "eval/condition_decoded_mse": condition_decoded_mse,
+        "eval/condition_decoded_psnr": condition_decoded_psnr,
+        "eval/decoded_psnr_delta_vs_condition": decoded_psnr - condition_decoded_psnr,
+        "eval/decoded_vs_condition_mse": totals["decoded_vs_condition_mse"] / count,
+        "eval/latent_residual_l1": totals["latent_residual_l1"] / count,
+        "eval/gate_mean": totals["gate_mean"] / count,
         "eval/num_images": float(count),
     }
 
@@ -476,6 +513,10 @@ def main() -> None:
     args = parse_args()
     distributed, rank, world_size, local_rank = setup_distributed()
     config = load_config(args.config)
+    if args.output_dir is not None:
+        config["project"]["output_dir"] = str(args.output_dir)
+    if args.disable_wandb:
+        config.setdefault("logging", {}).setdefault("wandb", {})["enabled"] = False
     seed = int(config.get("seed", 0))
     seed_everything(seed + rank)
 
@@ -919,7 +960,11 @@ def main() -> None:
                     )
                     print(
                         f"eval step={step} noise_mse={metrics['eval/noise_mse']:.5f} "
-                        f"decoded_psnr={metrics['eval/decoded_psnr']:.2f}"
+                        f"decoded_psnr={metrics['eval/decoded_psnr']:.2f} "
+                        f"condition_psnr={metrics['eval/condition_decoded_psnr']:.2f} "
+                        f"delta={metrics['eval/decoded_psnr_delta_vs_condition']:+.3f} "
+                        f"residual_l1={metrics['eval/latent_residual_l1']:.5f} "
+                        f"gate={metrics['eval/gate_mean']:.3f}"
                     )
                     wandb_log(run, metrics, step=step)
                     metric_value = metrics[best_metric]
@@ -970,17 +1015,24 @@ def main() -> None:
                             diffusion_cfg,
                         )
                         sample_decoded = vae.decode(sample_x0)
+                        sample_condition_decoded = vae.decode(sample_condition)
                     sample_count = sample_hr.shape[0]
                     lr_display = F.interpolate(sample_source["lr"].float().cpu(), size=sample_hr.shape[-2:], mode="nearest")
                     gt = sample_hr.float().cpu()
                     pred = denormalize(sample_decoded).float().cpu()
+                    condition_display = denormalize(sample_condition_decoded).float().cpu()
+                    abs_delta = (sample_decoded - sample_condition_decoded).abs().float().cpu().mul(4.0).clamp(0.0, 1.0)
 
                     lr_path = samples_dir / f"step_{step:07d}_lr.png"
                     gt_path = samples_dir / f"step_{step:07d}_gt.png"
+                    condition_path = samples_dir / f"step_{step:07d}_condition.png"
                     pred_path = samples_dir / f"step_{step:07d}_pred_x0.png"
+                    delta_path = samples_dir / f"step_{step:07d}_abs_delta_4x.png"
                     save_image(lr_display, lr_path, nrow=sample_count)
                     save_image(gt, gt_path, nrow=sample_count)
+                    save_image(condition_display, condition_path, nrow=sample_count)
                     save_image(pred, pred_path, nrow=sample_count)
+                    save_image(abs_delta, delta_path, nrow=sample_count)
                     if run is not None:
                         import wandb
 
@@ -997,9 +1049,17 @@ def main() -> None:
                                     wandb.Image(tensor_to_pil(image), caption=caption)
                                     for image, caption in zip(gt, captions, strict=True)
                                 ],
+                                "samples/Condition": [
+                                    wandb.Image(tensor_to_pil(image), caption=caption)
+                                    for image, caption in zip(condition_display, captions, strict=True)
+                                ],
                                 "samples/PredX0": [
                                     wandb.Image(tensor_to_pil(image), caption=caption)
                                     for image, caption in zip(pred, captions, strict=True)
+                                ],
+                                "samples/AbsDelta4x": [
+                                    wandb.Image(tensor_to_pil(image), caption=caption)
+                                    for image, caption in zip(abs_delta, captions, strict=True)
                                 ],
                             },
                             step=step,

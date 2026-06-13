@@ -119,8 +119,8 @@ generative:
   실제 Dataset으로 전달하도록 수정했다.
 - `tools/eval/run_sr_benchmark.py --variant stage2_base`를 추가했다. 새 Stage2
   checkpoint가 나오면 formal x4 benchmark에 바로 투입할 수 있다.
-- 현재 선택/active run:
-  - tmux: `stage2-bicubic-fidelity`
+- 마지막 clean-fidelity continuation:
+  - 종료 step: `17825`; 현재 tmux는 종료됨
   - W&B: <https://wandb.ai/jwheo/LuSIR/runs/xf7xdefw>
   - log:
     `/home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_bicubic_fidelity_continue/train_console.log`
@@ -917,8 +917,10 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
 1. 현재 Stage2 continuation은 원래 LR로 보존하되, 같은 objective의 장기
    continuation이 SwinIR gap이나 visible detail을 해결할 것으로 기대하지 않는다.
 2. 다음 별도 학습은 frozen deterministic base 위에 bounded/gated
-   high-frequency residual만 생성하는 stochastic diffusion probe다. 설계:
-   `docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md`.
+   high-frequency residual만 생성하는 stochastic diffusion probe다. 설정:
+   `configs/diffusion_photo130k_lsdir_highfreq_residual_v1_b8.yaml`, 설계:
+   `docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md`. 76.6M U-Net 출력층을
+   zero-init하여 초기 출력이 condition과 정확히 같도록 검증했다.
 3. 생성형 probe는 PSNR 단독이 아니라 LPIPS/DISTS, fixed visual review,
    lowpass drift, high-frequency metric, seed diversity로 판단한다.
 4. clean-fidelity gap 개선은 별도 Stage2/base 구조 연구로 유지하고,
@@ -951,11 +953,12 @@ SwinIR classical x4는 같은 evaluator에서 31.0838/0.85228이다.
 clean-bicubic Stage2 continuation은 원래 LR 5e-6에서 step15000 val100 proxy
 25.057까지 오른 뒤 plateau했다. LR20x는 15.72로 붕괴했고, LR5x from-init
 step4000은 25.033으로 원래 LR의 25.031과 사실상 같아 LR 부족이 핵심 병목은
-아니다. 현재 원래 LR continuation은 step15000 checkpoint에서 복귀해
-stage2-bicubic-fidelity tmux로 돌고 있다. 다음 별도 학습은 deterministic
+아니다. 원래 LR continuation은 step17825에서 종료했고 best는 step15000이다.
+다음 별도 학습은 deterministic
 base를 frozen으로 두고 gated/bounded high-frequency residual만 생성하는
-stochastic diffusion probe다. 설계는 docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md
-에 있다. 생성형 목표는 classical PSNR과 분리하고 LPIPS/DISTS/fixed visual
+stochastic diffusion probe다. 설정은
+configs/diffusion_photo130k_lsdir_highfreq_residual_v1_b8.yaml이고 설계는
+docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md에 있다. 생성형 목표는 classical PSNR과 분리하고 LPIPS/DISTS/fixed visual
 review/high-frequency metric/seed diversity로 판단한다.
 detail branch v1d는 Colab WebUI에서 단일 이미지/tiled inference 연구 옵션으로
 선택 가능하지만, public 기본값은 residual refiner v2를 유지한다.

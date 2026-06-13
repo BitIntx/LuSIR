@@ -44,6 +44,7 @@ step 4000:  eval/decoded_psnr 25.031
 step 9000:  eval/decoded_psnr 25.045
 step 15000: eval/decoded_psnr 25.057, current best
 step 17000: eval/decoded_psnr 25.054
+step 17825: 수동 종료, best 갱신 없음
 ```
 
 이 값은 task-specific val100 학습 proxy이며 정식 full-image Y-channel

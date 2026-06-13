@@ -1,0 +1,119 @@
+project:
+  name: diffusion_photo130k_lsdir_highfreq_residual_v1_b8
+  output_dir: /home/ubuntu/scratch/sr-diffusion/runs/diffusion_photo130k_lsdir_highfreq_residual_v1_b8
+
+logging:
+  wandb:
+    enabled: true
+    project: LuSIR
+    name: diffusion_photo130k_lsdir_highfreq_residual_v1_b8
+    mode: online
+    dir: /home/ubuntu/scratch/sr-diffusion/wandb
+    group: stage-detail-diffusion
+    tags: [detail-diffusion, condition-start, photo130k, lsdir, dual-context, gated-residual, zero-init, high-frequency]
+    watch: false
+  samples:
+    enabled: true
+    split: val
+    fallback_split: train
+    count: 4
+    indices: [0, 1, 2, 3]
+    init: condition
+
+seed: 1337
+
+autoencoder:
+  config: configs/autoencoder_photo10k.yaml
+  checkpoint: checkpoints/stage1_autoencoder_best_eval_recon.pt
+
+condition_encoder:
+  config: configs/latent_pretrain_photo130k_lsdir_dual_multiscale_long.yaml
+  checkpoint: checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt
+  trainable: false
+
+data:
+  manifest: /home/ubuntu/scratch/sr-diffusion/data/manifest_photo130k_lsdir.csv
+  split: train
+  hr_size: 512
+  scale: 4
+  degradation_preset: photo_detail_mix
+  domains:
+    photo: 0
+    anime: 1
+  num_workers: 4
+  hflip_prob: 0.5
+  texture_crop_retries: 4
+  texture_crop_downsample: 128
+
+model:
+  type: conditional_unet
+  latent_channels: 16
+  condition_channels: 16
+  out_channels: 32
+  base_channels: 128
+  channel_multipliers: [1, 2, 3, 4]
+  num_res_blocks: 2
+  norm_groups: 32
+  num_heads: 4
+  attention_resolutions: [32, 16]
+  base_resolution: 128
+  num_domains: 2
+  zero_init_output: true
+
+diffusion:
+  num_train_timesteps: 1000
+  beta_schedule: linear
+  beta_start: 0.0001
+  beta_end: 0.02
+  sample_timestep: 50
+  train_min_timestep: 5
+  train_max_timestep: 125
+  train_init: condition
+  prediction_type: gated_residual_x0
+  residual_scale: 0.5
+  gate_bias: -1.5
+
+sampling:
+  init: condition
+  start_timestep: 50
+  steps: 32
+
+loss:
+  noise_weight: 0.001
+  x0_weight: 0.02
+  decoded_weight: 0.03
+  edge_weight: 0.1
+  highpass_weight: 1.0
+  residual_edge_magnitude_weight: 0.25
+  residual_highpass_magnitude_weight: 2.0
+  lowpass_anchor_weight: 3.0
+  lowpass_anchor_kernel_size: 15
+  detail_gate_anchor_weight: 0.5
+  detail_gate_threshold: 0.035
+  charbonnier_eps: 0.001
+
+train:
+  device: auto
+  dtype: bf16
+  batch_size: 8
+  max_steps: 30000
+  lr: 0.000003
+  weight_decay: 0.0
+  grad_accum_steps: 4
+  log_every: 25
+  save_every: 1000
+  sample_every: 500
+
+eval:
+  enabled: true
+  split: val
+  limit: 100
+  batch_size: 8
+  num_workers: 4
+  every: 500
+  run_at_start: true
+  timestep: 50
+  init: condition
+  best_metric: eval/decoded_psnr
+  best_mode: max
+  best_checkpoint: best_eval_decoded_psnr.pt

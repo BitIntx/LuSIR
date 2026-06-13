@@ -78,3 +78,44 @@ def test_conditional_unet_shape() -> None:
     domain_id = torch.tensor([0, 1])
     prediction = model(noisy, timesteps, condition, domain_id)
     assert prediction.shape == noisy.shape
+
+
+def test_zero_initialized_gated_residual_unet_starts_at_identity() -> None:
+    latent_channels = 8
+    model = ConditionalUNet(
+        latent_channels=latent_channels,
+        condition_channels=latent_channels,
+        out_channels=latent_channels * 2,
+        base_channels=32,
+        channel_multipliers=[1, 2],
+        num_res_blocks=1,
+        norm_groups=8,
+        num_heads=4,
+        attention_resolutions=[16],
+        base_resolution=32,
+        num_domains=2,
+        zero_init_output=True,
+    )
+    scheduler = NoiseScheduler(num_train_timesteps=10)
+    noisy = torch.randn(2, latent_channels, 32, 32)
+    condition = torch.randn_like(noisy)
+    target = torch.randn_like(noisy)
+    timesteps = torch.tensor([2, 7])
+    domain_id = torch.tensor([0, 1])
+
+    model_output = model(noisy, timesteps, condition, domain_id)
+    predicted_x0, _ = predict_x0_and_noise(
+        scheduler,
+        noisy,
+        timesteps,
+        model_output,
+        condition,
+        {"prediction_type": "gated_residual_x0", "residual_scale": 0.5, "gate_bias": -1.5},
+    )
+    loss = torch.nn.functional.mse_loss(predicted_x0, target)
+    loss.backward()
+
+    assert torch.count_nonzero(model_output) == 0
+    assert torch.allclose(predicted_x0, condition)
+    assert model.output[-1].weight.grad is not None
+    assert torch.count_nonzero(model.output[-1].weight.grad) > 0

@@ -157,6 +157,10 @@ base for fidelity and train a stochastic gated high-frequency residual
 diffusion path for visible texture synthesis. It must preserve base
 low-frequency structure and will be selected with fixed visual review,
 LPIPS/DISTS, high-frequency metrics, and seed diversity rather than PSNR alone.
+The first runnable probe is
+`configs/diffusion_photo130k_lsdir_highfreq_residual_v1_b8.yaml`. Its 76.6M
+U-Net uses an explicitly zero-initialized output layer, so the initial decoded
+result is exactly the frozen Stage 2 condition rather than a random rewrite.
 See
 [`docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md`](docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md).
 
@@ -1459,6 +1463,9 @@ Stage 4: perceptual / GAN fine-tune
   gated bounded residual prediction, residual highpass supervision, and a
   strong lowpass anchor. It is a perceptual/detail experiment, not another
   claim that the task-specific val100 PSNR should match a classical-SR table.
+  The first config is
+  `configs/diffusion_photo130k_lsdir_highfreq_residual_v1_b8.yaml`; its
+  zero-init smoke test reproduced the frozen condition exactly.
 
 Run the Stage 4-lite low-timestep fine-tune:
 
