@@ -68,6 +68,27 @@ TORCH_VERSION=2.12.0 TORCHVISION_VERSION=0.27.0 \
 `gpu` 출력에서 `cuda_available True`와 GPU 개수/이름이 보이면 container GPU
 연결이 완료된 것이다. GPU가 연결되지 않으면 이 명령은 실패한다.
 
+### 2026-06-13 실제 검증
+
+현재 L40S Ubuntu 24.04 VM에서 다음을 실제로 완료했다.
+
+```text
+Docker Engine:            29.5.3
+NVIDIA Container Toolkit: 1.19.1
+image:                    lusir:dev
+container CUDA:           13.0
+PyTorch:                  2.12.0+cu130
+Torchvision:              0.27.0+cu130
+cuDNN:                    92000
+GPU:                      NVIDIA L40S
+container pytest:         55 passed
+```
+
+`scripts/docker_lusir.sh run`으로 detail-need mask GPU 진단도 실행해 checkpoint,
+host scratch mount, repo bind mount가 함께 동작하는 것을 확인했다. 새로 Docker
+group에 추가된 사용자는 재로그인 전까지 `sg docker -c '명령'`을 임시로 쓸 수
+있다.
+
 ## Shell과 명령 실행
 
 interactive shell:
@@ -144,4 +165,6 @@ bash scripts/docker_lusir.sh shell
   소유가 될 수 있으므로 가능하면 Docker group 설정 후 일반 사용자로 실행한다.
 - `--ipc=host`는 PyTorch DataLoader/DDP shared-memory 병목을 피하기 위한 설정이다.
 - Docker build만 성공했다고 GPU가 연결된 것은 아니다. 반드시 `gpu` 명령을 실행한다.
+- 첫 build는 CUDA/PyTorch layer와 build cache 때문에 디스크를 크게 사용한다.
+  image 검증 후 build cache만 비우려면 `docker builder prune -f`를 사용한다.
 - ROCm VM은 이 CUDA Dockerfile 대상이 아니다. 기존 ROCm venv 절차를 사용한다.

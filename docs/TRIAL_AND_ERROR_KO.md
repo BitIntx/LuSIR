@@ -1459,3 +1459,36 @@ CUDA smoke:
 - step98000은 clean/mild용 자동 best, step100000은 strong preset tail에
   조금 더 안전한 후보로 보존한다.
 - public/default 승격 전에는 contact sheet human review가 필요하다.
+
+### 2026-06-13 detail-need mask target/proxy 진단
+
+Residual diffusion v2가 zero residual로 수렴한 뒤, 전체 이미지에 detail을
+생성하는 대신 실제로 detail이 부족한 위치를 먼저 찾는 실험을 시작했다.
+
+구현:
+
+- `src/sr_diffusion/detail_mask.py`
+- `tools/analysis/diagnose_detail_need_mask.py`
+- `docs/DETAIL_NEED_MASK_KO.md`
+
+GT target은 GT high-frequency magnitude가 base보다 큰 missing-detail만 사용한다.
+base high-frequency가 GT보다 큰 excess-detail은 별도로 측정해 생성 target에서
+제외한다.
+
+photo-detail val100:
+
+| selector | top20 missing capture | concentration | excess capture |
+| --- | ---: | ---: | ---: |
+| GT target | `0.4878` | `2.4389x` | `0.3796` |
+| highpass disagreement proxy | `0.3252` | `1.6262x` | `0.4838` |
+| base/bicubic gap proxy | `0.3201` | `1.6005x` | `0.4762` |
+
+판단:
+
+- GT target은 무작위 top20 대비 missing-detail을 충분히 집중한다.
+- grid에서도 라임 껍질, 털, 잎맥, 의류 무늬 등 실제 누락 texture를 찾는다.
+- hand-crafted proxy는 target과 상관이 있지만 excess-detail도 많이 선택하므로
+  그대로 gate로 쓰지 않는다.
+- 다음은 작은 learned mask predictor가 correlation `0.5403`, top20 capture
+  `0.3252`, excess capture `0.4838` baseline을 넘는지 짧게 검증한다.
+- predictor가 실패하면 masked generator나 adversarial 장기 학습을 시작하지 않는다.

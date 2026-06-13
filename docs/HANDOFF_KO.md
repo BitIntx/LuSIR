@@ -979,12 +979,14 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
 5. public Colab 기본 경로는 residual refiner v2를 유지한다. detail branch v1d는
    단일 이미지/tiled inference와 WebUI 옵션으로 이미 노출했으며, 기본값 승격은
    real-degradation 및 human review 이후에 판단한다.
-6. 다음 구현 순서는 `detail-need mask` label/proxy와 진단 metric부터 만든 뒤,
-   frozen fidelity base 위에 masked detail head를 붙이고, 마지막으로 해당
-   위치의 patch-level perceptual/adversarial supervision을 추가하는 것이다.
-7. 첫 실험은 짧은 ablation으로 제한한다. mask가 edge/noise 전체를 무작정
-   선택하지 않고 실제 복원 오차 위치와 상관되는지, seed diversity가 zero로
-   붕괴하지 않는지, base PSNR/SSIM을 크게 훼손하지 않는지를 먼저 확인한다.
+6. `detail-need mask` GT target/proxy/진단 metric 구현과 photo-detail val100
+   진단은 완료됐다. GT target 상위 20%는 missing-detail `0.4878`을 포착하고
+   밀도는 `2.4389x`다. 최고 observable proxy는 highpass disagreement이며
+   correlation `0.5403`, top20 capture `0.3252`, excess capture `0.4838`이다.
+   상세 정의와 결과는 `docs/DETAIL_NEED_MASK_KO.md`를 따른다.
+7. 다음 구현은 base/bicubic/condition feature를 입력으로 하는 작은 learned mask
+   predictor다. 먼저 최고 proxy의 correlation/capture/excess baseline을 넘어야
+   하며, 통과하기 전에는 detail generator나 장기 학습을 붙이지 않는다.
 8. 짧은 실험이 val100, strict-bicubic/formal benchmark, real-degradation
    고정 visual set에서 모두 통과할 때만 장기 학습을 시작한다.
 

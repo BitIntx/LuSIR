@@ -163,6 +163,14 @@ supervision, rather than continuing the same noise-MSE residual objective.
 See
 [`docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md`](docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md).
 
+The first learned detail-mask prerequisite is now implemented and diagnosed.
+On photo-detail val100, the GT-supervised target's top 20% pixels capture
+`48.78%` of missing-detail energy at `2.44x` average concentration. The best
+inference-time hand-crafted proxy captures only `32.52%`, establishing a
+measurable baseline for a small learned mask predictor before another
+generative branch is attempted. See
+[`docs/DETAIL_NEED_MASK_KO.md`](docs/DETAIL_NEED_MASK_KO.md).
+
 For comparing training throughput on another GPU VM, use the DDP quick benchmark in
 [`docs/GPU_SPEED_BENCHMARK_KO.md`](docs/GPU_SPEED_BENCHMARK_KO.md). The current
 single-L40S reference for this config is about `1.15` micro-steps/s after warmup.
