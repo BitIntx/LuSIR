@@ -121,14 +121,17 @@ generative:
   checkpoint가 나오면 formal x4 benchmark에 바로 투입할 수 있다.
 - active run:
   - tmux: `stage2-bicubic-fidelity`
-  - W&B: <https://wandb.ai/jwheo/LuSIR/runs/6cvkm4cc>
+  - W&B: <https://wandb.ai/jwheo/LuSIR/runs/hpxmjjrz>
   - log:
     `/home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_bicubic_fidelity_continue/train_console.log`
-  - initial interrupted step1 clean-bicubic val100 decoded PSNR was `24.9600`.
-  - restarted with unbuffered Python logging. By step `125`, speed stabilized
-    at about `1.15 micro-step/s`, GPU util `100%`, VRAM `37.8/46.1GB`.
+  - current restart uses unbuffered Python logging. By step `50`, speed
+    stabilized at about `1.15 micro-step/s`, GPU util `100%`, VRAM
+    `37.8/46.1GB`.
   - expected wall time for 60000 micro steps: roughly `19-22h` including eval
     overhead.
+- reproducible GPU throughput comparison commands are documented in
+  `docs/GPU_SPEED_BENCHMARK_KO.md`. The current benchmark found no speed gain
+  from `cu132` or cuDNN `9.23.1` over the pinned PyTorch cuDNN `9.20.0`.
 
 ### 최신 완료 장기 실험
 

@@ -141,6 +141,9 @@ The next Stage2 experiment is isolated in
 It continues from dual-context best98000 on `benchmark_bicubic` with a
 PSNR-oriented decoded loss balance and uses the new `stage2_base` benchmark
 runner variant for formal full-image evaluation.
+For comparing training throughput on another GPU VM, use
+[`docs/GPU_SPEED_BENCHMARK_KO.md`](docs/GPU_SPEED_BENCHMARK_KO.md). The current
+single-L40S reference for this config is about `1.15` micro-steps/s after warmup.
 
 Historical first-pass photo100k Stage 3/4 comparison:
 

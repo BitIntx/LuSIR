@@ -4,6 +4,8 @@
 - `eval/`: dataset-level evaluation entry points.
 - `infer/`: single-image and tiled inference entry points.
 - `analysis/`: experiment comparison, diagnostics, and report generation.
+- `bench/`: reproducible throughput checks for comparing GPU VMs and
+  dataloader headroom.
 
 Run tools from the repository root, for example:
 
@@ -11,6 +13,16 @@ Run tools from the repository root, for example:
 python tools/train/train_latent_pretrain.py --config configs/latent_pretrain_photo100k_multiscale_hqmix_long.yaml
 python tools/infer/infer_residual_refiner.py --help
 ```
+
+Stage 2 throughput benchmark:
+
+```bash
+python tools/bench/benchmark_stage2_speed.py
+python tools/bench/benchmark_dataloader.py --workers 0 2 4
+```
+
+The matching VM/GPU comparison guide is
+[`docs/GPU_SPEED_BENCHMARK_KO.md`](../docs/GPU_SPEED_BENCHMARK_KO.md).
 
 Fixed visual review workflow:
 
