@@ -178,6 +178,22 @@ The bootstrap lowers benchmark batch size automatically on lower-VRAM GPUs, so
 training config uses about 37.8GB at batch 8. The final result includes a
 single `LuSIR score` where the current single-L40S reference is 1000.
 
+For a reproducible NVIDIA GPU environment on a new VM, LuSIR also includes a
+minimal Docker image and wrapper. It keeps datasets, checkpoints, outputs, and
+credentials on the host while mounting the existing scratch layout into the
+container:
+
+```bash
+bash scripts/docker_lusir.sh build
+bash scripts/docker_lusir.sh gpu
+bash scripts/docker_lusir.sh test
+```
+
+Docker is optional and does not replace the one-line GPU speed benchmark or
+the native venv workflow. Host setup, mounts, authentication, shell, DDP, and
+custom command examples are documented in
+[`docs/DOCKER_KO.md`](docs/DOCKER_KO.md).
+
 Historical first-pass photo100k Stage 3/4 comparison:
 
 ```text
@@ -577,6 +593,7 @@ For VM migration and continuation context, read:
 
 - [docs/HANDOFF_KO.md](docs/HANDOFF_KO.md)
 - [docs/VM_RECOVERY_KO.md](docs/VM_RECOVERY_KO.md)
+- [docs/DOCKER_KO.md](docs/DOCKER_KO.md)
 
 Implemented:
 

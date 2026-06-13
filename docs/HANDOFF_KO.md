@@ -38,6 +38,9 @@ generative:
   정확히 3 epoch 학습했고, v1c에서 identity-preserving 초기화했다.
 - public Colab 기본값은 아직 residual refiner v2다. detail branch v1d는
   단일 이미지/tiled inference 연구 옵션으로 선택 가능하다.
+- 새 NVIDIA GPU VM 재현을 위한 최소 Docker 구성이 추가됐다. `Dockerfile`,
+  `.dockerignore`, `scripts/docker_lusir.sh`, `docs/DOCKER_KO.md`를 사용한다.
+  dataset/checkpoint/output은 image에 넣지 않고 호스트 scratch를 mount한다.
 
 ### 최신 완료 detail v1d와 strict-bicubic 진단
 
@@ -976,6 +979,14 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
 5. public Colab 기본 경로는 residual refiner v2를 유지한다. detail branch v1d는
    단일 이미지/tiled inference와 WebUI 옵션으로 이미 노출했으며, 기본값 승격은
    real-degradation 및 human review 이후에 판단한다.
+6. 다음 구현 순서는 `detail-need mask` label/proxy와 진단 metric부터 만든 뒤,
+   frozen fidelity base 위에 masked detail head를 붙이고, 마지막으로 해당
+   위치의 patch-level perceptual/adversarial supervision을 추가하는 것이다.
+7. 첫 실험은 짧은 ablation으로 제한한다. mask가 edge/noise 전체를 무작정
+   선택하지 않고 실제 복원 오차 위치와 상관되는지, seed diversity가 zero로
+   붕괴하지 않는지, base PSNR/SSIM을 크게 훼손하지 않는지를 먼저 확인한다.
+8. 짧은 실험이 val100, strict-bicubic/formal benchmark, real-degradation
+   고정 visual set에서 모두 통과할 때만 장기 학습을 시작한다.
 
 ## 새 VM에서 Codex에게 줄 짧은 프롬프트
 

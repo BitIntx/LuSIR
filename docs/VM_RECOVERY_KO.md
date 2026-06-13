@@ -27,6 +27,21 @@ pip install -e .
 
 CUDA/Colab은 Colab notebook 또는 해당 CUDA PyTorch wheel을 사용한다.
 
+NVIDIA GPU VM에서 Python/CUDA user-space 환경까지 고정하려면 선택적으로 Docker를
+사용할 수 있다. 호스트 NVIDIA driver, Docker Engine, NVIDIA Container Toolkit을
+설치한 뒤 다음으로 image와 GPU 연결을 확인한다.
+
+```bash
+bash scripts/docker_lusir.sh build
+bash scripts/docker_lusir.sh gpu
+bash scripts/docker_lusir.sh test
+```
+
+기본 wrapper는 호스트 `$HOME/scratch`를 container의
+`/home/ubuntu/scratch`에 연결하므로 기존 절대경로 config를 그대로 쓸 수 있다.
+설치, 인증, DDP, 다른 scratch mount는 `docs/DOCKER_KO.md`를 따른다. Docker는
+선택 사항이며 ROCm VM에는 현재 Dockerfile을 사용하지 않는다.
+
 다른 GPU VM에서 현재 Stage 2 clean-bicubic continuation 속도만 먼저 비교하려면
 `docs/GPU_SPEED_BENCHMARK_KO.md`의 quick benchmark를 따른다. 기본값은 보이는
 모든 CUDA GPU를 `torchrun` DDP로 사용한다. 현재 단일 L40S 기준값은 warmup 이후
