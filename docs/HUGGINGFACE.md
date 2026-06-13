@@ -11,6 +11,9 @@ The repository id is `jwheo/LuSIR`. Older `jwheo/sr-diffusion` links may still
 resolve through Hugging Face redirects, but new scripts and docs should use the
 LuSIR id.
 
+The canonical Hub model-card source is `docs/HF_MODEL_CARD.md`. Upload it as
+`README.md` after promoting a new selected artifact.
+
 Keep dataset files and validation images out of the Hub repository unless their
 licenses are reviewed. Upload configs, metrics, and selected checkpoints only.
 
@@ -68,9 +71,16 @@ Download the completed detail branch v1b review artifact set:
 python scripts/download_hf_checkpoints.py --preset detail_branch_v1b
 ```
 
-V1b is the latest public detail-branch artifact. V1c and the active v1d
-capacity experiment remain local research runs until checkpoint selection and
-fixed visual review are complete.
+Download the selected detail branch v1d best99500 checkpoint and evaluation
+artifacts:
+
+```bash
+python scripts/download_hf_checkpoints.py --preset detail_branch_v1d
+```
+
+V1d is the latest public detail-branch artifact. It completed exactly three
+epochs and selected step 99500 by `eval/detail_score`. V1b remains available as
+the earlier comparison artifact.
 
 Each preset creates the local `checkpoints/`, `configs/`, `metrics/`, and
 `samples/` files expected by its matching inference or review config.
@@ -334,10 +344,37 @@ review artifacts:
   --artifact /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v1b_aug_photo130k_lsdir/eval_step_039500/eval_grid_lr_bicubic_base_detail_residual_gt.png=samples/detail_branch_v1b_aug_photo130k_lsdir_best39500_grid.png
 ```
 
-This checkpoint is the latest public detail artifact. V1c and the active v1d
-capacity run remain local research candidates. It is not yet the public Colab
-default because the WebUI does not have a detail branch single-image/tiled
-inference runner.
+This checkpoint remains the earlier public detail artifact.
+
+Upload the completed high-frequency detail branch v1d selected checkpoint and
+evaluation artifacts:
+
+```bash
+/home/ubuntu/venvs/cuda/bin/python scripts/upload_hf_artifact.py \
+  --repo-id jwheo/LuSIR \
+  --repo-type model \
+  --message "Promote detail branch v1d best99500" \
+  --artifact docs/HF_MODEL_CARD.md=README.md \
+  --artifact /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v1d_deep3m_photo130k_lsdir_3ep/checkpoints/best_eval_detail.pt=checkpoints/detail_branch_v1d_deep3m_photo130k_lsdir_best99500.pt \
+  --artifact configs/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml=configs/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml \
+  --artifact configs/hf/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml=configs/hf/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml \
+  --artifact metrics/detail_branch_v1d_deep3m_photo130k_lsdir_3ep_summary.json=metrics/detail_branch_v1d_deep3m_photo130k_lsdir_3ep_summary.json \
+  --artifact metrics/benchmark_bicubic5_detail_v1d_best99500_summary.json=metrics/benchmark_bicubic5_detail_v1d_best99500_summary.json \
+  --artifact metrics/benchmark_bicubic5_lusir_model_comparison.json=metrics/benchmark_bicubic5_lusir_model_comparison.json \
+  --artifact samples/detail_branch_v1d_deep3m_photo130k_lsdir_best99500_grid.png=samples/detail_branch_v1d_deep3m_photo130k_lsdir_best99500_grid.png \
+  --artifact samples/benchmark_bicubic5_detail_v1d_best99500_grid.png=samples/benchmark_bicubic5_detail_v1d_best99500_grid.png
+```
+
+Selected v1d results:
+
+```text
+photo_detail_mix val100 PSNR delta: +0.1646 dB
+photo_detail_mix val100 SSIM delta: +0.00647
+strict-bicubic five-crop mean PSNR: 31.9513 dB
+```
+
+The detail branch is still not the public Colab default because the WebUI does
+not have a detail branch single-image/tiled inference runner.
 
 Make the Hub repository public after license files and the model card are in
 place:

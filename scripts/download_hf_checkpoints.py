@@ -159,6 +159,17 @@ DETAIL_BRANCH_V1B_FILES = [
     "samples/detail_branch_v1b_aug_photo130k_lsdir_best39500_grid.png",
 ]
 
+DETAIL_BRANCH_V1D_FILES = [
+    *DETAIL_BRANCH_V1B_FILES,
+    "checkpoints/detail_branch_v1d_deep3m_photo130k_lsdir_best99500.pt",
+    "configs/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml",
+    "configs/hf/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml",
+    "metrics/detail_branch_v1d_deep3m_photo130k_lsdir_3ep_summary.json",
+    "metrics/benchmark_bicubic5_detail_v1d_best99500_summary.json",
+    "samples/detail_branch_v1d_deep3m_photo130k_lsdir_best99500_grid.png",
+    "samples/benchmark_bicubic5_detail_v1d_best99500_grid.png",
+]
+
 PRESETS = {
     "prototype": PROTOTYPE_FILES,
     "photo100k": PHOTO100K_FILES,
@@ -172,6 +183,7 @@ PRESETS = {
     "stage2_multiscale_perceptual": STAGE2_MULTISCALE_PERCEPTUAL_FILES,
     "stage2_photo130k_lsdir_dual": STAGE2_PHOTO130K_LSDIR_DUAL_FILES,
     "detail_branch_v1b": DETAIL_BRANCH_V1B_FILES,
+    "detail_branch_v1d": DETAIL_BRANCH_V1D_FILES,
 }
 
 
@@ -197,7 +209,8 @@ def parse_args() -> argparse.Namespace:
             "'stage2_multiscale_hqmix' includes the selected multiscale Stage 2 condition checkpoint; "
             "'stage2_multiscale_perceptual' includes the non-promoted VGG continuation step 8000 and comparisons; "
             "'stage2_photo130k_lsdir_dual' includes the completed dual-context LSDIR Stage 2 best98000 checkpoint; "
-            "'detail_branch_v1b' includes the current high-frequency detail branch best39500 checkpoint."
+            "'detail_branch_v1b' includes the earlier high-frequency detail branch best39500 checkpoint; "
+            "'detail_branch_v1d' includes the selected 3.02M detail branch best99500 checkpoint and eval artifacts."
         ),
     )
     parser.add_argument(

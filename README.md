@@ -9,20 +9,20 @@
 
 ## Current Demo
 
-![Representative deterministic x4 detail branch result](docs/assets/detail_branch_v1b_lime_demo.jpg)
+![Representative deterministic x4 detail branch result](docs/assets/detail_branch_v1d_lime_demo.jpg)
 
-A representative `photo_detail_mix` validation crop from the latest public
+A representative `photo_detail_mix` validation crop from the selected v1d
 high-frequency detail branch artifact. Columns are base Stage 2 output, detail
-branch output, and ground truth. The branch is deterministic and runs on top of
-the frozen dual-context LSDIR Stage 2 step 98000 checkpoint plus the frozen
-Stage 1 decoder. It adds a small gated high-frequency residual, improving the
-validation aggregate without visible sampling artifacts, but it is still
-conservative and remains softer than ground truth on fine surface texture.
+branch output, and ground truth. The deterministic branch runs on top of the
+frozen dual-context LSDIR Stage 2 step 98000 checkpoint plus the frozen Stage 1
+decoder. It adds a controlled gated high-frequency residual without visible
+sampling artifacts, but remains softer than ground truth on fine surface
+texture.
 
 Reproducibility: the source is the deterministic val100 contact sheet preserved
 on Hugging Face as
-`samples/detail_branch_v1b_aug_photo130k_lsdir_best39500_grid.png`, generated
-from `checkpoints/detail_branch_v1b_aug_photo130k_lsdir_best39500.pt` with
+`samples/detail_branch_v1d_deep3m_photo130k_lsdir_best99500_grid.png`, generated
+from `checkpoints/detail_branch_v1d_deep3m_photo130k_lsdir_best99500.pt` with
 `photo_detail_mix`. The README image is a crop from the lime row of that public
 sheet.
 
@@ -98,7 +98,7 @@ Research deterministic candidate:
 
 Current detail research candidate:
   LR -> dual-context LSDIR Stage 2 step 98000 -> Stage 1 VAE decoder
-     -> high-frequency detail branch v1d capacity run -> SR
+     -> high-frequency detail branch v1d step 99500 -> SR
 
 Generative comparison:
   LR -> Stage 2 condition encoder -> Stage 3 OR Stage 4 diffusion U-Net
@@ -116,11 +116,11 @@ continuation of multiscale Stage 2 step 46000 is complete but not promoted.
 The later dual-context LSDIR Stage 2 run is also complete: step 98000 is the
 cleaner-preset best checkpoint, while step 100000 is slightly safer on strong
 degradations.
-The high-frequency detail branch v1b run is complete and remains the latest
-preserved public detail artifact. V1c opened the condition/gate path and
-selected step 6000. The active v1d capacity experiment expands the branch from
-1.35M to 3.02M parameters and identity-initializes the added blocks, so it
-starts exactly from v1c behavior.
+The high-frequency detail branch v1d run is complete. It expands the branch
+from 1.35M to 3.02M parameters, starts from v1c with identity-initialized added
+blocks, and selects step 99500 after exactly three epochs. It is the latest
+preserved public detail artifact, while the public Colab default remains the
+residual refiner v2 path.
 
 Historical first-pass photo100k Stage 3/4 comparison:
 
@@ -408,36 +408,48 @@ Other checkpoint peaks:
   final step 40000: +0.0444 dB PSNR, +0.00277 SSIM, wins 98/100
 ```
 
-The branch remains the latest preserved public detail artifact, but not the
-public Colab default because the WebUI still wraps the residual-refiner and
-diffusion single-image runners. Its qualitative change is stable and
-artifact-light but still visually conservative; it does not close the
-fine-texture gap to GT.
-Download the preserved review artifact set with:
+The branch is preserved as the earlier public detail artifact. Its qualitative
+change is stable and artifact-light but still visually conservative.
+Download its review artifact set with:
 
 ```bash
 python scripts/download_hf_checkpoints.py --preset detail_branch_v1b
 ```
 
-V1c and the active v1d capacity experiment continue from v1b:
+V1c and the completed v1d capacity experiment continue from v1b:
 
 ```text
 v1c selected step 6000:
   photo_detail_mix PSNR delta +0.0554 dB
   SSIM delta +0.00332, wins 99/100
 
-v1d strict-bicubic snapshot, selected step 9500:
-  3.02M detail branch, 31.8247 dB
-  +0.0093 dB over v1c on the same five-image diagnostic
+v1d selected step 99500 after 100086 micro-steps / exactly 3 epochs:
+  photo_detail_mix PSNR delta +0.1646 dB
+  SSIM delta +0.00647, wins 99/100
+  strict-bicubic five-crop mean RGB PSNR 31.9513 dB
+  +0.1358 dB over v1c on the same five-image diagnostic
 ```
 
 A strict PIL-bicubic x4 diagnostic on five DIV2K validation center crops was
 added to separate clean reconstruction capacity from degradation difficulty.
 It is exploratory, not a formal SOTA benchmark. The best deterministic path in
-that snapshot is dual-context + detail v1d at `31.8247 dB`; the much larger
+that snapshot is dual-context + detail v1d at `31.9513 dB`; the much larger
 509.658M Stage4 XL path reaches `29.5487 dB` because its strong-cleanup training
 over-edits clean bicubic inputs. Full results are in
 `metrics/benchmark_bicubic5_lusir_model_comparison.json`.
+
+The v1d long run made a meaningful but still conservative improvement over the
+early step 9500 snapshot (`31.8247 -> 31.9513 dB`) and v1c (`+0.1358 dB`) on
+the same clean diagnostic. Step 99500 is preferred over final step 100086
+because it has the stronger ordinary-val aggregate PSNR, SSIM, highpass
+improvement, and combined detail score. Further same-objective continuation is
+not planned.
+
+Download the selected v1d checkpoint and evaluation artifacts with:
+
+```bash
+python scripts/download_hf_checkpoints.py --preset detail_branch_v1d
+```
 
 That teacher-supervision path was then tested in the gated-residual Stage 4
 U-Net on `photo_v3_noise_mix`. It produced a small, stable PSNR cleanup gain,
@@ -853,9 +865,9 @@ image in the browser, adjust residual strength/tile settings with sliders, and
 compare bicubic or Stage 2 condition against SR with a before/after slider.
 The completed dual-context LSDIR Stage 2 research checkpoint can be downloaded
 with `python scripts/download_hf_checkpoints.py --preset stage2_photo130k_lsdir_dual`.
-The completed detail branch v1b research checkpoint can be downloaded with
-`python scripts/download_hf_checkpoints.py --preset detail_branch_v1b`; it is
-preserved for review and future Colab integration.
+The selected detail branch v1d research checkpoint can be downloaded with
+`python scripts/download_hf_checkpoints.py --preset detail_branch_v1d`; v1b is
+also preserved as the earlier comparison artifact.
 
 For a click-to-run demo, open the Colab notebook:
 
@@ -902,10 +914,10 @@ Download the completed dual-context LSDIR Stage 2 artifact set:
 python scripts/download_hf_checkpoints.py --preset stage2_photo130k_lsdir_dual
 ```
 
-Download the completed detail branch v1b review artifact set:
+Download the selected detail branch v1d review artifact set:
 
 ```bash
-python scripts/download_hf_checkpoints.py --preset detail_branch_v1b
+python scripts/download_hf_checkpoints.py --preset detail_branch_v1d
 ```
 
 Download the selected teacher-supervised Stage 4 probe checkpoint and eval
@@ -1356,23 +1368,19 @@ Stage 4: perceptual / GAN fine-tune
   `tools/eval/run_fixed_review_residual_refiner.py`, and
   `tools/eval/eval_fixed_review_outputs.py`; the branch design note is
   `docs/DETAIL_BRANCH_V1_KO.md`.
-- High-frequency detail branch v1b is complete as a deterministic image-space
+- High-frequency detail branch v1d is complete as a deterministic image-space
   branch on top of frozen Stage 2 dual-context best98000 and the frozen Stage 1
   decoder. It uses
-  `configs/detail_branch_v1b_aug_photo130k_lsdir.yaml`,
+  `configs/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml`,
   `tools/train/train_detail_branch.py`, and
   `tools/eval/run_fixed_review_detail_branch.py`. It does not run Stage 3/4
-  diffusion sampling. The v1b run adds horizontal flip, texture-biased crop
-  retry, and weak HR color jitter, but excludes rotations and affine/perspective
-  transforms. Its training step count is micro-step based; with
-  `grad_accum_steps: 4`, `40000` micro-steps means `10000` optimizer updates.
-  The run is complete. The selected checkpoint is
-  `checkpoints/detail_branch_v1b_aug_photo130k_lsdir_best39500.pt`
-  (`best_eval_detail.pt` locally): PSNR delta `+0.0461 dB`, SSIM delta
-  `+0.00268`, mean PSNR delta `+0.0575`, and wins `98/100` versus the frozen
-  base. This remains the latest public detail artifact; v1c and the active v1d
-  capacity run are newer local research candidates. Its visible effect remains
-  conservative.
+  diffusion sampling. The selected checkpoint is
+  `checkpoints/detail_branch_v1d_deep3m_photo130k_lsdir_best99500.pt`
+  (`best_eval_detail.pt` locally): ordinary val100 PSNR delta `+0.1646 dB`,
+  SSIM delta `+0.00647`, mean PSNR delta `+0.1888 dB`, and wins `99/100`
+  versus the frozen base. The run completed `100086` micro-steps, exactly
+  three epochs, and the selected checkpoint is now the latest public detail
+  artifact. Its visible effect remains stable and conservative.
 
 Run the Stage 4-lite low-timestep fine-tune:
 

@@ -60,17 +60,16 @@ python scripts/download_hf_checkpoints.py --preset residual_refiner_stage2_xl_mi
 python scripts/download_hf_checkpoints.py --preset stage2_photo130k_lsdir_dual
 ```
 
-완료된 high-frequency detail branch v1b best39500 checkpoint와 review grid까지
+선택된 high-frequency detail branch v1d best99500 checkpoint와 일반/strict-bicubic
+review grid까지
 받으려면:
 
 ```bash
-python scripts/download_hf_checkpoints.py --preset detail_branch_v1b
+python scripts/download_hf_checkpoints.py --preset detail_branch_v1d
 ```
 
-V1b는 최신 public detail artifact다. V1c/v1d는 현재 로컬 연구 run이며 아직
-HF 복구 preset으로 승격하지 않았다. 기존 VM을 지우기 전에는
-`detail_branch_v1c_condition_open_photo130k_lsdir`와
-`detail_branch_v1d_deep3m_photo130k_lsdir_3ep` run/checkpoint를 별도로 보존한다.
+V1d step `99500`은 최신 public detail artifact다. V1b도 이전 비교용
+`detail_branch_v1b` preset으로 보존되어 있다.
 
 다운로드 위치:
 
@@ -230,29 +229,29 @@ cp checkpoints/stage4_photo100k_condition_v2_b32_best_eval_condition_decoded.pt 
 
 ## 7. 이어서 할 작업
 
-현재 활성 작업은 v1c에서 identity-preserving 초기화한 3.02M detail branch
-v1d capacity run을 관찰하는 것이다.
+3.02M detail branch v1d capacity run은 완료됐다.
 
 ```text
-tmux:   detail-v1d
-config: configs/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml
-W&B:    https://wandb.ai/jwheo/LuSIR/runs/ctg4r7n9
-target: 100086 micro-steps = 3 epoch
+config:    configs/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml
+W&B:       https://wandb.ai/jwheo/LuSIR/runs/ctg4r7n9
+completed: 100086 micro-steps = exactly 3 epoch
+selected:  step 99500
+HF:        checkpoints/detail_branch_v1d_deep3m_photo130k_lsdir_best99500.pt
 ```
 
-technical report snapshot의 selected step `9500`:
+선택 step `99500`:
 
 ```text
-photo_detail_mix PSNR delta: +0.0638 dB
-photo_detail_mix SSIM delta: +0.00337
-wins:                        100/100
-strict-bicubic five-crop:    31.8247 dB
+photo_detail_mix PSNR delta:      +0.1646 dB
+photo_detail_mix mean PSNR delta: +0.1888 dB
+photo_detail_mix SSIM delta:      +0.00647
+wins:                             99/100
+strict-bicubic five-crop:         31.9513 dB
 ```
 
-v1d는 적어도 1 epoch까지 관찰하되 fixed validation 또는 시각 품질이 명확히
-후퇴하면 중단한다. 이후 v1b/v1c/v1d를 같은 fixed review에서 비교하고, 정식
-DIV2K/Set5/Set14/Urban100 benchmark와 public baseline 비교를 진행한다. 현재
-public Colab 기본 경로는 여전히 residual refiner v2다.
+다음은 정식 DIV2K/Set5/Set14/Urban100 benchmark와 public baseline/blind human
+비교다. 같은 objective의 추가 continuation이나 단순 capacity 증가는 우선하지
+않는다. 현재 public Colab 기본 경로는 여전히 residual refiner v2다.
 
 ## 8. tmux / 모니터링
 

@@ -74,6 +74,7 @@ configs/detail_branch_v1b_aug_photo130k_lsdir.yaml
 configs/detail_branch_v1c_condition_open_photo130k_lsdir.yaml
 configs/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml
 configs/hf/detail_branch_v1b_aug_photo130k_lsdir.yaml
+configs/hf/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml
 tests/test_detail_branch.py
 ```
 
@@ -180,7 +181,7 @@ HF path:
   키우는 방향은 아니다.
 - 라임/털/풀/건물 edge처럼 texture-heavy crop에서 얇은 고주파 보강이 보인다.
 - 다만 base와 detail 차이는 작고, GT 수준의 표면 질감 복원에는 아직 못 미친다.
-- 따라서 v1b는 최신 public detail artifact로 보존하되, Colab 기본값으로
+- 따라서 v1b는 이전 비교용 public detail artifact로 보존하되, Colab 기본값으로
   승격하려면 단일 이미지/tiled inference runner와 WebUI 통합이 먼저 필요하다.
 
 fixed review set 평가:
@@ -218,28 +219,45 @@ V1d는 v1c의 objective와 width를 유지하고 residual block만 `8 -> 18`로
 추가 block은 identity-init하므로 시작 출력은 v1c와 정확히 같다.
 
 ```text
-v1d config: configs/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml
-target:     100086 micro-steps = exactly 3 epoch
-active W&B: https://wandb.ai/jwheo/LuSIR/runs/ctg4r7n9
+v1d config:   configs/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml
+completed:    100086 micro-steps = exactly 3 epoch
+selected:     step 99500, eval/detail_score best
+W&B:          https://wandb.ai/jwheo/LuSIR/runs/ctg4r7n9
+HF checkpoint:
+  checkpoints/detail_branch_v1d_deep3m_photo130k_lsdir_best99500.pt
 ```
 
-technical report의 selected step `9500` snapshot:
+선택 step `99500` 결과:
 
 | protocol | result |
 | --- | ---: |
-| `photo_detail_mix` aggregate PSNR delta | +0.0638 dB |
-| `photo_detail_mix` SSIM delta | +0.00337 |
-| `photo_detail_mix` wins | 100/100 |
-| strict-bicubic DIV2K five-crop RGB PSNR | 31.8247 dB |
-| strict-bicubic gain over v1c | +0.0093 dB |
+| `photo_detail_mix` aggregate PSNR delta | +0.1646 dB |
+| `photo_detail_mix` mean PSNR delta | +0.1888 dB |
+| `photo_detail_mix` SSIM delta | +0.00647 |
+| `photo_detail_mix` wins | 99/100 |
+| `photo_detail_mix` detail wins | 100/100 |
+| strict-bicubic DIV2K five-crop RGB PSNR | 31.9513 dB |
+| strict-bicubic gain over v1c | +0.1358 dB |
+| strict-bicubic wins | 5/5 |
 
 판단:
 
-- v1c와 v1d 모두 v1b보다 수치상 개선됐지만 변화는 여전히 작다.
-- v1d의 추가 1.67M 파라미터가 만든 strict-bicubic 이득은 현재
-  `+0.0093 dB`뿐이다.
-- v1d가 계속 보수적이면 다음 단계는 용량 추가보다 perceptual/detail-only
-  adversarial supervision과 blind visual comparison이다.
+- 3 epoch 장기 학습은 early step `9500`의 strict-bicubic `31.8247 dB`에서
+  `31.9513 dB`까지 올라 의미가 있었다.
+- final step `100086`은 strict-bicubic mean PSNR이 `31.9516 dB`로 사실상
+  동일하지만, step `99500`이 ordinary val aggregate PSNR, SSIM, highpass
+  improvement, detail score에서 더 좋아 공식 선택한다.
+- 흰 점/grid/과도한 sharpening 없이 안정적이지만 GT fine texture를 완전히
+  복원하지는 못한다.
+- 같은 objective의 추가 continuation이나 단순 capacity 증가는 우선하지 않는다.
+  다음 단계는 정식 benchmark, public baseline/blind visual comparison,
+  perceptual 또는 detail-only adversarial supervision 검토다.
+
+복구:
+
+```bash
+python scripts/download_hf_checkpoints.py --preset detail_branch_v1d
+```
 
 ## 학습 목표
 

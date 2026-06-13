@@ -4,7 +4,7 @@
 계속 누적하기 위한 기록이다. 최종 성능표가 아니라, 왜 다음 실험을 그렇게 잡았는지
 추적하는 용도다.
 
-## 2026-06-12 detail branch v1c와 v1d capacity 실험
+## 2026-06-13 detail branch v1d 3 epoch 완료
 
 V1b는 안정적이지만 visible residual이 너무 작았다. 같은 branch를 단순히 더
 오래 학습하는 대신, v1c에서는 frozen Stage 2 condition latent를 직접 입력하고
@@ -24,15 +24,27 @@ V1d는 width/objective를 유지한 채 residual block을 `8 -> 18`, branch
 
 ```text
 config: configs/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml
-target: 100086 micro-steps = 3 epoch
+completed: 100086 micro-steps = exactly 3 epoch
+selected: step 99500
 W&B:    https://wandb.ai/jwheo/LuSIR/runs/ctg4r7n9
 ```
 
-technical report snapshot의 selected step `9500`은 ordinary fixed
-`photo_detail_mix`에서 `+0.0638 dB`, SSIM `+0.00337`, wins `100/100`이다.
-진전은 있지만 여전히 사용자 체감 fine-detail 돌파로 판단할 크기는 아니다.
+선택 step `99500`은 ordinary fixed `photo_detail_mix`에서 aggregate PSNR
+`+0.1646 dB`, mean PSNR `+0.1888 dB`, SSIM `+0.00647`, wins `99/100`,
+detail wins `100/100`이다. strict-bicubic DIV2K five-crop에서는 `31.9513 dB`,
+base 대비 `+0.2102 dB`, v1c 대비 `+0.1358 dB`, `5/5` wins를 기록했다.
 
-## 2026-06-12 strict-bicubic 모델 규모 비교
+final step `100086`의 strict-bicubic mean PSNR은 `31.9516 dB`로 선택
+checkpoint와 사실상 같지만, ordinary val aggregate PSNR/SSIM/highpass/detail
+score는 step `99500`이 더 좋다. 따라서 best99500을 공식 선택하고 동일
+objective continuation은 종료한다.
+
+시각적으로 흰 점, grid, 과도한 sharpening은 없고 early v1d보다 residual이
+강해졌지만 여전히 GT fine texture에는 못 미친다. 결론은 “용량/장기 학습이
+무의미했다”가 아니라 “안정적 수치 개선은 만들었지만 perceptual-detail
+돌파는 아니었다”이다.
+
+## 2026-06-13 strict-bicubic 모델 규모 비교
 
 기존 validation preset은 blur/noise/compression 등이 섞여 있어 공개
 bicubic-only SR 논문의 PSNR과 직접 비교할 수 없었다. 또한 기존 `clean`
@@ -47,7 +59,7 @@ preset도 downsample kernel을 bicubic/bilinear/lanczos 중 무작위로 골랐�
 | Stage2 multiscale | 76.591M | 31.6068 |
 | Stage2 dual-context | 140.334M | 31.7411 |
 | dual + detail v1c | 141.689M | 31.8154 |
-| dual + detail v1d step9500 | 143.354M | 31.8247 |
+| dual + detail v1d step99500 | 143.354M | 31.9513 |
 | Stage4 XL edge sampled | 509.658M | 29.5487 |
 
 판단:
@@ -58,7 +70,9 @@ preset도 downsample kernel을 bicubic/bilinear/lanczos 중 무작위로 골랐�
   이득을 만들었다.
 - 509.658M Stage4 XL은 clean input을 과수정해 bicubic보다도 낮다. 파라미터
   수가 곧 품질 순위는 아니다.
-- v1d는 v1c보다 `+0.0093 dB`라서 3M capacity만으로는 돌파가 아니다.
+- v1d는 v1c보다 `+0.1358 dB` 좋아져 3 epoch 장기 학습은 의미가 있었다.
+  다만 시각적 변화는 여전히 보수적이므로 capacity만 더 늘리는 것은 다음
+  우선순위가 아니다.
 - 이 결과는 RGB, 5 center crops, PIL bicubic, border shave 없음 조건이므로
   정식 SOTA benchmark 주장이 아니다.
 
@@ -173,7 +187,7 @@ augmentation + 장기 학습은 수치상 진전이 있었다. 특히 wins가 fi
 
 결론:
 
-- v1b step `39500`을 최신 public detail artifact로 보존한다.
+- v1b step `39500`을 이전 비교용 public detail artifact로 보존한다.
 - final `40000`이 아니라 `best_eval_detail.pt`를 기준으로 문서/HF/리뷰를 맞춘다.
 - public Colab 기본값은 아직 residual refiner v2다. detail branch를 사용자 기본
   경로로 승격하려면 단일 이미지/tiled inference runner와 WebUI 통합이 필요하다.

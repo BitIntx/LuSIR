@@ -132,8 +132,8 @@ without T2I Pretraining}
 \setcounter{tocdepth}{3}
 \tableofcontents
 }
-Snapshot: dual-context Stage 2 scale-up complete and 3.02M-parameter
-detail branch v1d capacity run in progress.
+Snapshot: dual-context Stage 2 scale-up and the 3.02M-parameter detail
+branch v1d three-epoch capacity run complete.
 
 \texttt{paper/TECHNICAL\_REPORT.md} is the canonical report source.
 \texttt{paper/sr\_diffusion\_report.pdf} and \texttt{paper/main.tex} are
@@ -279,8 +279,8 @@ Dual-context + detail v1b & step 39500 & \texttt{141.675M} &
 \texttt{31.8135} & \texttt{+2.2136} \\
 Dual-context + detail v1c & step 6000 & \texttt{141.689M} &
 \texttt{31.8154} & \texttt{+2.2155} \\
-Dual-context + detail v1d, in progress & step 9500 & \texttt{143.354M} &
-\texttt{31.8247} & \texttt{+2.2248} \\
+Dual-context + detail v1d & step 99500 & \texttt{143.354M} &
+\texttt{31.9513} & \texttt{+2.3514} \\
 Stage 4 XL edge, 32-step sampled & step 4250 & \texttt{509.658M} &
 \texttt{29.5487} & \texttt{-0.0512} \\
 \end{longtable}
@@ -295,10 +295,10 @@ The capacity trend is also informative. Stage 2 XL to multiscale gains
 \texttt{+1.0391\ dB}, and multiscale to dual-context gains another
 \texttt{+0.1343\ dB}. The detail branches then provide smaller but
 consistent gains over dual-context: v1b \texttt{+0.0725\ dB}, v1c
-\texttt{+0.0744\ dB}, and the in-progress 3.02M v1d
-\texttt{+0.0837\ dB}. V1d currently improves v1c by only
-\texttt{+0.0093\ dB}, so increasing detail-branch capacity alone is not
-yet a perceptual-detail breakthrough.
+\texttt{+0.0744\ dB}, and the completed 3.02M v1d \texttt{+0.2102\ dB}.
+V1d improves v1c by \texttt{+0.1358\ dB} after three epochs. This
+confirms that the long capacity run was useful, but the visual change
+remains conservative and is not a perceptual-detail breakthrough.
 
 The 509.7M Stage 4 XL edge checkpoint is the clearest counterexample to
 treating parameter count as a quality ranking. On this clean bicubic
@@ -844,11 +844,11 @@ cherry-picked evidence of a formal benchmark win.
 \emph{Figure 1. Multiscale Stage 2 restores the degraded input while
 retaining a visible fine-texture gap to ground truth.}
 
-\includegraphics{../docs/assets/detail_branch_v1b_lime_demo.jpg}
+\includegraphics{../docs/assets/detail_branch_v1d_lime_demo.jpg}
 
-\emph{Figure 2. Detail branch v1b adds a small, artifact-light
-correction over the base; this illustrates both its stability and its
-conservative behavior.}
+\emph{Figure 2. Selected detail branch v1d adds a controlled,
+artifact-light correction over the base; this illustrates both its
+improvement and its remaining conservative behavior.}
 
 \hypertarget{stage-2-multiscale-redesign}{%
 \section{Stage 2 Multiscale
@@ -984,6 +984,7 @@ Implemented files:
 \NormalTok{configs/detail\_branch\_v1b\_aug\_photo130k\_lsdir.yaml}
 \NormalTok{configs/detail\_branch\_v1c\_condition\_open\_photo130k\_lsdir.yaml}
 \NormalTok{configs/detail\_branch\_v1d\_deep3m\_photo130k\_lsdir\_3ep.yaml}
+\NormalTok{configs/hf/detail\_branch\_v1d\_deep3m\_photo130k\_lsdir\_3ep.yaml}
 \NormalTok{tools/train/train\_detail\_branch.py}
 \NormalTok{tools/eval/run\_fixed\_review\_detail\_branch.py}
 \NormalTok{tests/test\_detail\_branch.py}
@@ -1026,8 +1027,8 @@ Different metrics peak at nearby checkpoints: PSNR delta is highest at
 step 38500 (\texttt{+0.0489\ dB}), SSIM delta is highest at step 37000
 (\texttt{+0.00336}), and the final step 40000 reaches
 \texttt{+0.0444\ dB} PSNR and \texttt{+0.00277} SSIM with
-\texttt{98/100} wins. The selected step 39500 remains the latest
-preserved public detail artifact because it has the best combined detail
+\texttt{98/100} wins. The selected step 39500 remains preserved as the
+earlier public detail artifact because it has the best combined detail
 score from the completed v1b run. Qualitatively, it is artifact-light
 and slightly sharper on texture-heavy crops, but still conservative and
 below GT on fine surface detail. It is not yet the public Colab default
@@ -1046,15 +1047,27 @@ V1d keeps the v1c width and objective but increases residual depth from
 8 to 18 blocks, raising branch capacity from \texttt{1.35M} to
 \texttt{3.02M} parameters. The original blocks are copied from v1c step
 6000 and the ten appended blocks are identity-initialized, so the step-0
-output exactly reproduces v1c. The run is configured for 100,086
-micro-steps, exactly three passes over the 133,450-image manifest at
-batch size 4. It remains in progress. At the strict-bicubic snapshot
-selected step 9500, it reaches \texttt{31.8247\ dB}, only
-\texttt{+0.0093\ dB} above v1c. On the ordinary fixed
-\texttt{photo\_detail\_mix} val100 it reaches \texttt{+0.0638\ dB}
-aggregate PSNR and \texttt{+0.00337} SSIM over the frozen base with
-\texttt{100/100} wins. This is a real but still incremental gain; the
-larger branch has not yet resolved the visible fine-texture gap.
+output exactly reproduces v1c. The run completed 100,086 micro-steps,
+exactly three passes over the 133,450-image manifest at batch size 4,
+and selected step 99,500 by \texttt{eval/detail\_score}.
+
+On ordinary fixed \texttt{photo\_detail\_mix} val100, selected step
+99,500 improves the frozen base by \texttt{+0.1646\ dB} aggregate PSNR,
+\texttt{+0.1888\ dB} mean PSNR, and \texttt{+0.00647} SSIM with
+\texttt{99/100} PSNR wins and \texttt{100/100} detail wins. On the
+strict-bicubic five-crop diagnostic it reaches \texttt{31.9513\ dB},
+improving the frozen base by \texttt{+0.2102\ dB}, v1c by
+\texttt{+0.1358\ dB}, and winning \texttt{5/5} images. This is also
+\texttt{+0.1266\ dB} above the early v1d step-9500 snapshot.
+
+Final step 100,086 reaches a nearly identical strict-bicubic
+\texttt{31.9516\ dB}, but selected step 99,500 is stronger on
+ordinary-val aggregate PSNR, SSIM, highpass improvement, and the
+combined detail score. Visual inspection shows no white-dot, grid, or
+excessive-sharpening artifacts. The larger branch and long run therefore
+produced meaningful stable progress, but still did not close the visible
+fine-texture gap to ground truth. Further same-objective continuation or
+simple capacity scaling is not planned.
 
 \hypertarget{public-artifacts}{%
 \section{Public Artifacts}\label{public-artifacts}}
@@ -1073,6 +1086,7 @@ Hugging Face:
 \NormalTok{checkpoints/stage2\_photo100k\_multiscale\_hqmix\_perceptual\_step\_0008000.pt}
 \NormalTok{checkpoints/stage2\_photo130k\_lsdir\_dual\_multiscale\_best98000.pt}
 \NormalTok{checkpoints/detail\_branch\_v1b\_aug\_photo130k\_lsdir\_best39500.pt}
+\NormalTok{checkpoints/detail\_branch\_v1d\_deep3m\_photo130k\_lsdir\_best99500.pt}
 \NormalTok{metrics/stage4\_photo100k\_xl\_edge\_b16\_val100\_t50\_32step\_summary.json}
 \NormalTok{metrics/diagnose\_stage2\_xl\_residuals\_mild\_val100\_summary.json}
 \NormalTok{metrics/residual\_refiner\_stage2\_xl\_mild\_probe\_early\_stop\_summary.json}
@@ -1092,6 +1106,8 @@ Hugging Face:
 \NormalTok{metrics/stage2\_multiscale\_perceptual\_photo\_v3\_noise\_mix\_candidates.json}
 \NormalTok{metrics/stage2\_photo130k\_lsdir\_dual\_multiscale\_final\_summary.json}
 \NormalTok{metrics/detail\_branch\_v1b\_aug\_photo130k\_lsdir\_summary.json}
+\NormalTok{metrics/detail\_branch\_v1d\_deep3m\_photo130k\_lsdir\_3ep\_summary.json}
+\NormalTok{metrics/benchmark\_bicubic5\_detail\_v1d\_best99500\_summary.json}
 \NormalTok{samples/stage4\_photo100k\_xl\_edge\_b16\_val100\_t50\_32step\_grid\_lr\_bicubic\_sr\_gt.png}
 \NormalTok{samples/diagnose\_stage2\_xl\_residuals\_mild\_val100\_grid.png}
 \NormalTok{samples/residual\_refiner\_stage2\_xl\_mild\_probe\_step500\_grid.png}
@@ -1111,6 +1127,8 @@ Hugging Face:
 \NormalTok{samples/stage2\_dual\_lsdir\_photo\_v2\_best98k\_final100k\_contact\_sheet.png}
 \NormalTok{samples/stage2\_dual\_lsdir\_photo\_v3\_noise\_mix\_best98k\_final100k\_contact\_sheet.png}
 \NormalTok{samples/detail\_branch\_v1b\_aug\_photo130k\_lsdir\_best39500\_grid.png}
+\NormalTok{samples/detail\_branch\_v1d\_deep3m\_photo130k\_lsdir\_best99500\_grid.png}
+\NormalTok{samples/benchmark\_bicubic5\_detail\_v1d\_best99500\_grid.png}
 \NormalTok{configs/diffusion\_photo100k\_xl\_stage4\_condition\_v3\_edge\_b16.yaml}
 \NormalTok{configs/residual\_refiner\_stage2\_xl\_mild\_probe.yaml}
 \NormalTok{configs/diffusion\_photo100k\_xl\_stage4\_condition\_v3\_teacher\_residual\_photo\_v3\_b8\_probe.yaml}
@@ -1122,6 +1140,8 @@ Hugging Face:
 \NormalTok{configs/detail\_branch\_v1\_photo130k\_lsdir.yaml}
 \NormalTok{configs/detail\_branch\_v1b\_aug\_photo130k\_lsdir.yaml}
 \NormalTok{configs/hf/detail\_branch\_v1b\_aug\_photo130k\_lsdir.yaml}
+\NormalTok{configs/detail\_branch\_v1d\_deep3m\_photo130k\_lsdir\_3ep.yaml}
+\NormalTok{configs/hf/detail\_branch\_v1d\_deep3m\_photo130k\_lsdir\_3ep.yaml}
 \end{Highlighting}
 \end{Shaded}
 
@@ -1136,10 +1156,6 @@ next steps are:
 \begin{itemize}
 \tightlist
 \item
-  continue v1d to at least one epoch unless fixed validation or visual
-  quality clearly regresses, then compare its selected checkpoint
-  against v1b/v1c;
-\item
   build the formal full-image DIV2K, Set5, Set14, and Urban100 benchmark
   with Y-channel PSNR, border shave, and benchmark-compatible bicubic
   generation;
@@ -1148,9 +1164,9 @@ next steps are:
   set and add LPIPS, DISTS, and blind human comparison rather than
   relying on PSNR alone;
 \item
-  if v1d remains visually conservative, change the supervision toward
-  perceptual/adversarial detail recovery instead of increasing branch
-  capacity again;
+  because v1d remains visually conservative, change the supervision
+  toward perceptual/adversarial detail recovery instead of increasing
+  branch capacity again;
 \item
   keep a degradation-aware gate or strong-input guardrail as the primary
   response to the remaining strong-preset failure tail.

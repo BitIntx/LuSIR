@@ -1,7 +1,7 @@
 # LuSIR: Latent Upscaling via Self-trained Image Restoration without T2I Pretraining
 
-Snapshot: dual-context Stage 2 scale-up complete and 3.02M-parameter detail
-branch v1d capacity run in progress.
+Snapshot: dual-context Stage 2 scale-up and the 3.02M-parameter detail branch
+v1d three-epoch capacity run complete.
 
 `paper/TECHNICAL_REPORT.md` is the canonical report source.
 `paper/sr_diffusion_report.pdf` and `paper/main.tex` are generated from it with
@@ -103,7 +103,7 @@ accounting.
 | Stage 2 dual-context LSDIR | step 98000 | `140.334M` | `31.7411` | `+2.1412` |
 | Dual-context + detail v1b | step 39500 | `141.675M` | `31.8135` | `+2.2136` |
 | Dual-context + detail v1c | step 6000 | `141.689M` | `31.8154` | `+2.2155` |
-| Dual-context + detail v1d, in progress | step 9500 | `143.354M` | `31.8247` | `+2.2248` |
+| Dual-context + detail v1d | step 99500 | `143.354M` | `31.9513` | `+2.3514` |
 | Stage 4 XL edge, 32-step sampled | step 4250 | `509.658M` | `29.5487` | `-0.0512` |
 
 The strict-bicubic result confirms that LuSIR already operates in the 30-32 dB
@@ -114,9 +114,10 @@ difficulty rather than a direct 6-7 dB gap to bicubic-only SR papers.
 The capacity trend is also informative. Stage 2 XL to multiscale gains
 `+1.0391 dB`, and multiscale to dual-context gains another `+0.1343 dB`.
 The detail branches then provide smaller but consistent gains over dual-context:
-v1b `+0.0725 dB`, v1c `+0.0744 dB`, and the in-progress 3.02M v1d
-`+0.0837 dB`. V1d currently improves v1c by only `+0.0093 dB`, so increasing
-detail-branch capacity alone is not yet a perceptual-detail breakthrough.
+v1b `+0.0725 dB`, v1c `+0.0744 dB`, and the completed 3.02M v1d
+`+0.2102 dB`. V1d improves v1c by `+0.1358 dB` after three epochs. This
+confirms that the long capacity run was useful, but the visual change remains
+conservative and is not a perceptual-detail breakthrough.
 
 The 509.7M Stage 4 XL edge checkpoint is the clearest counterexample to treating
 parameter count as a quality ranking. On this clean bicubic diagnostic it falls
@@ -505,12 +506,13 @@ texture.](../docs/assets/stage2_multiscale_demo.jpg)
 *Figure 1. Multiscale Stage 2 restores the degraded input while retaining a
 visible fine-texture gap to ground truth.*
 
-![The v1b high-frequency detail branch makes a conservative texture correction
+![The selected v1d high-frequency detail branch makes a controlled texture correction
 over the dual-context base. It remains artifact-light, but the gap to ground
-truth fine detail is still clear.](../docs/assets/detail_branch_v1b_lime_demo.jpg)
+truth fine detail is still clear.](../docs/assets/detail_branch_v1d_lime_demo.jpg)
 
-*Figure 2. Detail branch v1b adds a small, artifact-light correction over the
-base; this illustrates both its stability and its conservative behavior.*
+*Figure 2. Selected detail branch v1d adds a controlled, artifact-light
+correction over the base; this illustrates both its improvement and its
+remaining conservative behavior.*
 
 ## Stage 2 Multiscale Redesign
 
@@ -624,6 +626,7 @@ configs/detail_branch_v1_photo130k_lsdir.yaml
 configs/detail_branch_v1b_aug_photo130k_lsdir.yaml
 configs/detail_branch_v1c_condition_open_photo130k_lsdir.yaml
 configs/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml
+configs/hf/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml
 tools/train/train_detail_branch.py
 tools/eval/run_fixed_review_detail_branch.py
 tests/test_detail_branch.py
@@ -660,7 +663,7 @@ detail wins:      100/100
 Different metrics peak at nearby checkpoints: PSNR delta is highest at step
 38500 (`+0.0489 dB`), SSIM delta is highest at step 37000 (`+0.00336`), and the
 final step 40000 reaches `+0.0444 dB` PSNR and `+0.00277` SSIM with `98/100`
-wins. The selected step 39500 remains the latest preserved public detail
+wins. The selected step 39500 remains preserved as the earlier public detail
 artifact because it has the best combined detail score from the completed v1b
 run. Qualitatively, it is artifact-light and
 slightly sharper on texture-heavy crops, but still conservative and below GT on
@@ -677,14 +680,24 @@ quickly enough to motivate a controlled capacity test.
 V1d keeps the v1c width and objective but increases residual depth from 8 to
 18 blocks, raising branch capacity from `1.35M` to `3.02M` parameters. The
 original blocks are copied from v1c step 6000 and the ten appended blocks are
-identity-initialized, so the step-0 output exactly reproduces v1c. The run is
-configured for 100,086 micro-steps, exactly three passes over the 133,450-image
-manifest at batch size 4. It remains in progress. At the strict-bicubic
-snapshot selected step 9500, it reaches `31.8247 dB`, only `+0.0093 dB` above
-v1c. On the ordinary fixed `photo_detail_mix` val100 it reaches `+0.0638 dB`
-aggregate PSNR and `+0.00337` SSIM over the frozen base with `100/100` wins.
-This is a real but still incremental gain; the larger branch has not yet
-resolved the visible fine-texture gap.
+identity-initialized, so the step-0 output exactly reproduces v1c. The run
+completed 100,086 micro-steps, exactly three passes over the 133,450-image
+manifest at batch size 4, and selected step 99,500 by `eval/detail_score`.
+
+On ordinary fixed `photo_detail_mix` val100, selected step 99,500 improves the
+frozen base by `+0.1646 dB` aggregate PSNR, `+0.1888 dB` mean PSNR, and
+`+0.00647` SSIM with `99/100` PSNR wins and `100/100` detail wins. On the
+strict-bicubic five-crop diagnostic it reaches `31.9513 dB`, improving the
+frozen base by `+0.2102 dB`, v1c by `+0.1358 dB`, and winning `5/5` images.
+This is also `+0.1266 dB` above the early v1d step-9500 snapshot.
+
+Final step 100,086 reaches a nearly identical strict-bicubic `31.9516 dB`, but
+selected step 99,500 is stronger on ordinary-val aggregate PSNR, SSIM,
+highpass improvement, and the combined detail score. Visual inspection shows
+no white-dot, grid, or excessive-sharpening artifacts. The larger branch and
+long run therefore produced meaningful stable progress, but still did not
+close the visible fine-texture gap to ground truth. Further same-objective
+continuation or simple capacity scaling is not planned.
 
 ## Public Artifacts
 
@@ -700,6 +713,7 @@ checkpoints/stage2_photo100k_multiscale_hqmix_step_0046000.pt
 checkpoints/stage2_photo100k_multiscale_hqmix_perceptual_step_0008000.pt
 checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt
 checkpoints/detail_branch_v1b_aug_photo130k_lsdir_best39500.pt
+checkpoints/detail_branch_v1d_deep3m_photo130k_lsdir_best99500.pt
 metrics/stage4_photo100k_xl_edge_b16_val100_t50_32step_summary.json
 metrics/diagnose_stage2_xl_residuals_mild_val100_summary.json
 metrics/residual_refiner_stage2_xl_mild_probe_early_stop_summary.json
@@ -719,6 +733,8 @@ metrics/stage2_multiscale_perceptual_photo_v2_candidates.json
 metrics/stage2_multiscale_perceptual_photo_v3_noise_mix_candidates.json
 metrics/stage2_photo130k_lsdir_dual_multiscale_final_summary.json
 metrics/detail_branch_v1b_aug_photo130k_lsdir_summary.json
+metrics/detail_branch_v1d_deep3m_photo130k_lsdir_3ep_summary.json
+metrics/benchmark_bicubic5_detail_v1d_best99500_summary.json
 samples/stage4_photo100k_xl_edge_b16_val100_t50_32step_grid_lr_bicubic_sr_gt.png
 samples/diagnose_stage2_xl_residuals_mild_val100_grid.png
 samples/residual_refiner_stage2_xl_mild_probe_step500_grid.png
@@ -738,6 +754,8 @@ samples/stage2_dual_lsdir_mild_best98k_final100k_contact_sheet.png
 samples/stage2_dual_lsdir_photo_v2_best98k_final100k_contact_sheet.png
 samples/stage2_dual_lsdir_photo_v3_noise_mix_best98k_final100k_contact_sheet.png
 samples/detail_branch_v1b_aug_photo130k_lsdir_best39500_grid.png
+samples/detail_branch_v1d_deep3m_photo130k_lsdir_best99500_grid.png
+samples/benchmark_bicubic5_detail_v1d_best99500_grid.png
 configs/diffusion_photo100k_xl_stage4_condition_v3_edge_b16.yaml
 configs/residual_refiner_stage2_xl_mild_probe.yaml
 configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_v3_b8_probe.yaml
@@ -749,6 +767,8 @@ configs/latent_pretrain_photo130k_lsdir_dual_multiscale_long.yaml
 configs/detail_branch_v1_photo130k_lsdir.yaml
 configs/detail_branch_v1b_aug_photo130k_lsdir.yaml
 configs/hf/detail_branch_v1b_aug_photo130k_lsdir.yaml
+configs/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml
+configs/hf/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml
 ```
 
 ## Next Work
@@ -757,14 +777,12 @@ The selected residual refiner remains the public Colab default until the detail
 branch has a single-image inference runner and WebUI integration. The completed
 perceptual Stage 2 continuation is not promoted. Candidate next steps are:
 
-- continue v1d to at least one epoch unless fixed validation or visual quality
-  clearly regresses, then compare its selected checkpoint against v1b/v1c;
 - build the formal full-image DIV2K, Set5, Set14, and Urban100 benchmark with
   Y-channel PSNR, border shave, and benchmark-compatible bicubic generation;
 - run Real-ESRGAN and other public baselines on the same fixed visual set and
   add LPIPS, DISTS, and blind human comparison rather than relying on PSNR
   alone;
-- if v1d remains visually conservative, change the supervision toward
+- because v1d remains visually conservative, change the supervision toward
   perceptual/adversarial detail recovery instead of increasing branch capacity
   again;
 - keep a degradation-aware gate or strong-input guardrail as the primary

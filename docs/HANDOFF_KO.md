@@ -10,7 +10,7 @@ Restoration**)입니다. GitHub repo id는 `BitIntx/LuSIR`, Hugging Face repo id
 `jwheo/LuSIR`입니다. W&B 기존 run URL, 로컬 scratch 경로, Python import
 namespace에는 아직 `sr-diffusion`/`sr_diffusion` 호환 이름이 남아 있습니다.
 
-## 2026-06-12 현재 상태
+## 2026-06-13 현재 상태
 
 ### 학습 단계와 실제 추론 경로
 
@@ -34,39 +34,46 @@ generative:
 - 현재 사용자용 public deterministic 기본값은 residual refiner v2이다.
 - 기준 deterministic condition 후보는 multiscale Stage 2 step `46000`이고,
   최신 보존 연구 후보는 dual-context LSDIR Stage 2 step `98000`이다.
-- 최신 완료/public detail artifact는 v1b step `39500`이다. 이후 v1c step
-  `6000`은 condition latent 입력과 더 열린 gate/residual 설정을 추가했다.
-- 현재 활성 연구 run은 v1c에서 identity-preserving 초기화한 3.02M-parameter
-  detail branch v1d이다. public Colab 기본값은 아직 residual refiner v2다.
+- 최신 완료/public detail artifact는 v1d step `99500`이다. 3.02M branch를
+  정확히 3 epoch 학습했고, v1c에서 identity-preserving 초기화했다.
+- public Colab 기본값은 아직 residual refiner v2다.
 
-### 최신 활성 detail v1d와 strict-bicubic 진단
+### 최신 완료 detail v1d와 strict-bicubic 진단
 
-- active tmux: `detail-v1d`
 - config: `configs/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml`
 - W&B: <https://wandb.ai/jwheo/LuSIR/runs/ctg4r7n9>
 - 구조: v1c의 8-block/1.35M branch를 18-block/3.02M으로 확장했다. 기존 block은
   복사하고 추가 block은 identity-init하여 시작 출력이 v1c와 정확히 같다.
-- 목표 길이: `100086` micro-steps, train `133450`, batch `4` 기준 정확히
+- 완료 길이: `100086` micro-steps, train `133450`, batch `4` 기준 정확히
   `3 epoch`. `grad_accum_steps: 4`이므로 optimizer update는 micro-step의 1/4이다.
-- technical report snapshot의 selected step `9500`:
-  - ordinary `photo_detail_mix`: PSNR delta `+0.0638 dB`, SSIM delta
-    `+0.00337`, wins `100/100`
-  - strict-bicubic DIV2K five-crop: `31.8247 dB`, v1c 대비 `+0.0093 dB`
-- 이후 ordinary fixed eval은 step `14500`에서 PSNR delta `+0.0741 dB`,
-  mean delta `+0.0789`, SSIM delta `+0.00382`, wins `96/100`까지 진행됐다.
-  이 checkpoint에는 아직 strict-bicubic 진단을 다시 실행하지 않았다.
+- 선택 checkpoint: step `99500`, `best_eval_detail.pt`, `eval/detail_score` best.
+- HF checkpoint:
+  `checkpoints/detail_branch_v1d_deep3m_photo130k_lsdir_best99500.pt`
+- ordinary `photo_detail_mix` val100:
+  - aggregate PSNR delta `+0.1646 dB`
+  - mean PSNR delta `+0.1888 dB`
+  - SSIM delta `+0.00647`
+  - wins `99/100`, detail wins `100/100`
+- strict-bicubic DIV2K five-crop:
+  - mean RGB PSNR `31.9513 dB`
+  - frozen base 대비 `+0.2102 dB`, v1c 대비 `+0.1358 dB`
+  - wins `5/5`
+- final step `100086`은 strict-bicubic `31.9516 dB`로 사실상 동일하지만,
+  ordinary val aggregate PSNR/SSIM/highpass/detail score는 step `99500`이 더 좋다.
 - strict-bicubic 진단은 PIL bicubic x4만 적용한 DIV2K val `0801-0805` center
   crop RGB PSNR이다. 정식 SOTA benchmark가 아니다.
 - 같은 진단에서 모델별 주요 결과:
   - Stage2 XL condition-only `30.5677`
   - multiscale `31.6068`
   - dual-context `31.7411`
-  - dual + v1d `31.8247`
+  - dual + v1d `31.9513`
   - 509.658M Stage4 XL sampled `29.5487`
 - 판단: Stage2 구조 확장은 실제 clean reconstruction 향상을 만들었다. 반면
-  Stage4 XL은 strong-cleanup 역할 때문에 clean input을 과수정한다. v1d의 추가
-  용량 이득은 현재 v1c 대비 `+0.0093 dB`로 작아, 용량만 늘리는 접근의 한계도
-  함께 관찰 중이다.
+  Stage4 XL은 strong-cleanup 역할 때문에 clean input을 과수정한다. v1d 장기
+  학습은 안정적 수치 개선을 만들었지만 시각적 detail은 여전히 보수적이다.
+  동일 objective continuation이나 단순 capacity 증가는 우선하지 않는다.
+- HF preset:
+  `python scripts/download_hf_checkpoints.py --preset detail_branch_v1d`
 
 ### 최신 완료 장기 실험
 
@@ -109,7 +116,7 @@ generative:
   val100 eval과 best checkpoint 갱신은 `1000` micro-step마다 수행한다.
 - raw LSDIR 데이터는 GitHub/HF에 올리지 않는다.
 
-### 최신 완료 detail branch v1b
+### 이전 완료 detail branch v1b
 
 - run: `detail_branch_v1b_aug_photo130k_lsdir`
 - config: `configs/detail_branch_v1b_aug_photo130k_lsdir.yaml`
@@ -828,8 +835,9 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
 - 선택 checkpoint는 step `39500`의 `best_eval_detail.pt`다. val100 기준
   PSNR delta `+0.0461 dB`, SSIM delta `+0.00268`, mean delta `+0.0575`,
   wins `98/100`이다. final `40000`은 `+0.0444 dB`, `+0.00277`, wins `98/100`.
-- v1c step `6000`은 v1b보다 개선됐고, 현재 v1d 3.02M capacity run이 그
-  checkpoint에서 이어서 학습 중이다.
+- v1c step `6000`은 v1b보다 개선됐고, v1d 3.02M capacity run은 그
+  checkpoint에서 이어 정확히 3 epoch를 완료했다. 선택 step `99500`은
+  ordinary val100 PSNR `+0.1646 dB`, SSIM `+0.00647`, wins `99/100`이다.
 - `decoded_psnr + 5 * detail_ratio`는 shortlist score다. detail energy만
   높이는 인공 고주파/노이즈를 보상할 수 있으므로 이것만으로 승격하지 않는다.
 
@@ -837,15 +845,13 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
 
 우선순위:
 
-1. 활성 v1d run을 적어도 1 epoch까지 관찰하되 fixed validation/시각 품질이
-   명확히 후퇴하면 중단한다. v1b/v1c/v1d를 같은 fixed review에서 비교한다.
-2. 정식 full-image DIV2K/Set5/Set14/Urban100 benchmark를 Y-channel, border
+1. 정식 full-image DIV2K/Set5/Set14/Urban100 benchmark를 Y-channel, border
    shave, benchmark-compatible bicubic 규칙으로 구현한다.
-3. Real-ESRGAN 등 공개 baseline을 같은 입력에 실행하고 LPIPS/DISTS 및 blind
+2. Real-ESRGAN 등 공개 baseline을 같은 입력에 실행하고 LPIPS/DISTS 및 blind
    human comparison을 추가한다.
-4. v1d가 계속 보수적이면 branch 파라미터를 더 늘리지 말고 perceptual 또는
+3. v1d가 계속 보수적이므로 branch 파라미터를 더 늘리지 말고 perceptual 또는
    detail-only adversarial supervision을 검토한다.
-5. public Colab 기본 경로는 residual refiner v2를 유지한다. detail branch를
+4. public Colab 기본 경로는 residual refiner v2를 유지한다. detail branch를
    승격하려면 단일 이미지/tiled inference runner와 WebUI 옵션이 먼저 필요하다.
 
 ## 새 VM에서 Codex에게 줄 짧은 프롬프트
@@ -861,12 +867,13 @@ step에서 완료됐고 시각적 detail 개선이 없어 승격하지 않았다
 dual-multiscale Stage2 run도 100000 step까지 완료됐다. 자동 best는 step98000이고
 final100000은 strong preset에서 조금 더 안전하다. 둘 다 HF에 보존되어 있으며,
 public/default 승격 전 contact sheet human review가 필요하다.
-image-space high-frequency detail branch v1b는 완료됐고 public artifact로 보존됐다.
-v1c selected step6000은 condition/gate를 더 열어 개선됐으며, 현재는 v1c에서
-identity-init한 3.02M v1d를 3 epoch 목표로 학습 중이다. strict-bicubic DIV2K
-five-crop 진단에서 v1d step9500은 31.8247 dB이고, 509.658M Stage4 XL은 clean
-input 과수정 때문에 29.5487 dB다. 이 진단은 정식 SOTA benchmark가 아니다.
-다음은 v1d 관찰, formal benchmark, 동일 입력 public baseline/human review다.
+image-space high-frequency detail branch v1d는 정확히 3 epoch를 완료했고 step99500을
+선택해 HF public artifact로 보존했다. ordinary photo_detail_mix val100은 PSNR
++0.1646 dB, SSIM +0.00647, wins 99/100이다. strict-bicubic DIV2K five-crop
+진단은 31.9513 dB이고, v1c보다 +0.1358 dB다. 509.658M Stage4 XL은 clean input
+과수정 때문에 29.5487 dB다. 이 진단은 정식 SOTA benchmark가 아니다.
+다음은 formal benchmark, 동일 입력 public baseline/human review, perceptual 또는
+detail-only adversarial supervision 검토다.
 public Colab 기본값으로 올리려면 detail branch 단일 이미지/tiled inference
 runner가 먼저 필요하다.
 Colab demo는 notebooks/sr_diffusion_colab_demo.ipynb 에서 Gradio WebUI로 실행되며,

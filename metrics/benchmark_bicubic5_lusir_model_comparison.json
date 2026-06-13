@@ -71,12 +71,12 @@
       "vs_bicubic": 2.215548818305037
     },
     {
-      "checkpoint": "detail_branch_v1d_deep3m_photo130k_lsdir_3ep/checkpoints/best_eval_detail.pt",
-      "checkpoint_step": 9500,
+      "checkpoint": "checkpoints/detail_branch_v1d_deep3m_photo130k_lsdir_best99500.pt",
+      "checkpoint_step": 99500,
       "loaded_params": 143353687,
-      "mean_rgb_psnr": 31.824705123901367,
-      "name": "stage2_dual_detail_v1d_in_progress",
-      "vs_bicubic": 2.224809377387067
+      "mean_rgb_psnr": 31.95128631591797,
+      "name": "stage2_dual_detail_v1d",
+      "vs_bicubic": 2.351390569403671
     },
     {
       "checkpoint": "checkpoints/stage4_photo100k_xl_edge_b16_best_eval_condition_decoded.pt",
@@ -93,5 +93,5 @@
       "vs_stage2_xl_condition_only": -1.0190065623654547
     }
   ],
-  "snapshot_date": "2026-06-12"
+  "snapshot_date": "2026-06-13"
 }
