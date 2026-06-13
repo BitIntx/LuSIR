@@ -28,8 +28,9 @@ pip install -e .
 CUDA/Colab은 Colab notebook 또는 해당 CUDA PyTorch wheel을 사용한다.
 
 다른 GPU VM에서 현재 Stage 2 clean-bicubic continuation 속도만 먼저 비교하려면
-환경/데이터 복구 후 `docs/GPU_SPEED_BENCHMARK_KO.md`를 따른다. 현재 단일 L40S
-기준값은 warmup 이후 약 `1.15 micro-step/s`다.
+`docs/GPU_SPEED_BENCHMARK_KO.md`의 quick benchmark를 따른다. 기본값은 보이는
+모든 CUDA GPU를 `torchrun` DDP로 사용한다. 현재 단일 L40S 기준값은 warmup 이후
+약 `1.15 micro-step/s`다.
 
 빈 Ubuntu VM에서 quick benchmark만 바로 돌릴 때:
 

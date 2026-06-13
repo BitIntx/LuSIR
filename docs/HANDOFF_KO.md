@@ -130,8 +130,10 @@ generative:
   - expected wall time for 60000 micro steps: roughly `19-22h` including eval
     overhead.
 - reproducible GPU throughput comparison commands are documented in
-  `docs/GPU_SPEED_BENCHMARK_KO.md`. The current benchmark found no speed gain
-  from `cu132` or cuDNN `9.23.1` over the pinned PyTorch cuDNN `9.20.0`.
+  `docs/GPU_SPEED_BENCHMARK_KO.md`. The quick benchmark now runs the real
+  Stage2 `train_latent_pretrain.py` DDP path via `torchrun` and automatically
+  uses every visible CUDA GPU. The earlier cu132/cuDNN comparison found no speed
+  gain from `cu132` or cuDNN `9.23.1` over the pinned PyTorch cuDNN `9.20.0`.
 
 ### 최신 완료 장기 실험
 

@@ -1,205 +1,95 @@
-# LuSIR GPU 속도 벤치마크
+# LuSIR GPU Quick Benchmark
 
-이 문서는 다른 VM/GPU에서 현재 Stage 2 clean-bicubic continuation의 학습
-속도를 같은 조건으로 비교하기 위한 절차다.
+새 VM이 LuSIR Stage 2 학습에 적합한지 빠르게 판단하기 위한 quick benchmark다.
+기본 실행은 PyTorch가 볼 수 있는 모든 CUDA GPU를 자동으로 사용하며, GPU가
+2장 이상이면 실제 `torchrun` DDP 경로를 탄다. 1장이면 단일 GPU 학습 경로로
+실행된다.
 
-## 빈 VM 원클릭 벤치마크
+## One Command
 
-아무것도 없는 Ubuntu VM에서는 아래 한 줄로 quick benchmark를 실행한다:
+일반 Ubuntu user:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/BitIntx/LuSIR/main/scripts/bootstrap_stage2_speed_benchmark.sh | bash
 ```
 
-root 환경이나 sudo로 한 번에 실행하려면:
+root 또는 sudo 환경:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/BitIntx/LuSIR/main/scripts/bootstrap_stage2_speed_benchmark.sh | sudo bash
 ```
 
-기본 quick mode는 repo clone, venv 생성, PyTorch/LuSIR 설치, 필요한 checkpoint
-2개 다운로드, synthetic 512px dataset 생성, 250-step benchmark까지 자동으로
-수행한다. 실제 photo130k+LSDIR dataset 전체를 복구하는 faithful mode는 훨씬
-오래 걸리고 저장공간을 많이 쓰므로 명시적으로 켠다:
+이 한 줄은 repo clone/update, venv 생성, PyTorch/LuSIR 설치, 필요한 checkpoint
+2개 다운로드, synthetic 512px dataset 생성, DDP quick benchmark 실행까지
+처리한다.
+
+## 옵션
+
+기본값은 모든 visible CUDA GPU 사용이다. 단일 GPU만 재고 싶으면:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/BitIntx/LuSIR/main/scripts/bootstrap_stage2_speed_benchmark.sh \
-  | sudo env LUSIR_BENCH_MODE=full bash
+  | env LUSIR_NPROC_PER_NODE=1 bash
+```
+
+더 길게 재려면:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/BitIntx/LuSIR/main/scripts/bootstrap_stage2_speed_benchmark.sh \
+  | env LUSIR_BENCH_STEPS=500 bash
 ```
 
 주요 환경변수:
 
 ```bash
-LUSIR_BENCH_STEPS=500          # benchmark step 수
-LUSIR_WORKDIR=/opt/LuSIR       # clone 위치
-LUSIR_SCRATCH=/mnt/scratch     # dataset/output 위치
-LUSIR_VENV=/opt/venvs/lusir    # venv 위치
+LUSIR_NPROC_PER_NODE=auto      # auto = 모든 visible CUDA GPU
+LUSIR_BENCH_STEPS=250
+LUSIR_BENCH_WARMUP_STEP=50
+LUSIR_WORKDIR=$HOME/LuSIR
+LUSIR_SCRATCH=$HOME/scratch
+LUSIR_VENV=$HOME/venvs/lusir-bench
 PYTORCH_INDEX_URL=...          # 특정 PyTorch wheel index를 강제할 때
 ```
 
-quick mode는 실제 사진 dataset 대신 synthetic 이미지를 쓰지만, 같은 Stage 2
-모델/autoencoder/loss/batch/grad-accum 학습 루프를 실행한다. 현재 VM에서
-dataloader는 학습보다 10배 이상 빠르므로 GPU별 compute throughput 비교에는
-quick mode가 보통 충분하다. dataloader나 storage까지 동일하게 비교하려면
-`LUSIR_BENCH_MODE=full`을 사용한다.
+## 결과 해석
 
-기준 run은 L40S 단일 GPU, PyTorch `2.12.0+cu130`, cuDNN `9.20.0` 환경에서
-`1.15 micro-step/s`로 안정화됐다. 여기서 step은 `train_latent_pretrain.py`
-로그의 micro-batch step이다. 현재 config는 `batch_size: 8`,
-`grad_accum_steps: 4`이므로 optimizer update 속도는 `micro-step/s / 4`이고,
-micro-batch 이미지 처리량은 `micro-step/s * 8`이다.
-
-## 전제 조건
-
-repo와 Python 환경:
-
-```bash
-git clone https://github.com/BitIntx/LuSIR
-cd LuSIR
-python3 -m venv /home/$USER/venvs/cuda
-source /home/$USER/venvs/cuda/bin/activate
-pip install --upgrade pip
-pip install torch torchvision
-pip install -e .
-```
-
-Stage 2 benchmark에 필요한 public checkpoint:
-
-```bash
-python scripts/download_hf_checkpoints.py --preset stage2_photo130k_lsdir_dual
-```
-
-config가 Stage 1 autoencoder를 scratch run 경로에서 찾으므로, HF에서 받은
-checkpoint를 같은 위치에 둔다:
-
-```bash
-mkdir -p /home/$USER/scratch/sr-diffusion/runs/autoencoder_photo10k_b16_eval_online/checkpoints
-cp checkpoints/stage1_autoencoder_best_eval_recon.pt \
-  /home/$USER/scratch/sr-diffusion/runs/autoencoder_photo10k_b16_eval_online/checkpoints/best_eval_recon.pt
-```
-
-Stage 2 init checkpoint는 repo의 `checkpoints/` 아래 상대경로를 사용하므로
-위 HF preset 다운로드만 되어 있으면 된다:
+마지막에 색상 있는 결과 블록이 나온다:
 
 ```text
-checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt
+RESULT LuSIR Stage 2 Quick Benchmark
+  mode        DDP
+  world_size  2
+  mean        2.08 step/s
+  median      2.09 step/s
+  images      33.28 img/s global
+  local       16.64 img/s per GPU
+  updates     0.52 optimizer updates/s
+  eff_batch   64
 ```
 
-실제 end-to-end benchmark는 dataloader까지 포함하므로
-`manifest_photo130k_lsdir.csv`와 이미지 파일이 필요하다. 복구 절차:
+여기서 `step/s`는 `train_latent_pretrain.py`의 global micro-step/s다. config의
+기본값은 `batch_size=8`, `grad_accum_steps=4`이므로:
 
-```bash
-bash scripts/recover_scratch.sh --coco-count 100000
-
-python scripts/download_lsdir_hf.py \
-  --output-dir /home/$USER/scratch/sr-diffusion/datasets/photo/lsdir \
-  --manifest /home/$USER/scratch/sr-diffusion/data/manifest_lsdir_photo.csv \
-  --target-count 30000
-
-python scripts/merge_manifests.py \
-  --inputs /home/$USER/scratch/sr-diffusion/data/manifest_photo100k.csv \
-           /home/$USER/scratch/sr-diffusion/data/manifest_lsdir_photo.csv \
-  --output /home/$USER/scratch/sr-diffusion/data/manifest_photo130k_lsdir.csv
+```text
+global images/s = step/s * 8 * world_size
+optimizer updates/s = step/s / 4
+effective batch = 8 * 4 * world_size
 ```
 
-AWS Ubuntu image처럼 user가 `ubuntu`이면 config의 절대 scratch 경로와 바로
-맞는다. user명이 다르면 config 안의 `/home/ubuntu/scratch`를 현재 scratch
-경로로 바꾸거나 같은 경로를 symlink로 맞춘다.
+현재 단일 L40S 기준 quick/real 학습 속도는 warmup 이후 약 `1.15 step/s`다.
+2장 DDP VM이면 통신 overhead 때문에 완전 2배는 아니어도, global images/s와
+optimizer updates/s가 단일 GPU보다 충분히 올라가는지를 보면 된다.
 
-## Stage 2 학습 속도 벤치마크
+## Manual Rerun
 
-W&B를 끄고 250 micro-step만 실행한다. 첫 50 step은 warmup으로 제외하고
-나머지 `steps_per_sec`의 평균/중앙값을 출력한다. 임시 output directory는
-checkpoint 때문에 수 GB가 될 수 있으므로 기본적으로 자동 삭제하고 log만
-남긴다.
+bootstrap 이후 같은 VM에서 다시 돌리려면:
 
 ```bash
-source /home/$USER/venvs/cuda/bin/activate
-python tools/bench/benchmark_stage2_speed.py
-```
-
-다른 Python/venv를 명시하려면:
-
-```bash
+cd ~/LuSIR
+source ~/venvs/lusir-bench/bin/activate
 python tools/bench/benchmark_stage2_speed.py \
-  --python /home/$USER/venvs/cuda/bin/python \
-  --steps 250 \
-  --warmup-step 50
-```
-
-결과 예시:
-
-```text
-throughput_summary:
-  stable_points: 9
-  mean_steps_per_sec: 1.1500
-  median_steps_per_sec: 1.1500
-  min_steps_per_sec: 1.1500
-  max_steps_per_sec: 1.1500
-  images_per_sec_microbatch: 9.2000
-  optimizer_updates_per_sec: 0.2875
-```
-
-현재 L40S 기준값:
-
-```text
-torch 2.12.0+cu130, CUDA runtime 13.0, cuDNN 9.20.0: 1.1500 step/s
-torch 2.12.0+cu132, CUDA runtime 13.2, cuDNN 9.20.0: 1.1500 step/s
-torch 2.12.0+cu132, CUDA runtime 13.2, cuDNN 9.23.1: 1.1489 step/s
-```
-
-따라서 현재 기준으로는 cu132 또는 최신 cuDNN만 올려도 속도 이득은 없었다.
-
-## Dataloader 병목 확인
-
-학습 속도가 낮게 나오면 dataloader만 따로 잰다:
-
-```bash
-python tools/bench/benchmark_dataloader.py --workers 0 2 4
-```
-
-`persistent_workers`와 prefetch도 확인하려면:
-
-```bash
-python tools/bench/benchmark_dataloader.py \
-  --workers 4 \
-  --persistent-workers \
-  --prefetch-factor 2
-```
-
-현재 L40S VM의 dataloader-only 기준값:
-
-```text
-workers=0: 5.95 batch/s
-workers=2: 9.98 batch/s
-workers=4: 12.00 batch/s
-workers=4 persistent_workers=True prefetch_factor=2: 12.43 batch/s
-```
-
-학습은 약 `1.15 batch/s`만 소비하므로 이 VM에서는 dataloader 병목이 아니다.
-다른 VM에서 dataloader-only가 학습 속도와 비슷하거나 더 낮으면 local disk,
-network filesystem, CPU worker 수, 이미지 decode 성능을 먼저 의심한다.
-
-## 실제 장기 학습 시작
-
-benchmark 후 실제 run은 W&B를 켜고 tmux에서 실행한다:
-
-```bash
-tmux new-session -d -s stage2-bicubic-fidelity \
-  "cd $PWD && source /home/$USER/venvs/cuda/bin/activate && \
-   python -u tools/train/train_latent_pretrain.py \
-     --config configs/latent_pretrain_photo130k_lsdir_dual_bicubic_fidelity_continue.yaml \
-     2>&1 | tee /home/$USER/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_bicubic_fidelity_continue/train_console.log"
-```
-
-로그 확인:
-
-```bash
-tail -f /home/$USER/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_bicubic_fidelity_continue/train_console.log
-```
-
-GPU 상태:
-
-```bash
-nvidia-smi --query-gpu=index,utilization.gpu,memory.used,power.draw,temperature.gpu --format=csv,noheader,nounits
+  --config ~/scratch/sr-diffusion/configs/latent_pretrain_photo130k_lsdir_dual_bicubic_fidelity_benchmark.yaml \
+  --python ~/venvs/lusir-bench/bin/python \
+  --nproc-per-node auto \
+  --color always
 ```

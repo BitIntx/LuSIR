@@ -14,11 +14,11 @@ python tools/train/train_latent_pretrain.py --config configs/latent_pretrain_pho
 python tools/infer/infer_residual_refiner.py --help
 ```
 
-Stage 2 throughput benchmark:
+Stage 2 quick throughput benchmark. By default this uses `torchrun` over every
+visible CUDA GPU and falls back to single-GPU when only one GPU is visible:
 
 ```bash
 python tools/bench/benchmark_stage2_speed.py
-python tools/bench/benchmark_dataloader.py --workers 0 2 4
 ```
 
 Fresh VM one-command bootstrap:

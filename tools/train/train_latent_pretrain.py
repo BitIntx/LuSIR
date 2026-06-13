@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import sys
@@ -10,9 +11,12 @@ from typing import Any
 
 import numpy as np
 import torch
+import torch.distributed as dist
 import torch.nn.functional as F
 from PIL import Image
+from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader
+from torch.utils.data.distributed import DistributedSampler
 from torchvision.utils import save_image
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -53,6 +57,52 @@ def parse_args() -> argparse.Namespace:
         help="Load only shape-compatible tensors from --init-checkpoint. Useful when widening or deepening the model.",
     )
     return parser.parse_args()
+
+
+def distributed_is_available() -> bool:
+    return dist.is_available() and "RANK" in os.environ and "WORLD_SIZE" in os.environ
+
+
+def setup_distributed() -> tuple[bool, int, int, int]:
+    if not distributed_is_available():
+        return False, 0, 1, 0
+    rank = int(os.environ["RANK"])
+    world_size = int(os.environ["WORLD_SIZE"])
+    local_rank = int(os.environ.get("LOCAL_RANK", 0))
+    if torch.cuda.is_available():
+        torch.cuda.set_device(local_rank)
+    backend = "nccl" if torch.cuda.is_available() else "gloo"
+    if backend == "nccl":
+        dist.init_process_group(backend=backend, device_id=torch.device(f"cuda:{local_rank}"))
+    else:
+        dist.init_process_group(backend=backend)
+    return True, rank, world_size, local_rank
+
+
+def cleanup_distributed(enabled: bool) -> None:
+    if enabled and dist.is_initialized():
+        dist.destroy_process_group()
+
+
+def is_main_process(rank: int) -> bool:
+    return rank == 0
+
+
+def barrier(enabled: bool) -> None:
+    if enabled and dist.is_initialized():
+        if torch.cuda.is_available():
+            dist.barrier(device_ids=[torch.cuda.current_device()])
+        else:
+            dist.barrier()
+
+
+def unwrap_model(model: torch.nn.Module) -> torch.nn.Module:
+    return model.module if isinstance(model, DistributedDataParallel) else model
+
+
+def print_main(message: str, rank: int) -> None:
+    if is_main_process(rank):
+        print(message)
 
 
 def normalize_image(x: torch.Tensor) -> torch.Tensor:
@@ -421,49 +471,66 @@ def evaluate(
 
 def main() -> None:
     args = parse_args()
+    distributed, rank, world_size, local_rank = setup_distributed()
     config = load_config(args.config)
     if args.output_dir is not None:
         config["project"]["output_dir"] = str(args.output_dir)
     if args.disable_wandb:
         config.setdefault("logging", {}).setdefault("wandb", {})["enabled"] = False
     seed = int(config.get("seed", 0))
-    seed_everything(seed)
+    seed_everything(seed + rank)
 
     output_dir = Path(config["project"]["output_dir"])
     checkpoints_dir = output_dir / "checkpoints"
     samples_dir = output_dir / "samples"
     eval_dir = output_dir / "eval"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    samples_dir.mkdir(parents=True, exist_ok=True)
-    eval_dir.mkdir(parents=True, exist_ok=True)
-    save_config(config, output_dir / "config.yaml")
+    if is_main_process(rank):
+        output_dir.mkdir(parents=True, exist_ok=True)
+        samples_dir.mkdir(parents=True, exist_ok=True)
+        eval_dir.mkdir(parents=True, exist_ok=True)
+        save_config(config, output_dir / "config.yaml")
+    barrier(distributed)
 
     train_cfg = config["train"]
-    device = get_device(train_cfg.get("device", "auto"))
+    device = torch.device(f"cuda:{local_rank}") if distributed and torch.cuda.is_available() else get_device(train_cfg.get("device", "auto"))
     dtype_name = train_cfg.get("dtype", "bf16")
     loss_config = config.get("loss", {})
-    print(f"device={device} dtype={dtype_name}")
+    print_main(f"device={device} dtype={dtype_name} distributed={distributed} world_size={world_size}", rank)
 
     train_dataset = make_dataset(config, split=config["data"].get("split", "train"), seed=seed)
     generator = torch.Generator()
     generator.manual_seed(seed)
+    train_sampler = (
+        DistributedSampler(
+            train_dataset,
+            num_replicas=world_size,
+            rank=rank,
+            shuffle=True,
+            seed=seed,
+            drop_last=True,
+        )
+        if distributed
+        else None
+    )
     train_loader = DataLoader(
         train_dataset,
         batch_size=int(train_cfg.get("batch_size", 1)),
-        shuffle=True,
+        shuffle=train_sampler is None,
+        sampler=train_sampler,
         num_workers=int(config["data"].get("num_workers", 0)),
         pin_memory=device.type == "cuda",
         worker_init_fn=seed_worker,
         generator=generator,
         drop_last=True,
     )
-    fixed_sample_batch = make_fixed_sample_batch(config, seed=seed)
-    if fixed_sample_batch is not None:
-        print(
+    fixed_sample_batch = make_fixed_sample_batch(config, seed=seed) if is_main_process(rank) else None
+    if fixed_sample_batch is not None and is_main_process(rank):
+        print_main(
             "sample_logging="
             f"split={fixed_sample_batch['split']} "
             f"indices={fixed_sample_batch['indices']} "
-            f"count={len(fixed_sample_batch['path'])}"
+            f"count={len(fixed_sample_batch['path'])}",
+            rank,
         )
 
     eval_cfg = config.get("eval", {})
@@ -476,7 +543,7 @@ def main() -> None:
     best_checkpoint_name = str(eval_cfg.get("best_checkpoint", "best_eval_latent.pt"))
     if best_metric_mode not in {"min", "max"}:
         raise ValueError(f"Unsupported eval.best_mode: {best_metric_mode}")
-    if eval_enabled:
+    if eval_enabled and is_main_process(rank):
         eval_dataset = make_dataset(config, split=str(eval_cfg.get("split", "val")), seed=seed, deterministic=True)
         limit = int(eval_cfg.get("limit", 0))
         if limit > 0 and limit < len(eval_dataset):
@@ -491,11 +558,12 @@ def main() -> None:
             pin_memory=device.type == "cuda",
             drop_last=False,
         )
-        print(
+        print_main(
             "eval="
             f"split={eval_cfg.get('split', 'val')} "
             f"limit={eval_cfg.get('limit', 0)} "
-            f"batch_size={eval_cfg.get('batch_size', train_cfg.get('batch_size', 1))}"
+            f"batch_size={eval_cfg.get('batch_size', train_cfg.get('batch_size', 1))}",
+            rank,
         )
 
     vae = load_autoencoder(config, device=device)
@@ -510,14 +578,17 @@ def main() -> None:
     start_step = 0
     if args.resume:
         start_step = load_checkpoint(args.resume, model, optimizer, device)
-        print(f"resumed step={start_step}")
+        print_main(f"resumed step={start_step}", rank)
     else:
         init_config = config.get("initialization", {})
         init_checkpoint = args.init_checkpoint or init_config.get("checkpoint")
         if init_checkpoint:
             partial_init = bool(args.partial_init or init_config.get("partial", False))
             init_step = load_model_weights(Path(init_checkpoint), model, device, partial=partial_init)
-            print(f"initialized_from={init_checkpoint} source_step={init_step} partial_init={partial_init}")
+            print_main(f"initialized_from={init_checkpoint} source_step={init_step} partial_init={partial_init}", rank)
+
+    if distributed:
+        model = DistributedDataParallel(model, device_ids=[local_rank] if device.type == "cuda" else None)
 
     max_steps = int(train_cfg.get("max_steps", 1000) if args.limit_steps is None else args.limit_steps)
     log_every = int(train_cfg.get("log_every", 50))
@@ -525,13 +596,15 @@ def main() -> None:
     sample_every = int(train_cfg.get("sample_every", 500))
     grad_accum_steps = int(train_cfg.get("grad_accum_steps", 1))
 
-    run = init_wandb(config, output_dir, model)
+    run = init_wandb(config, output_dir, unwrap_model(model)) if is_main_process(rank) else None
     wandb_log(
         run,
         {
             "dataset/num_images": len(train_dataset),
             "train/batch_size": int(train_cfg.get("batch_size", 1)),
             "train/grad_accum_steps": grad_accum_steps,
+            "train/world_size": world_size,
+            "train/effective_batch_size": int(train_cfg.get("batch_size", 1)) * grad_accum_steps * world_size,
         },
         step=start_step,
     )
@@ -542,8 +615,11 @@ def main() -> None:
     last_log = time.time()
     last_log_step = step
     optimizer.zero_grad(set_to_none=True)
+    epoch = 0
 
     while step < max_steps:
+        if train_sampler is not None:
+            train_sampler.set_epoch(epoch)
         for batch in train_loader:
             step += 1
             hr = batch["hr"].to(device, non_blocking=True)
@@ -553,29 +629,36 @@ def main() -> None:
             lr_input = normalize_image(lr)
             reference = F.interpolate(lr_input, size=target.shape[-2:], mode="bicubic", align_corners=False)
 
-            with torch.no_grad():
+            sync_gradients = step % grad_accum_steps == 0
+            sync_context = (
+                model.no_sync()
+                if distributed and isinstance(model, DistributedDataParallel) and not sync_gradients
+                else contextlib.nullcontext()
+            )
+            with sync_context:
+                with torch.no_grad():
+                    with autocast_context(device, dtype_name):
+                        target_latent, _ = vae.encode(target)
+
                 with autocast_context(device, dtype_name):
-                    target_latent, _ = vae.encode(target)
+                    prediction = model(lr_input, domain_id)
+                    loss, loss_components = compute_stage2_loss(
+                        prediction,
+                        target_latent,
+                        target,
+                        reference,
+                        vae,
+                        loss_config,
+                        perceptual_model,
+                    )
+                    scaled_loss = loss / grad_accum_steps
 
-            with autocast_context(device, dtype_name):
-                prediction = model(lr_input, domain_id)
-                loss, loss_components = compute_stage2_loss(
-                    prediction,
-                    target_latent,
-                    target,
-                    reference,
-                    vae,
-                    loss_config,
-                    perceptual_model,
-                )
-                scaled_loss = loss / grad_accum_steps
-
-            scaled_loss.backward()
+                scaled_loss.backward()
             if step % grad_accum_steps == 0:
                 optimizer.step()
                 optimizer.zero_grad(set_to_none=True)
 
-            if step % log_every == 0 or step == 1:
+            if is_main_process(rank) and (step % log_every == 0 or step == 1):
                 elapsed = max(1e-6, time.time() - last_log)
                 interval_steps = max(1, step - last_log_step)
                 last_log = time.time()
@@ -611,86 +694,103 @@ def main() -> None:
 
             should_eval = (
                 eval_enabled
-                and eval_loader is not None
                 and eval_every > 0
                 and (step % eval_every == 0 or (step == 1 and eval_run_at_start))
             )
             if should_eval:
-                metrics = evaluate(model, vae, eval_loader, device, dtype_name, loss_config, perceptual_model)
-                (eval_dir / f"step_{step:07d}_metrics.json").write_text(
-                    json.dumps({"step": step, "metrics": metrics}, indent=2, sort_keys=True) + "\n",
-                    encoding="utf-8",
-                )
-                print(
-                    f"eval step={step} latent_loss={metrics['eval/latent_loss']:.5f} "
-                    f"decoded_psnr={metrics['eval/decoded_psnr']:.2f} "
-                    f"detail_ratio={metrics['eval/laplacian_energy_ratio']:.3f} "
-                    f"perceptual={metrics['eval/perceptual']:.5f} "
-                    f"psnr_detail_score={metrics['eval/psnr_detail_score']:.3f}"
-                )
-                wandb_log(run, metrics, step=step)
-                metric_value = float(metrics[best_metric_name])
-                is_better = metric_value < best_eval if best_metric_mode == "min" else metric_value > best_eval
-                if is_better:
-                    best_eval = metric_value
-                    save_checkpoint(checkpoints_dir / best_checkpoint_name, model, optimizer, step, config)
+                barrier(distributed)
+                if is_main_process(rank) and eval_loader is not None:
+                    metrics = evaluate(
+                        unwrap_model(model),
+                        vae,
+                        eval_loader,
+                        device,
+                        dtype_name,
+                        loss_config,
+                        perceptual_model,
+                    )
+                    (eval_dir / f"step_{step:07d}_metrics.json").write_text(
+                        json.dumps({"step": step, "metrics": metrics}, indent=2, sort_keys=True) + "\n",
+                        encoding="utf-8",
+                    )
+                    print(
+                        f"eval step={step} latent_loss={metrics['eval/latent_loss']:.5f} "
+                        f"decoded_psnr={metrics['eval/decoded_psnr']:.2f} "
+                        f"detail_ratio={metrics['eval/laplacian_energy_ratio']:.3f} "
+                        f"perceptual={metrics['eval/perceptual']:.5f} "
+                        f"psnr_detail_score={metrics['eval/psnr_detail_score']:.3f}"
+                    )
+                    wandb_log(run, metrics, step=step)
+                    metric_value = float(metrics[best_metric_name])
+                    is_better = metric_value < best_eval if best_metric_mode == "min" else metric_value > best_eval
+                    if is_better:
+                        best_eval = metric_value
+                        save_checkpoint(checkpoints_dir / best_checkpoint_name, unwrap_model(model), optimizer, step, config)
+                barrier(distributed)
 
             if step % sample_every == 0 or step == 1:
-                sample_source = fixed_sample_batch if fixed_sample_batch is not None else batch
-                with torch.no_grad():
-                    sample_hr = sample_source["hr"].to(device, non_blocking=True)
-                    sample_lr = sample_source["lr"].to(device, non_blocking=True)
-                    sample_domain = sample_source["domain_id"].to(device, non_blocking=True)
-                    sample_target = normalize_image(sample_hr)
-                    sample_lr_input = normalize_image(sample_lr)
-                    with autocast_context(device, dtype_name):
-                        sample_pred = model(sample_lr_input, sample_domain)
-                        sample_decoded = vae.decode(sample_pred)
-                    sample_count = sample_hr.shape[0]
-                    lr_display = F.interpolate(sample_source["lr"].float().cpu(), size=sample_hr.shape[-2:], mode="nearest")
-                    gt = sample_hr.float().cpu()
-                    pred = denormalize(sample_decoded).float().cpu()
+                barrier(distributed)
+                if is_main_process(rank):
+                    sample_source = fixed_sample_batch if fixed_sample_batch is not None else batch
+                    with torch.no_grad():
+                        sample_hr = sample_source["hr"].to(device, non_blocking=True)
+                        sample_lr = sample_source["lr"].to(device, non_blocking=True)
+                        sample_domain = sample_source["domain_id"].to(device, non_blocking=True)
+                        sample_lr_input = normalize_image(sample_lr)
+                        with autocast_context(device, dtype_name):
+                            sample_pred = unwrap_model(model)(sample_lr_input, sample_domain)
+                            sample_decoded = vae.decode(sample_pred)
+                        sample_count = sample_hr.shape[0]
+                        lr_display = F.interpolate(sample_source["lr"].float().cpu(), size=sample_hr.shape[-2:], mode="nearest")
+                        gt = sample_hr.float().cpu()
+                        pred = denormalize(sample_decoded).float().cpu()
 
-                    lr_path = samples_dir / f"step_{step:07d}_lr.png"
-                    gt_path = samples_dir / f"step_{step:07d}_gt.png"
-                    pred_path = samples_dir / f"step_{step:07d}_pred.png"
-                    save_image(lr_display, lr_path, nrow=sample_count)
-                    save_image(gt, gt_path, nrow=sample_count)
-                    save_image(pred, pred_path, nrow=sample_count)
-                    if run is not None:
-                        import wandb
+                        lr_path = samples_dir / f"step_{step:07d}_lr.png"
+                        gt_path = samples_dir / f"step_{step:07d}_gt.png"
+                        pred_path = samples_dir / f"step_{step:07d}_pred.png"
+                        save_image(lr_display, lr_path, nrow=sample_count)
+                        save_image(gt, gt_path, nrow=sample_count)
+                        save_image(pred, pred_path, nrow=sample_count)
+                        if run is not None:
+                            import wandb
 
-                        paths = sample_source.get("path", [""] * sample_count)
-                        captions = [Path(str(path)).name or f"sample_{idx}" for idx, path in enumerate(paths[:sample_count])]
-                        wandb_log(
-                            run,
-                            {
-                                "samples/LR": [
-                                    wandb.Image(tensor_to_pil(image), caption=caption)
-                                    for image, caption in zip(lr_display, captions, strict=True)
-                                ],
-                                "samples/GT": [
-                                    wandb.Image(tensor_to_pil(image), caption=caption)
-                                    for image, caption in zip(gt, captions, strict=True)
-                                ],
-                                "samples/Pred": [
-                                    wandb.Image(tensor_to_pil(image), caption=caption)
-                                    for image, caption in zip(pred, captions, strict=True)
-                                ],
-                            },
-                            step=step,
-                        )
+                            paths = sample_source.get("path", [""] * sample_count)
+                            captions = [Path(str(path)).name or f"sample_{idx}" for idx, path in enumerate(paths[:sample_count])]
+                            wandb_log(
+                                run,
+                                {
+                                    "samples/LR": [
+                                        wandb.Image(tensor_to_pil(image), caption=caption)
+                                        for image, caption in zip(lr_display, captions, strict=True)
+                                    ],
+                                    "samples/GT": [
+                                        wandb.Image(tensor_to_pil(image), caption=caption)
+                                        for image, caption in zip(gt, captions, strict=True)
+                                    ],
+                                    "samples/Pred": [
+                                        wandb.Image(tensor_to_pil(image), caption=caption)
+                                        for image, caption in zip(pred, captions, strict=True)
+                                    ],
+                                },
+                                step=step,
+                            )
+                barrier(distributed)
 
             if step % save_every == 0 or step == max_steps:
-                save_checkpoint(checkpoints_dir / f"step_{step:07d}.pt", model, optimizer, step, config)
-                save_checkpoint(checkpoints_dir / "latest.pt", model, optimizer, step, config)
+                barrier(distributed)
+                if is_main_process(rank):
+                    save_checkpoint(checkpoints_dir / f"step_{step:07d}.pt", unwrap_model(model), optimizer, step, config)
+                    save_checkpoint(checkpoints_dir / "latest.pt", unwrap_model(model), optimizer, step, config)
+                barrier(distributed)
 
             if step >= max_steps:
                 break
+        epoch += 1
 
-    print(f"finished step={step}")
+    print_main(f"finished step={step}", rank)
     if run is not None:
         run.finish()
+    cleanup_distributed(distributed)
 
 
 if __name__ == "__main__":
