@@ -138,8 +138,8 @@ generative:
   - `5x` from-init step `4000`은 `25.033`, 원래 LR step `4000`은
     `25.031`로 사실상 동률이다.
   - 따라서 원래 LR `5e-6`로 복귀했다. LR 부족이 핵심 병목은 아니다.
-- 현재 active generative-detail run:
-  - tmux: `highfreq-residual-v1`
+- 종료된 generative-detail v1 probe:
+  - 종료 step: 약 `1650`; 현재 tmux는 종료됨
   - config:
     `configs/diffusion_photo130k_lsdir_highfreq_residual_v1_b8.yaml`
   - W&B: <https://wandb.ai/jwheo/LuSIR/runs/q3t4hzms>
@@ -149,6 +149,11 @@ generative:
     residual L1 `0`, PSNR delta `0.000 dB`
   - 안정 구간 속도 약 `1.10 micro-step/s`, GPU util `99%`, VRAM 약
     `30.3/46.1GB`
+  - eval PSNR delta vs condition: step500 `-0.002`, step1000 `-0.017`,
+    step1500 `-0.037 dB`
+  - fixed sample Laplacian energy는 `0.00592 -> 0.00766`으로 증가했지만
+    GT Laplacian L1 오차도 `0.00971 -> 0.01058`로 악화했다.
+  - 결론: 실제 detail 복원이 아니라 고주파 에너지만 추가하여 중단했다.
 - reproducible GPU throughput comparison commands are documented in
   `docs/GPU_SPEED_BENCHMARK_KO.md`. The quick benchmark now runs the real
   Stage2 `train_latent_pretrain.py` DDP path via `torchrun` and automatically
@@ -970,9 +975,10 @@ base를 frozen으로 두고 gated/bounded high-frequency residual만 생성하�
 stochastic diffusion probe다. 설정은
 configs/diffusion_photo130k_lsdir_highfreq_residual_v1_b8.yaml이고 설계는
 docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md에 있다. 생성형 목표는 classical PSNR과 분리하고 LPIPS/DISTS/fixed visual
-review/high-frequency metric/seed diversity로 판단한다. 현재 run은
-highfreq-residual-v1 tmux와 https://wandb.ai/jwheo/LuSIR/runs/q3t4hzms 에서
-진행 중이다.
+review/high-frequency metric/seed diversity로 판단한다. 첫 v1 run
+https://wandb.ai/jwheo/LuSIR/runs/q3t4hzms 은 step1650 부근에서 중단했다.
+다음 구현은 condition 자체를 노이즈화하는 현재 경로가 아니라 target residual을
+직접 diffuse하고 noise를 예측하는 residual-space diffusion이어야 한다.
 detail branch v1d는 Colab WebUI에서 단일 이미지/tiled inference 연구 옵션으로
 선택 가능하지만, public 기본값은 residual refiner v2를 유지한다.
 Colab demo는 notebooks/sr_diffusion_colab_demo.ipynb 에서 Gradio WebUI로 실행되며,

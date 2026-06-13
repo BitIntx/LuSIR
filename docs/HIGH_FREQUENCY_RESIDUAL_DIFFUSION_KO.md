@@ -102,7 +102,7 @@ strong-cleanup objective 때문에 clean input을 과수정한 기록이 있다.
 - 학습 로그에 condition PSNR, condition 대비 PSNR delta, residual L1,
   gate mean을 추가했고 샘플에는 `Condition`과 `AbsDelta4x`를 추가했다.
 
-장기 run:
+첫 v1 run:
 
 ```text
 tmux: highfreq-residual-v1
@@ -111,7 +111,37 @@ log:  /home/ubuntu/scratch/sr-diffusion/runs/diffusion_photo130k_lsdir_highfreq_
 ```
 
 초기 안정 구간은 약 `1.10 micro-step/s`, GPU util `99%`, VRAM 약
-`30.3/46.1GB`다.
+`30.3/46.1GB`였다. 그러나 이 run은 step `1650` 부근에서 중단했다.
+
+```text
+eval PSNR delta vs condition:
+  step 500:  -0.002 dB
+  step 1000: -0.017 dB
+  step 1500: -0.037 dB
+
+fixed sample:
+  condition Laplacian energy: 0.005923
+  step1500 Laplacian energy:  0.007660
+  condition Laplacian L1 to GT: 0.009706
+  step1500 Laplacian L1 to GT:  0.010581
+```
+
+고주파 에너지는 늘었지만 GT 방향의 detail 오차도 함께 악화했다. 샘플에서도
+유효한 질감보다 미세한 반복 패턴이 증가했다. 따라서 “초반 tradeoff”로
+간주하지 않고 실패 probe로 기록한다.
+
+핵심 원인은 현재 v1이 condition latent를 노이즈화한 뒤 deterministic target
+x0를 맞추며, 방향을 버린 residual magnitude loss를 강하게 사용하는 점이다.
+다음 버전은 loss weight만 조정하지 않고 다음처럼 residual-space diffusion으로
+구조를 바꾼다.
+
+```text
+target residual = target latent - frozen condition latent
+noisy residual  = add_noise(target residual, noise, timestep)
+model input     = noisy residual + frozen condition latent + timestep
+model target    = noise
+output          = frozen condition latent + bounded predicted residual
+```
 
 ## 평가
 

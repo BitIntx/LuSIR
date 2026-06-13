@@ -4,6 +4,26 @@
 계속 누적하기 위한 기록이다. 최종 성능표가 아니라, 왜 다음 실험을 그렇게 잡았는지
 추적하는 용도다.
 
+## 2026-06-13 high-frequency residual diffusion v1 조기 중단
+
+`configs/diffusion_photo130k_lsdir_highfreq_residual_v1_b8.yaml`은 frozen
+dual-context Stage2 위에서 zero-init gated residual로 시작했다. 초기 output은
+condition과 정확히 같았지만, 학습 후 다음처럼 일관되게 역행했다.
+
+| step | PSNR delta vs condition | residual L1 | gate mean |
+| ---: | ---: | ---: | ---: |
+| 500 | `-0.002 dB` | `0.0163` | `0.203` |
+| 1000 | `-0.017 dB` | `0.0482` | `0.256` |
+| 1500 | `-0.037 dB` | `0.0688` | `0.292` |
+
+fixed sample의 Laplacian energy는 `0.005923 -> 0.007660`으로 증가했지만,
+GT와의 Laplacian L1 오차도 `0.009706 -> 0.010581`로 악화했다. 즉 유효한
+detail보다 반복 패턴과 고주파 에너지만 추가했다. run
+<https://wandb.ai/jwheo/LuSIR/runs/q3t4hzms>은 step `1650` 부근에서 중단했다.
+
+다음 시도는 magnitude loss 가중치 조정이 아니라 target residual을 직접
+노이즈화하고 noise를 예측하는 residual-space diffusion 구조로 바꾼다.
+
 ## 2026-06-13 정식 full-image x4 benchmark
 
 five-crop RGB PSNR 진단만으로는 공개 SR 결과와 비교할 수 없어서 DIV2K
