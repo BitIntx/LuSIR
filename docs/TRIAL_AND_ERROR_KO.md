@@ -24,6 +24,11 @@ detail보다 반복 패턴과 고주파 에너지만 추가했다. run
 다음 시도는 magnitude loss 가중치 조정이 아니라 target residual을 직접
 노이즈화하고 noise를 예측하는 residual-space diffusion 구조로 바꾼다.
 
+구현된 v2는 `GT - detail v1d`의 signed Haar LH/HL/HH 대역만 diffusion한다.
+LL 대역은 출력할 수 없다. val8에서 동일한 ±0.16 clipping을 적용한 oracle은
+v1d 평균 PSNR을 `28.7012 -> 31.4039`, Laplacian L1을
+`0.018342 -> 0.010721`로 개선해 표현 공간의 가능성을 확인했다.
+
 ## 2026-06-13 정식 full-image x4 benchmark
 
 five-crop RGB PSNR 진단만으로는 공개 SR 결과와 비교할 수 없어서 DIV2K

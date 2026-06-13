@@ -1,0 +1,96 @@
+project:
+  name: wavelet_residual_diffusion_v2_probe
+  output_dir: /home/ubuntu/scratch/sr-diffusion/runs/wavelet_residual_diffusion_v2_probe
+
+logging:
+  wandb:
+    enabled: true
+    project: LuSIR
+    entity: jwheo
+    name: wavelet_residual_diffusion_v2_probe
+    mode: online
+    dir: /home/ubuntu/scratch/sr-diffusion/wandb
+    group: stage-detail-diffusion
+    job_type: wavelet-residual-diffusion
+    tags: [detail-diffusion, wavelet, signed-residual, v1d-base, photo130k-lsdir, probe]
+
+seed: 1337
+
+autoencoder:
+  config: configs/autoencoder_photo10k.yaml
+  checkpoint: checkpoints/stage1_autoencoder_best_eval_recon.pt
+
+condition_encoder:
+  config: configs/latent_pretrain_photo130k_lsdir_dual_multiscale_long.yaml
+  checkpoint: checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt
+  trainable: false
+
+detail_branch:
+  config: configs/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml
+  checkpoint: checkpoints/detail_branch_v1d_deep3m_photo130k_lsdir_best99500.pt
+  trainable: false
+
+data:
+  manifest: /home/ubuntu/scratch/sr-diffusion/data/manifest_photo130k_lsdir.csv
+  split: train
+  hr_size: 512
+  scale: 4
+  degradation_preset: photo_detail_mix
+  domains:
+    photo: 0
+    anime: 1
+  hflip_prob: 0.5
+  texture_crop_retries: 4
+  texture_crop_downsample: 128
+  num_workers: 4
+
+model:
+  type: conditional_unet
+  latent_channels: 9
+  condition_channels: 24
+  out_channels: 9
+  base_channels: 64
+  channel_multipliers: [1, 2, 3, 4]
+  num_res_blocks: 2
+  norm_groups: 32
+  num_heads: 4
+  attention_resolutions: [32]
+  base_resolution: 256
+  num_domains: 2
+  zero_init_output: true
+
+diffusion:
+  num_train_timesteps: 100
+  beta_schedule: cosine
+  residual_scale: 0.08
+  clip_x0: 2.0
+
+loss:
+  noise_weight: 1.0
+  x0_weight: 0.1
+  image_weight: 0.05
+  laplacian_weight: 0.1
+  charbonnier_eps: 0.001
+
+train:
+  device: auto
+  dtype: bf16
+  batch_size: 2
+  max_steps: 2000
+  lr: 0.00005
+  weight_decay: 0.0
+  grad_accum_steps: 8
+  log_every: 25
+  save_every: 500
+
+eval:
+  split: val
+  limit: 8
+  batch_size: 2
+  num_workers: 4
+  every: 250
+  sample_steps: 12
+  seeds: [123, 456, 789]
+  sample_count: 4
+  best_metric: eval/signed_wavelet_l1
+  best_mode: min

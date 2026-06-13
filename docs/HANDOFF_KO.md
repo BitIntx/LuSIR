@@ -154,6 +154,14 @@ generative:
   - fixed sample Laplacian energy는 `0.00592 -> 0.00766`으로 증가했지만
     GT Laplacian L1 오차도 `0.00971 -> 0.01058`로 악화했다.
   - 결론: 실제 detail 복원이 아니라 고주파 에너지만 추가하여 중단했다.
+- 구현 완료, 다음 active 후보:
+  - config: `configs/wavelet_residual_diffusion_v2_probe.yaml`
+  - trainer: `tools/train/train_wavelet_residual_diffusion.py`
+  - 18.44M U-Net이 `GT - detail v1d`의 signed Haar LH/HL/HH residual에
+    직접 diffusion을 수행한다. LL 출력은 구조적으로 없다.
+  - val8 clipped oracle: v1d PSNR `28.7012 -> 31.4039`,
+    Laplacian L1 `0.018342 -> 0.010721`
+  - probe: 2000 micro-step, eval every 250, 3 fixed seeds
 - reproducible GPU throughput comparison commands are documented in
   `docs/GPU_SPEED_BENCHMARK_KO.md`. The quick benchmark now runs the real
   Stage2 `train_latent_pretrain.py` DDP path via `torchrun` and automatically

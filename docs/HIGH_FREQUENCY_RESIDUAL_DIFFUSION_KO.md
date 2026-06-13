@@ -143,6 +143,40 @@ model target    = noise
 output          = frozen condition latent + bounded predicted residual
 ```
 
+## Wavelet residual diffusion v2 구현
+
+v2는 위 가설을 image-space signed Haar wavelet residual로 구현한다.
+
+```text
+frozen base:
+  LR -> Stage2 dual-context -> Stage1 decoder -> detail v1d
+
+diffusion target:
+  HaarHigh(GT - detail v1d)
+
+model:
+  noisy signed high bands + Haar(detail v1d) + Haar(bicubic)
+    -> 18.44M conditional U-Net
+    -> predicted noise
+
+reconstruction:
+  detail v1d + inverse Haar(LL=0, predicted LH/HL/HH)
+```
+
+- config: `configs/wavelet_residual_diffusion_v2_probe.yaml`
+- trainer: `tools/train/train_wavelet_residual_diffusion.py`
+- Haar implementation: `src/sr_diffusion/wavelet.py`
+- LL 채널은 모델 출력에 존재하지 않아 저주파 수정이 구조적으로 금지된다.
+- residual magnitude가 아니라 signed residual과 diffusion noise를 학습한다.
+- residual coefficient 표준편차는 약 `0.0473`이며 `0.08`로 정규화한다.
+- wavelet coefficient는 실제 분포의 극단 outlier만 제거하도록 ±`0.16`
+  (`normalized clip_x0=2.0`)으로 제한한다.
+
+동일 val8의 clipped oracle은 v1d base 대비 평균 PSNR을
+`28.7012 -> 31.4039`, Laplacian L1을 `0.018342 -> 0.010721`로 개선했다.
+따라서 표현 공간 자체에는 충분한 복원 가능성이 있다. 첫 probe는 `2000`
+micro-step이며 250 step마다 3 seed DDIM sampling을 평가한다.
+
 ## 평가
 
 학습 중 확인:
