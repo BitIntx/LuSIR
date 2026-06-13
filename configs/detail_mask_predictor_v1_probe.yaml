@@ -1,0 +1,84 @@
+project:
+  name: detail_mask_predictor_v1_probe
+  output_dir: /home/ubuntu/scratch/sr-diffusion/runs/detail_mask_predictor_v1_probe
+
+logging:
+  wandb:
+    enabled: true
+    project: LuSIR
+    entity: jwheo
+    name: detail_mask_predictor_v1_probe
+    mode: online
+    dir: /home/ubuntu/scratch/sr-diffusion/wandb
+    group: stage-detail-mask
+    job_type: detail-mask-predictor
+    tags: [detail-mask, predictor, photo130k-lsdir, photo-detail-mix, probe]
+    watch: false
+
+seed: 1337
+
+autoencoder:
+  config: configs/autoencoder_photo10k.yaml
+  checkpoint: checkpoints/stage1_autoencoder_best_eval_recon.pt
+
+condition_encoder:
+  config: configs/latent_pretrain_photo130k_lsdir_dual_multiscale_long.yaml
+  checkpoint: checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt
+
+data:
+  manifest: /home/ubuntu/scratch/sr-diffusion/data/manifest_photo130k_lsdir.csv
+  split: train
+  hr_size: 512
+  scale: 4
+  degradation_preset: photo_detail_mix
+  domains:
+    photo: 0
+    anime: 1
+  hflip_prob: 0.5
+  texture_crop_retries: 4
+  texture_crop_downsample: 128
+  hr_color_jitter_prob: 0.25
+  hr_color_jitter: [0.97, 1.03]
+  num_workers: 4
+
+model:
+  image_channels: 3
+  latent_channels: 16
+  proxy_channels: 4
+  hidden_channels: 64
+  num_blocks: 6
+  norm_groups: 16
+  num_domains: 2
+  highpass_kernel: 15
+  patch_kernel: 9
+  score_quantile: 0.95
+
+loss:
+  regression_weight: 1.0
+  correlation_weight: 0.35
+  excess_weight: 0.15
+  mean_weight: 0.1
+  positive_weight: 2.0
+
+train:
+  device: auto
+  dtype: bf16
+  batch_size: 4
+  max_steps: 4000
+  lr: 0.0001
+  weight_decay: 0.0001
+  grad_accum_steps: 4
+  log_every: 25
+  save_every: 500
+
+eval:
+  split: val
+  limit: 100
+  batch_size: 4
+  num_workers: 4
+  every: 250
+  run_at_start: true
+  sample_count: 8
+  selection_fraction: 0.2
+  best_metric: eval/selection_score
+  best_mode: max

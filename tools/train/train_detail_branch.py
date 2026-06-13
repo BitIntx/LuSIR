@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
+from sr_diffusion.detail_mask import DetailMaskPredictor
 from sr_diffusion.datasets import ManifestImageDataset
 from sr_diffusion.models import AutoencoderKL, LRToLatentPredictor
 from sr_diffusion.utils import autocast_context, get_device, load_config, save_config, seed_everything, seed_worker
@@ -124,6 +125,8 @@ class GatedHighFrequencyDetailBranch(nn.Module):
         bicubic: torch.Tensor,
         condition_latent: torch.Tensor | None = None,
         domain_id: torch.Tensor | None = None,
+        detail_mask: torch.Tensor | None = None,
+        detail_mask_floor: float = 0.0,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         inputs = [base_sr, bicubic.to(dtype=base_sr.dtype)]
         if self.use_condition_latent:
@@ -147,6 +150,12 @@ class GatedHighFrequencyDetailBranch(nn.Module):
         raw_residual = self.residual_scale * torch.tanh(residual_logits)
         high_frequency_residual = metric_highpass(raw_residual, kernel_size=self.highpass_kernel)
         gate = torch.sigmoid(gate_logits + self.gate_bias)
+        if detail_mask is not None:
+            if detail_mask.shape != gate.shape:
+                raise ValueError(f"detail_mask must match gate shape, got {detail_mask.shape} and {gate.shape}")
+            floor = min(max(float(detail_mask_floor), 0.0), 1.0)
+            mask = detail_mask.to(dtype=gate.dtype).clamp(0.0, 1.0)
+            gate = gate * (floor + (1.0 - floor) * mask)
         residual = high_frequency_residual * gate
         refined = (base_sr + residual).clamp(0.0, 1.0)
         return refined, residual, gate, raw_residual
@@ -213,6 +222,23 @@ def load_condition_encoder(config: dict[str, Any], device: torch.device) -> LRTo
         parameter.requires_grad_(False)
     print(f"loaded_condition_encoder={cond_cfg['checkpoint']} step={checkpoint.get('step', 'unknown')}", flush=True)
     return encoder
+
+
+def load_detail_mask_predictor(config: dict[str, Any], device: torch.device) -> DetailMaskPredictor | None:
+    mask_cfg = config.get("detail_mask", {})
+    checkpoint_path = mask_cfg.get("checkpoint")
+    if not checkpoint_path:
+        return None
+    predictor_config = load_config(mask_cfg["config"])
+    predictor = DetailMaskPredictor.from_config(predictor_config["model"])
+    checkpoint = torch.load(checkpoint_path, map_location="cpu")
+    predictor.load_state_dict(checkpoint["model"])
+    predictor.to(device)
+    predictor.eval()
+    for parameter in predictor.parameters():
+        parameter.requires_grad_(False)
+    print(f"loaded_detail_mask={checkpoint_path} step={checkpoint.get('step', 'unknown')}", flush=True)
+    return predictor
 
 
 def save_checkpoint(
@@ -373,6 +399,8 @@ def evaluate(
     dtype_name: str,
     output_dir: Path | None = None,
     sample_count: int = 0,
+    detail_mask_predictor: DetailMaskPredictor | None = None,
+    detail_mask_floor: float = 0.0,
 ) -> dict[str, float]:
     was_training = model.training
     model.eval()
@@ -395,6 +423,7 @@ def evaluate(
         "sr_highpass_ratio": 0.0,
         "residual_l1": 0.0,
         "gate_mean": 0.0,
+        "detail_mask_mean": 0.0,
         "wins_vs_base": 0.0,
         "detail_wins_vs_base": 0.0,
     }
@@ -414,7 +443,19 @@ def evaluate(
             dtype_name=dtype_name,
         )
         with autocast_context(device, dtype_name):
-            sr, residual, gate, _ = model(base_sr, bicubic, condition, domain_id)
+            detail_mask = (
+                detail_mask_predictor(base_sr, bicubic, condition, domain_id)
+                if detail_mask_predictor is not None
+                else None
+            )
+            sr, residual, gate, _ = model(
+                base_sr,
+                bicubic,
+                condition,
+                domain_id,
+                detail_mask=detail_mask,
+                detail_mask_floor=detail_mask_floor,
+            )
         sr = sr.float()
         residual = residual.float()
         gate = gate.float()
@@ -454,6 +495,9 @@ def evaluate(
         totals["sr_highpass_ratio"] += float((sr_high.abs().flatten(1).mean(dim=1) / target_high_energy).sum().cpu())
         totals["residual_l1"] += float(residual.abs().mean().cpu()) * batch_size
         totals["gate_mean"] += float(gate.mean().cpu()) * batch_size
+        totals["detail_mask_mean"] += (
+            float(detail_mask.float().mean().cpu()) * batch_size if detail_mask is not None else float(batch_size)
+        )
         totals["wins_vs_base"] += float((sr_mse_per < base_mse_per).float().sum().cpu())
         totals["detail_wins_vs_base"] += float((sr_lap_l1_per < base_lap_l1_per).float().sum().cpu())
         if output_dir is not None and len(grid_rows) < sample_count:
@@ -462,16 +506,17 @@ def evaluate(
             for item_idx in range(batch_size):
                 if len(grid_rows) >= sample_count:
                     break
-                grid_rows.append(
-                    [
-                        ("LR", tensor_to_pil(lr_nearest[item_idx])),
-                        ("bicubic", tensor_to_pil(bicubic[item_idx])),
-                        ("base", tensor_to_pil(base_sr[item_idx])),
-                        ("detail", tensor_to_pil(sr[item_idx])),
-                        ("residual", tensor_to_pil(residual_vis[item_idx])),
-                        ("GT", tensor_to_pil(hr[item_idx])),
-                    ]
-                )
+                row = [
+                    ("LR", tensor_to_pil(lr_nearest[item_idx])),
+                    ("bicubic", tensor_to_pil(bicubic[item_idx])),
+                    ("base", tensor_to_pil(base_sr[item_idx])),
+                    ("detail", tensor_to_pil(sr[item_idx])),
+                    ("residual", tensor_to_pil(residual_vis[item_idx])),
+                ]
+                if detail_mask is not None:
+                    row.append(("detail mask", tensor_to_pil(detail_mask[item_idx].repeat(3, 1, 1))))
+                row.append(("GT", tensor_to_pil(hr[item_idx])))
+                grid_rows.append(row)
         count += batch_size
     count = max(1, count)
     metrics = {
@@ -493,6 +538,7 @@ def evaluate(
         "eval/sr_highpass_ratio": totals["sr_highpass_ratio"] / count,
         "eval/residual_l1": totals["residual_l1"] / count,
         "eval/gate_mean": totals["gate_mean"] / count,
+        "eval/detail_mask_mean": totals["detail_mask_mean"] / count,
         "eval/wins_vs_base": totals["wins_vs_base"],
         "eval/detail_wins_vs_base": totals["detail_wins_vs_base"],
         "eval/num_images": float(count),
@@ -528,11 +574,20 @@ def training_loss(
     hr: torch.Tensor,
     domain_id: torch.Tensor,
     loss_cfg: dict[str, Any],
+    detail_mask: torch.Tensor | None = None,
+    detail_mask_floor: float = 0.0,
 ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
     eps = float(loss_cfg.get("charbonnier_eps", 1e-3))
     highpass_kernel = int(loss_cfg.get("highpass_kernel", 15))
     lowpass_kernel = int(loss_cfg.get("lowpass_kernel", 31))
-    sr, residual, gate, raw_residual = model(base_sr, bicubic, condition, domain_id)
+    sr, residual, gate, raw_residual = model(
+        base_sr,
+        bicubic,
+        condition,
+        domain_id,
+        detail_mask=detail_mask,
+        detail_mask_floor=detail_mask_floor,
+    )
     target_residual = metric_highpass(hr - base_sr.detach(), kernel_size=highpass_kernel)
     image_loss = charbonnier(sr, hr, eps)
     residual_target_loss = charbonnier(residual, target_residual, eps)
@@ -581,6 +636,8 @@ def main() -> None:
 
     vae = load_autoencoder(config, device)
     condition_encoder = load_condition_encoder(config, device)
+    detail_mask_predictor = load_detail_mask_predictor(config, device)
+    detail_mask_floor = float(config.get("detail_mask", {}).get("floor", 0.0))
     model = GatedHighFrequencyDetailBranch.from_config(config["model"]).to(device)
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -643,6 +700,8 @@ def main() -> None:
             dtype_name=dtype_name,
             output_dir=eval_dir,
             sample_count=sample_count,
+            detail_mask_predictor=detail_mask_predictor,
+            detail_mask_floor=detail_mask_floor,
         )
         print(
             f"eval step={step} sr_psnr={metrics['eval/sr_psnr']:.4f} "
@@ -712,6 +771,11 @@ def main() -> None:
                 device=device,
                 dtype_name=dtype_name,
             )
+            if detail_mask_predictor is not None:
+                with autocast_context(device, dtype_name):
+                    detail_mask = detail_mask_predictor(base_sr, bicubic, condition, domain_id)
+            else:
+                detail_mask = None
         with autocast_context(device, dtype_name):
             loss, loss_parts = training_loss(
                 model=model,
@@ -721,6 +785,8 @@ def main() -> None:
                 hr=hr,
                 domain_id=domain_id,
                 loss_cfg=loss_cfg,
+                detail_mask=detail_mask,
+                detail_mask_floor=detail_mask_floor,
             )
         (loss / grad_accum_steps).backward()
         if (step + 1) % grad_accum_steps == 0:

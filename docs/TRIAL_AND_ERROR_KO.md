@@ -1492,3 +1492,36 @@ photo-detail val100:
 - 다음은 작은 learned mask predictor가 correlation `0.5403`, top20 capture
   `0.3252`, excess capture `0.4838` baseline을 넘는지 짧게 검증한다.
 - predictor가 실패하면 masked generator나 adversarial 장기 학습을 시작하지 않는다.
+
+### 2026-06-13 learned detail-mask predictor 통과와 masked branch 시작
+
+작은 learned predictor를 base/bicubic/Stage2 condition/proxy 입력으로 학습했다.
+모델은 `460,545` parameter이며 Stage1/Stage2는 frozen이다.
+
+| selector | correlation | top20 capture | excess capture | score |
+| --- | ---: | ---: | ---: | ---: |
+| observable baseline | 0.5403 | 0.3252 | 0.4838 | 0.3817 |
+| predictor best3250 | 0.7456 | 0.3861 | 0.4304 | 0.7013 |
+
+판단:
+
+- 위치 선택 prerequisite는 통과했다. predictor는 baseline보다 missing detail을
+  더 찾으면서 excess detail 선택은 줄였다.
+- 이 결과는 detail을 실제 생성했다는 뜻이 아니다. 다음 branch가 해당 위치에서
+  GT-aligned detail을 만들 수 있는지는 별도 검증해야 한다.
+- 기존 v1d branch에 predictor soft mask와 `0.05` floor를 적용하는 선택 경로를
+  추가했다. mask를 전달하지 않으면 기존 checkpoint 동작은 동일하다.
+- batch 5는 L40S 46GB에서 OOM이므로 batch 4가 최대다.
+- user 요청에 따라 grad accumulation을 제거했다. 기존 샘플당 update 강도를
+  맞추기 위해 LR은 `5e-5`에서 `1.25e-5`로 낮췄다.
+- 20 epoch는 조기 중단을 전제로 한 상한이다. W&B 이미지와 val100 지표가
+  정체되거나 artifact가 증가하면 완료 전에 중단한다.
+
+현재 run:
+
+```text
+config: configs/detail_branch_v2_masked_long_20ep.yaml
+tmux: detail-mask-branch-v2-long
+W&B: https://wandb.ai/jwheo/LuSIR/runs/lyo21m9r
+log: /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v2_masked_long_20ep/train.log
+```

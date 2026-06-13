@@ -895,3 +895,15 @@ explicit learned detail-need mask plus patch-level perceptual or adversarial
 supervision rather than relying on conditional-mean residual prediction.
 Implementation and evaluation details are in
 `docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md`.
+
+The learned-mask prerequisite was subsequently trained as a compact
+460,545-parameter predictor using the frozen fidelity base, bicubic image,
+Stage-2 condition latent, and four observable detail proxies. On the fixed
+photo-detail val100 set, it improved pixel correlation with the supervised
+detail-need target from `0.5403` to `0.7456`, improved top-20% missing-detail
+capture from `0.3252` to `0.3861`, and reduced excess-detail capture from
+`0.4838` to `0.4304`. This clears the predefined localization gate, but does
+not by itself establish improved SR output. The next experiment therefore
+keeps the predictor frozen and uses it as a soft spatial gate on the selected
+v1d detail branch, with image grids and GT-aligned fidelity metrics used for
+early stopping.

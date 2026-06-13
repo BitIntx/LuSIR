@@ -163,12 +163,15 @@ supervision, rather than continuing the same noise-MSE residual objective.
 See
 [`docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md`](docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md).
 
-The first learned detail-mask prerequisite is now implemented and diagnosed.
+The first learned detail-mask prerequisite is now implemented and trained.
 On photo-detail val100, the GT-supervised target's top 20% pixels capture
 `48.78%` of missing-detail energy at `2.44x` average concentration. The best
-inference-time hand-crafted proxy captures only `32.52%`, establishing a
-measurable baseline for a small learned mask predictor before another
-generative branch is attempted. See
+inference-time hand-crafted proxy captures only `32.52%`. The 460K-parameter
+learned predictor raises target correlation from `0.5403` to `0.7456`, top-20%
+missing-detail capture from `0.3252` to `0.3861`, and lowers excess-detail
+capture from `0.4838` to `0.4304`. A masked detail-branch v2 run now uses this
+predictor as a frozen soft spatial gate; this is still an experiment, not a
+public-model promotion. See
 [`docs/DETAIL_NEED_MASK_KO.md`](docs/DETAIL_NEED_MASK_KO.md).
 
 For comparing training throughput on another GPU VM, use the DDP quick benchmark in

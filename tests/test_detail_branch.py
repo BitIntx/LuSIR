@@ -46,6 +46,26 @@ def test_detail_branch_accepts_condition_latent() -> None:
     assert gate.shape == (1, 1, 24, 24)
 
 
+def test_detail_branch_external_mask_scales_gate_and_residual() -> None:
+    torch.manual_seed(4)
+    model = GatedHighFrequencyDetailBranch(
+        hidden_channels=16,
+        num_blocks=1,
+        norm_groups=8,
+        highpass_kernel=5,
+    )
+    for parameter in model.parameters():
+        parameter.data.normal_(mean=0.0, std=0.02)
+    base = torch.rand(1, 3, 24, 24)
+    bicubic = torch.rand(1, 3, 24, 24)
+    full_outputs = model(base, bicubic)
+    masked_outputs = model(base, bicubic, detail_mask=torch.zeros(1, 1, 24, 24), detail_mask_floor=0.25)
+
+    assert torch.allclose(masked_outputs[1], full_outputs[1] * 0.25, atol=1e-6)
+    assert torch.allclose(masked_outputs[2], full_outputs[2] * 0.25, atol=1e-6)
+    assert torch.allclose(masked_outputs[0], (base + full_outputs[1] * 0.25).clamp(0.0, 1.0), atol=1e-6)
+
+
 def test_detail_branch_model_init_preserves_old_path_with_condition_latent(tmp_path) -> None:
     torch.manual_seed(2)
     old_model = GatedHighFrequencyDetailBranch(

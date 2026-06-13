@@ -3,12 +3,25 @@ from __future__ import annotations
 import torch
 
 from sr_diffusion.detail_mask import (
+    DetailMaskPredictor,
     detail_need_components,
     highpass,
     masked_highpass_oracle,
     observable_detail_proxies,
     top_fraction_mask,
 )
+
+
+def test_detail_mask_predictor_output_is_bounded_and_full_resolution() -> None:
+    model = DetailMaskPredictor(latent_channels=4, hidden_channels=16, num_blocks=2, norm_groups=8)
+    base = torch.rand(2, 3, 32, 32)
+    bicubic = torch.rand(2, 3, 32, 32)
+    condition = torch.rand(2, 4, 8, 8)
+    domain_id = torch.tensor([0, 1], dtype=torch.long)
+    prediction = model(base, bicubic, condition, domain_id)
+    assert prediction.shape == (2, 1, 32, 32)
+    assert prediction.min() >= 0.0
+    assert prediction.max() <= 1.0
 
 
 def test_detail_need_prefers_missing_texture_over_excess_texture() -> None:

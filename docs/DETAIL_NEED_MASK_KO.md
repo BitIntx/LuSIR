@@ -121,3 +121,77 @@ pixel correlation:       > 0.5403
 top20 missing capture:   > 0.3252
 top20 excess capture:    < 0.4838
 ```
+
+## Learned predictor v1 결과
+
+구현:
+
+- `DetailMaskPredictor`: base, bicubic, frozen Stage2 condition latent, observable
+  proxy 4종을 입력으로 받는 `460,545` parameter residual predictor.
+- GT-supervised detail-need score 회귀와 pixelwise correlation을 학습하고,
+  excess-detail 위치의 prediction을 별도로 억제한다.
+- config: `configs/detail_mask_predictor_v1_probe.yaml`
+- W&B: <https://wandb.ai/jwheo/LuSIR/runs/2im6o5rn>
+- best: step `3250`, `best_eval_mask.pt`
+
+photo-detail val100:
+
+| selector | correlation | top20 missing capture | excess capture | selection score |
+| --- | ---: | ---: | ---: | ---: |
+| highpass disagreement baseline | `0.5403` | `0.3252` | `0.4838` | `0.3817` |
+| learned predictor best3250 | `0.7456` | `0.3861` | `0.4304` | `0.7013` |
+
+- learned predictor는 사전에 정한 세 합격선을 모두 통과했다.
+- selection score는 baseline보다 `+0.3196` 높다.
+- step `250`부터 baseline을 넘었고, step `2250~4000` 구간에서도 성능이
+  유지돼 짧은 우연이나 초기 spike로 보이지 않는다.
+- 다음 단계는 predictor를 frozen spatial gate로 사용해 기존 v1d detail
+  branch를 제한하는 masked branch다. mask가 없는 기존 v1d 동작은 그대로
+  유지한다.
+
+보존 요약:
+
+```text
+metrics/detail_mask_predictor_v1_val100_summary.json
+```
+
+## Masked detail branch 장기 run
+
+`configs/detail_branch_v2_masked_long_20ep.yaml`은 v1d best99500과 predictor
+best3250에서 시작한다. predictor는 frozen이고, soft mask에 `0.05` floor를 둬
+기존 correction을 완전히 차단하지 않는다.
+
+```text
+batch size:       4 (L40S 46GB에서 batch 5는 OOM)
+grad accumulation: 1
+learning rate:    1.25e-5
+max steps:        667240 = 20 epochs upper bound
+eval interval:    2000 steps
+W&B:              https://wandb.ai/jwheo/LuSIR/runs/lyo21m9r
+log:              /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v2_masked_long_20ep/train.log
+```
+
+batch 4, grad accumulation 4에서 쓰던 `5e-5`를 그대로 사용하면 샘플당 optimizer
+update 강도가 4배가 된다. 따라서 grad accumulation을 제거하면서 LR도 4분의
+1로 낮춰 기존 update 강도를 보존했다.
+
+로그:
+
+```bash
+tail -f /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v2_masked_long_20ep/train.log
+tmux attach -t detail-mask-branch-v2-long
+```
+
+W&B의 `samples/eval_grid`는 왼쪽부터 `LR`, `bicubic`, `base`, `detail`,
+`residual`, `detail mask`, `GT`다. 다음을 함께 본다.
+
+- `detail`이 base보다 선명해지되 흰 점, ringing, 가짜 무늬가 늘지 않는지.
+- `detail mask`가 털, 잎맥, 표면 무늬에 열리고 평탄한 하늘/피부에는 과도하게
+  열리지 않는지.
+- `residual`이 점점 강해지기만 하지 않고 실제 missing-detail 위치에 정렬되는지.
+- `eval/sr_vs_base_psnr`, `eval/sr_vs_base_ssim`은 양수를 유지해야 한다.
+- `eval/sr_vs_base_highpass_l1`, `eval/sr_vs_base_laplacian_l1`도 양수가
+  좋다. 이 둘은 GT 대비 error 감소량이다.
+- `eval/wins_vs_base`, `eval/detail_wins_vs_base`가 감소하면서 residual/gate만
+  커지면 중단한다.
+- `eval/detail_score`는 checkpoint shortlist용이며 샘플 grid보다 우선하지 않는다.

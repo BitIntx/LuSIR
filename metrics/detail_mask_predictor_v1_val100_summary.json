@@ -1,0 +1,24 @@
+{
+  "baseline": {
+    "capture": 0.3252431321144104,
+    "corr": 0.5402553761005402,
+    "excess_capture": 0.4838100457191467,
+    "selection_score": 0.38168846249580396
+  },
+  "best_checkpoint": "/home/ubuntu/scratch/sr-diffusion/runs/detail_mask_predictor_v1_probe/checkpoints/best_eval_mask.pt",
+  "best_metrics": {
+    "capture": 0.38608965277671814,
+    "concentration": 1.930440912246704,
+    "corr": 0.7455619645118713,
+    "delta_selection_score": 0.3195826101303098,
+    "excess_capture": 0.4303805446624756,
+    "selection_score": 0.7012710726261138
+  },
+  "best_step": 3250,
+  "config": "configs/detail_mask_predictor_v1_probe.yaml",
+  "finished_step": 4000,
+  "optimizer_updates": 1000,
+  "parameter_count": 460545,
+  "selection_fraction": 0.2,
+  "wandb": "https://wandb.ai/jwheo/LuSIR/runs/2im6o5rn"
+}

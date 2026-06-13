@@ -1,0 +1,102 @@
+project:
+  name: detail_branch_v2_masked_probe
+  output_dir: /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v2_masked_probe
+
+logging:
+  wandb:
+    enabled: true
+    project: LuSIR
+    entity: jwheo
+    name: detail_branch_v2_masked_probe
+    mode: online
+    dir: /home/ubuntu/scratch/sr-diffusion/wandb
+    group: stage-detail
+    job_type: detail-branch
+    tags: [detail-branch, detail-mask, masked, v2, probe, photo130k-lsdir, photo-detail-mix]
+    watch: false
+
+seed: 1337
+
+initialization:
+  checkpoint: /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v1d_deep3m_photo130k_lsdir_3ep/checkpoints/best_eval_detail.pt
+  model_only: true
+  identity_init_new_blocks: false
+  note: initialize from the selected v1d branch and add a frozen learned detail-need mask
+
+autoencoder:
+  config: configs/autoencoder_photo10k.yaml
+  checkpoint: checkpoints/stage1_autoencoder_best_eval_recon.pt
+
+condition_encoder:
+  config: configs/latent_pretrain_photo130k_lsdir_dual_multiscale_long.yaml
+  checkpoint: checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt
+  trainable: false
+
+detail_mask:
+  config: configs/detail_mask_predictor_v1_probe.yaml
+  checkpoint: /home/ubuntu/scratch/sr-diffusion/runs/detail_mask_predictor_v1_probe/checkpoints/best_eval_mask.pt
+  trainable: false
+  floor: 0.05
+
+data:
+  manifest: /home/ubuntu/scratch/sr-diffusion/data/manifest_photo130k_lsdir.csv
+  split: train
+  hr_size: 512
+  scale: 4
+  degradation_preset: photo_detail_mix
+  domains:
+    photo: 0
+    anime: 1
+  hflip_prob: 0.5
+  texture_crop_retries: 4
+  texture_crop_downsample: 128
+  hr_color_jitter_prob: 0.25
+  hr_color_jitter: [0.97, 1.03]
+  num_workers: 4
+
+model:
+  image_channels: 3
+  latent_channels: 16
+  hidden_channels: 96
+  num_blocks: 18
+  norm_groups: 32
+  num_domains: 2
+  residual_scale: 0.24
+  gate_bias: -1.5
+  highpass_kernel: 15
+  use_condition_latent: true
+
+loss:
+  image_weight: 1.0
+  residual_target_weight: 0.85
+  highpass_weight: 1.5
+  laplacian_weight: 0.75
+  lowpass_anchor_weight: 1.0
+  gate_l1_weight: 0.0005
+  residual_l1_weight: 0.0005
+  highpass_kernel: 15
+  lowpass_kernel: 31
+  charbonnier_eps: 0.001
+
+train:
+  device: auto
+  dtype: bf16
+  batch_size: 4
+  max_steps: 4000
+  lr: 0.00005
+  weight_decay: 0.0
+  grad_accum_steps: 4
+  log_every: 25
+  save_every: 500
+
+eval:
+  enabled: true
+  split: val
+  limit: 100
+  batch_size: 4
+  num_workers: 4
+  every: 250
+  run_at_start: true
+  best_metric: eval/detail_score
+  best_mode: max
+  sample_count: 8

@@ -41,6 +41,16 @@ generative:
 - 새 NVIDIA GPU VM 재현을 위한 최소 Docker 구성이 추가됐다. `Dockerfile`,
   `.dockerignore`, `scripts/docker_lusir.sh`, `docs/DOCKER_KO.md`를 사용한다.
   dataset/checkpoint/output은 image에 넣지 않고 호스트 scratch를 mount한다.
+- learned detail-mask predictor v1은 photo-detail val100에서 observable proxy
+  baseline을 통과했다. best step `3250`은 correlation `0.7456`, top20 missing
+  capture `0.3861`, excess capture `0.4304`, selection score `0.7013`이다.
+- 이 predictor를 frozen soft gate로 쓰는 masked detail branch v2 장기 run을
+  시작했다. config는 `configs/detail_branch_v2_masked_long_20ep.yaml`, W&B는
+  <https://wandb.ai/jwheo/LuSIR/runs/lyo21m9r>, tmux는
+  `detail-mask-branch-v2-long`이다.
+- L40S 46GB에서 batch 5는 OOM이므로 batch 4가 최대다. 현재 run은
+  `grad_accum_steps: 1`, LR `1.25e-5`, 20 epoch 상한이며 W&B grid와
+  eval 정체 시 조기 중단한다.
 
 ### 최신 완료 detail v1d와 strict-bicubic 진단
 
@@ -984,11 +994,13 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
    밀도는 `2.4389x`다. 최고 observable proxy는 highpass disagreement이며
    correlation `0.5403`, top20 capture `0.3252`, excess capture `0.4838`이다.
    상세 정의와 결과는 `docs/DETAIL_NEED_MASK_KO.md`를 따른다.
-7. 다음 구현은 base/bicubic/condition feature를 입력으로 하는 작은 learned mask
-   predictor다. 먼저 최고 proxy의 correlation/capture/excess baseline을 넘어야
-   하며, 통과하기 전에는 detail generator나 장기 학습을 붙이지 않는다.
-8. 짧은 실험이 val100, strict-bicubic/formal benchmark, real-degradation
-   고정 visual set에서 모두 통과할 때만 장기 학습을 시작한다.
+7. learned mask predictor는 baseline을 통과했다. 현재 masked detail branch v2
+   장기 run에서 실제 SR 품질 개선으로 이어지는지 검증 중이다.
+8. 매 2000 step W&B `samples/eval_grid`와 val100을 확인한다. PSNR/SSIM,
+   GT-aligned highpass/laplacian error, wins가 정체되거나 artifact가 증가하면
+   20 epoch 전에 중단한다.
+9. masked branch 후보가 나오면 strict-bicubic/formal benchmark와
+   real-degradation 고정 visual set을 통과할 때만 public 후보로 승격한다.
 
 ## 새 VM에서 Codex에게 줄 짧은 프롬프트
 
