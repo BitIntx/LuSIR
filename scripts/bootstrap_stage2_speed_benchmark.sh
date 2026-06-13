@@ -9,6 +9,8 @@ NPROC_PER_NODE="${LUSIR_NPROC_PER_NODE:-auto}"
 SYNTH_COUNT="${LUSIR_SYNTH_COUNT:-512}"
 SYNTH_SIZE="${LUSIR_SYNTH_SIZE:-512}"
 NUM_WORKERS="${LUSIR_NUM_WORKERS:-4}"
+BATCH_SIZE="${LUSIR_BENCH_BATCH_SIZE:-auto}"
+GRAD_ACCUM_STEPS="${LUSIR_BENCH_GRAD_ACCUM_STEPS:-auto}"
 SKIP_APT="${LUSIR_SKIP_APT:-0}"
 
 USER_NAME="$(id -un 2>/dev/null || echo root)"
@@ -48,6 +50,9 @@ Environment:
   LUSIR_BENCH_WARMUP_STEP=N   Default: 50
   LUSIR_SYNTH_COUNT=N         Default: 512
   LUSIR_NUM_WORKERS=N         Default: 4
+  LUSIR_BENCH_BATCH_SIZE=N    Default: auto based on visible GPU VRAM.
+  LUSIR_BENCH_GRAD_ACCUM_STEPS=N
+                              Default: auto to keep per-GPU effective batch near 32.
   PYTORCH_INDEX_URL=URL       Optional pip index-url for torch/torchvision.
   LUSIR_SKIP_APT=1            Skip apt-get package install.
 EOF
@@ -171,10 +176,13 @@ BENCH_CONFIG="${BENCH_CONFIG}" \
 MANIFEST="${MANIFEST}" \
 SCRATCH_PROJECT="${SCRATCH_PROJECT}" \
 NUM_WORKERS="${NUM_WORKERS}" \
+BATCH_SIZE="${BATCH_SIZE}" \
+GRAD_ACCUM_STEPS="${GRAD_ACCUM_STEPS}" \
 python - <<'PY'
 import os
 from pathlib import Path
 
+import torch
 import yaml
 
 source = Path("configs/latent_pretrain_photo130k_lsdir_dual_bicubic_fidelity_continue.yaml")
@@ -182,6 +190,27 @@ target = Path(os.environ["BENCH_CONFIG"])
 manifest = Path(os.environ["MANIFEST"]).resolve()
 scratch_project = Path(os.environ["SCRATCH_PROJECT"]).resolve()
 num_workers = int(os.environ["NUM_WORKERS"])
+batch_size_env = os.environ["BATCH_SIZE"]
+grad_accum_env = os.environ["GRAD_ACCUM_STEPS"]
+
+def auto_batch_size() -> int:
+    if not torch.cuda.is_available():
+        return 1
+    visible_gb = [
+        torch.cuda.get_device_properties(index).total_memory / (1024**3)
+        for index in range(torch.cuda.device_count())
+    ]
+    min_gb = min(visible_gb)
+    if min_gb >= 44:
+        return 8
+    if min_gb >= 28:
+        return 4
+    if min_gb >= 18:
+        return 2
+    return 1
+
+batch_size = auto_batch_size() if batch_size_env == "auto" else int(batch_size_env)
+grad_accum_steps = max(1, 32 // batch_size) if grad_accum_env == "auto" else int(grad_accum_env)
 
 with source.open("r", encoding="utf-8") as handle:
     config = yaml.safe_load(handle)
@@ -192,6 +221,12 @@ config["autoencoder"]["checkpoint"] = str(
 )
 config["data"]["manifest"] = str(manifest)
 config["data"]["num_workers"] = num_workers
+config.setdefault("train", {})["batch_size"] = batch_size
+config["train"]["grad_accum_steps"] = grad_accum_steps
+config["train"]["sample_every"] = 10_000_000
+config["train"]["save_every"] = 10_000_000
+config.setdefault("logging", {}).setdefault("samples", {})["enabled"] = False
+config.setdefault("eval", {})["enabled"] = False
 config.setdefault("eval", {})["num_workers"] = num_workers
 config.setdefault("logging", {}).setdefault("wandb", {})["enabled"] = False
 
@@ -199,6 +234,7 @@ target.parent.mkdir(parents=True, exist_ok=True)
 with target.open("w", encoding="utf-8") as handle:
     yaml.safe_dump(config, handle, sort_keys=False)
 print(f"wrote {target}")
+print(f"bench_batch_size={batch_size} grad_accum_steps={grad_accum_steps}")
 PY
 
 echo "== run Stage 2 DDP quick benchmark =="

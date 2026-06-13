@@ -38,6 +38,9 @@ CUDA/Colab은 Colab notebook 또는 해당 CUDA PyTorch wheel을 사용한다.
 curl -fsSL https://raw.githubusercontent.com/BitIntx/LuSIR/main/scripts/bootstrap_stage2_speed_benchmark.sh | bash
 ```
 
+48GB GPU가 아니어도 quick benchmark는 VRAM에 맞춰 batch size를 낮춰 시도한다.
+현재 장기 run의 batch 8 설정은 L40S에서 약 37.8GB를 사용한다.
+
 ## 3. Hugging Face checkpoint 복구
 
 프로토타입 추론만 필요하면:

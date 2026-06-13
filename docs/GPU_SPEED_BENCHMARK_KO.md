@@ -45,10 +45,39 @@ curl -fsSL https://raw.githubusercontent.com/BitIntx/LuSIR/main/scripts/bootstra
 LUSIR_NPROC_PER_NODE=auto      # auto = 모든 visible CUDA GPU
 LUSIR_BENCH_STEPS=250
 LUSIR_BENCH_WARMUP_STEP=50
+LUSIR_BENCH_BATCH_SIZE=auto    # VRAM에 따라 8/4/2/1 자동 선택
+LUSIR_BENCH_GRAD_ACCUM_STEPS=auto
 LUSIR_WORKDIR=$HOME/LuSIR
 LUSIR_SCRATCH=$HOME/scratch
 LUSIR_VENV=$HOME/venvs/lusir-bench
 PYTORCH_INDEX_URL=...          # 특정 PyTorch wheel index를 강제할 때
+```
+
+## VRAM
+
+현재 실제 장기 학습 config는 L40S 48GB에서 `batch_size=8`로 약 `37.8GB`
+VRAM을 사용한다. 그래서 24GB급 GPU에서는 기본 학습 설정 그대로는 OOM이 날
+가능성이 높다.
+
+one-command quick benchmark는 VRAM을 보고 batch size를 자동으로 낮춘다:
+
+```text
+>=44GB: batch_size=8, grad_accum=4
+>=28GB: batch_size=4, grad_accum=8
+>=18GB: batch_size=2, grad_accum=16
+<18GB:  batch_size=1, grad_accum=32
+```
+
+즉 48GB GPU가 아니어도 benchmark는 시도할 수 있다. 다만 batch가 작아지면
+속도 수치는 `batch_size=8` 기준 L40S와 직접 비교하면 안 되고, 결과 블록의
+`global images/s`, `updates/s`, `eff_batch`를 같이 봐야 한다. `batch=1`에서도
+OOM이 나면 그 VM은 현재 Stage 2 XL 학습용으로는 맞지 않다.
+
+강제로 batch를 지정하려면:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/BitIntx/LuSIR/main/scripts/bootstrap_stage2_speed_benchmark.sh \
+  | env LUSIR_BENCH_BATCH_SIZE=2 LUSIR_BENCH_GRAD_ACCUM_STEPS=16 bash
 ```
 
 ## 결과 해석

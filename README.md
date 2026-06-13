@@ -151,6 +151,10 @@ CUDA GPU:
 curl -fsSL https://raw.githubusercontent.com/BitIntx/LuSIR/main/scripts/bootstrap_stage2_speed_benchmark.sh | bash
 ```
 
+The bootstrap lowers benchmark batch size automatically on lower-VRAM GPUs, so
+24GB-class cards can still be tested even though the current long-run L40S
+training config uses about 37.8GB at batch 8.
+
 Historical first-pass photo100k Stage 3/4 comparison:
 
 ```text
