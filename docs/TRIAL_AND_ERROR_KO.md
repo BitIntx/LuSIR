@@ -61,6 +61,14 @@ eval:   val100 every 1000 micro steps, run_at_start=false
 - 첫 launch에서 run-at-start val100 eval이 4분 이상 step 1을 잡아 학습을
   시작하지 못했다. 해당 run은 끊고 `eval.every=1000`, `run_at_start=false`로
   조정했다.
+- active run:
+  - tmux `stage2-bicubic-fidelity`
+  - W&B <https://wandb.ai/jwheo/LuSIR/runs/6cvkm4cc>
+  - log
+    `/home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_bicubic_fidelity_continue/train_console.log`
+  - initial interrupted step1 val100 decoded PSNR `24.9600`
+  - restarted run reached step `125` at about `1.15 micro-step/s`, GPU util
+    `100%`, VRAM `37.8/46.1GB`
 
 이 continuation이 좋아지면 그 다음은 같은 benchmark에서 v1d를 새 base 위에
 다시 붙일지, 아니면 Stage2/base 자체를 더 키울지 판단한다.
