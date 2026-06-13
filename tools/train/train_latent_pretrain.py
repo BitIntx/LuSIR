@@ -50,6 +50,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, default=None)
     parser.add_argument("--disable-wandb", action="store_true")
     parser.add_argument("--resume", type=Path, default=None)
+    parser.add_argument("--override-lr", type=float, default=None, help="Override optimizer LR after resume/init.")
     parser.add_argument("--init-checkpoint", type=Path, default=None)
     parser.add_argument(
         "--partial-init",
@@ -589,6 +590,11 @@ def main() -> None:
 
     if distributed:
         model = DistributedDataParallel(model, device_ids=[local_rank] if device.type == "cuda" else None)
+
+    if args.override_lr is not None:
+        for group in optimizer.param_groups:
+            group["lr"] = float(args.override_lr)
+        print_main(f"override_lr={float(args.override_lr):.8g}", rank)
 
     max_steps = int(train_cfg.get("max_steps", 1000) if args.limit_steps is None else args.limit_steps)
     log_every = int(train_cfg.get("log_every", 50))

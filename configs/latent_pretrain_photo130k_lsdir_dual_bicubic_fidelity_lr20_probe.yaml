@@ -1,0 +1,110 @@
+project:
+  name: latent_pretrain_photo130k_lsdir_dual_bicubic_fidelity_lr20_probe
+  output_dir: /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_bicubic_fidelity_lr20_probe
+logging:
+  wandb:
+    enabled: true
+    project: LuSIR
+    name: latent_pretrain_photo130k_lsdir_dual_bicubic_fidelity_lr20_probe
+    mode: online
+    dir: /home/ubuntu/scratch/sr-diffusion/wandb
+    tags:
+    - stage2
+    - latent-pretrain
+    - dual-multiscale-context
+    - lsdir
+    - benchmark-bicubic
+    - clean-fidelity
+    - lr20-probe
+    group: stage2
+    job_type: latent-pretrain
+    watch: false
+  samples:
+    enabled: true
+    split: val
+    fallback_split: train
+    count: 8
+    indices:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+seed: 1337
+autoencoder:
+  config: configs/autoencoder_photo10k.yaml
+  checkpoint: /home/ubuntu/scratch/sr-diffusion/runs/autoencoder_photo10k_b16_eval_online/checkpoints/best_eval_recon.pt
+initialization:
+  checkpoint: checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt
+  partial: false
+data:
+  manifest: /home/ubuntu/scratch/sr-diffusion/data/manifest_photo130k_lsdir.csv
+  split: train
+  hr_size: 512
+  scale: 4
+  degradation_preset: benchmark_bicubic
+  hflip_prob: 0.5
+  texture_crop_retries: 4
+  texture_crop_downsample: 128
+  domains:
+    photo: 0
+    anime: 1
+  num_workers: 4
+model:
+  type: lr_to_latent_predictor
+  architecture: dual_multiscale_context
+  in_channels: 3
+  latent_channels: 16
+  base_channels: 256
+  num_blocks: 16
+  norm_groups: 32
+  num_domains: 2
+  context_channels:
+  - 320
+  - 448
+  context_blocks:
+  - 4
+  - 6
+  context_scale: 1.0
+  extra_context_channels:
+  - 384
+  - 512
+  extra_context_blocks:
+  - 6
+  - 8
+  extra_context_scale: 1.0
+loss:
+  latent: charbonnier
+  latent_weight: 0.25
+  decoded_weight: 1.5
+  edge_weight: 0.5
+  highpass_weight: 0.75
+  highpass_magnitude_weight: 0.25
+  charbonnier_eps: 0.001
+train:
+  device: auto
+  dtype: bf16
+  batch_size: 8
+  max_steps: 22000
+  lr: 0.0001
+  weight_decay: 0.0
+  grad_accum_steps: 4
+  log_every: 25
+  save_every: 1000
+  sample_every: 1000
+eval:
+  enabled: true
+  split: val
+  limit: 100
+  batch_size: 8
+  num_workers: 4
+  every: 500
+  run_at_start: false
+  best_metric: eval/decoded_psnr
+  best_mode: max
+  best_checkpoint: best_eval_decoded.pt
+inference:
+  checkpoint: /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_bicubic_fidelity_lr20_probe/checkpoints/best_eval_decoded.pt
