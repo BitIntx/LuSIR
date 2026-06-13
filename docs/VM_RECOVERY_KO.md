@@ -31,6 +31,12 @@ CUDA/Colab은 Colab notebook 또는 해당 CUDA PyTorch wheel을 사용한다.
 환경/데이터 복구 후 `docs/GPU_SPEED_BENCHMARK_KO.md`를 따른다. 현재 단일 L40S
 기준값은 warmup 이후 약 `1.15 micro-step/s`다.
 
+빈 Ubuntu VM에서 quick benchmark만 바로 돌릴 때:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/BitIntx/LuSIR/main/scripts/bootstrap_stage2_speed_benchmark.sh | bash
+```
+
 ## 3. Hugging Face checkpoint 복구
 
 프로토타입 추론만 필요하면:

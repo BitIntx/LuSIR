@@ -3,6 +3,46 @@
 이 문서는 다른 VM/GPU에서 현재 Stage 2 clean-bicubic continuation의 학습
 속도를 같은 조건으로 비교하기 위한 절차다.
 
+## 빈 VM 원클릭 벤치마크
+
+아무것도 없는 Ubuntu VM에서는 아래 한 줄로 quick benchmark를 실행한다:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/BitIntx/LuSIR/main/scripts/bootstrap_stage2_speed_benchmark.sh | bash
+```
+
+root 환경이나 sudo로 한 번에 실행하려면:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/BitIntx/LuSIR/main/scripts/bootstrap_stage2_speed_benchmark.sh | sudo bash
+```
+
+기본 quick mode는 repo clone, venv 생성, PyTorch/LuSIR 설치, 필요한 checkpoint
+2개 다운로드, synthetic 512px dataset 생성, 250-step benchmark까지 자동으로
+수행한다. 실제 photo130k+LSDIR dataset 전체를 복구하는 faithful mode는 훨씬
+오래 걸리고 저장공간을 많이 쓰므로 명시적으로 켠다:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/BitIntx/LuSIR/main/scripts/bootstrap_stage2_speed_benchmark.sh \
+  | sudo env LUSIR_BENCH_MODE=full bash
+```
+
+주요 환경변수:
+
+```bash
+LUSIR_BENCH_STEPS=500          # benchmark step 수
+LUSIR_WORKDIR=/opt/LuSIR       # clone 위치
+LUSIR_SCRATCH=/mnt/scratch     # dataset/output 위치
+LUSIR_VENV=/opt/venvs/lusir    # venv 위치
+PYTORCH_INDEX_URL=...          # 특정 PyTorch wheel index를 강제할 때
+```
+
+quick mode는 실제 사진 dataset 대신 synthetic 이미지를 쓰지만, 같은 Stage 2
+모델/autoencoder/loss/batch/grad-accum 학습 루프를 실행한다. 현재 VM에서
+dataloader는 학습보다 10배 이상 빠르므로 GPU별 compute throughput 비교에는
+quick mode가 보통 충분하다. dataloader나 storage까지 동일하게 비교하려면
+`LUSIR_BENCH_MODE=full`을 사용한다.
+
 기준 run은 L40S 단일 GPU, PyTorch `2.12.0+cu130`, cuDNN `9.20.0` 환경에서
 `1.15 micro-step/s`로 안정화됐다. 여기서 step은 `train_latent_pretrain.py`
 로그의 micro-batch step이다. 현재 config는 `batch_size: 8`,

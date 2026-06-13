@@ -144,6 +144,11 @@ runner variant for formal full-image evaluation.
 For comparing training throughput on another GPU VM, use
 [`docs/GPU_SPEED_BENCHMARK_KO.md`](docs/GPU_SPEED_BENCHMARK_KO.md). The current
 single-L40S reference for this config is about `1.15` micro-steps/s after warmup.
+On a fresh Ubuntu VM, the quick one-line benchmark is:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/BitIntx/LuSIR/main/scripts/bootstrap_stage2_speed_benchmark.sh | bash
+```
 
 Historical first-pass photo100k Stage 3/4 comparison:
 

@@ -21,6 +21,12 @@ python tools/bench/benchmark_stage2_speed.py
 python tools/bench/benchmark_dataloader.py --workers 0 2 4
 ```
 
+Fresh VM one-command bootstrap:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/BitIntx/LuSIR/main/scripts/bootstrap_stage2_speed_benchmark.sh | bash
+```
+
 The matching VM/GPU comparison guide is
 [`docs/GPU_SPEED_BENCHMARK_KO.md`](../docs/GPU_SPEED_BENCHMARK_KO.md).
 
