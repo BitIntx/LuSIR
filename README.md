@@ -161,6 +161,8 @@ The first runnable probe is
 `configs/diffusion_photo130k_lsdir_highfreq_residual_v1_b8.yaml`. Its 76.6M
 U-Net uses an explicitly zero-initialized output layer, so the initial decoded
 result is exactly the frozen Stage 2 condition rather than a random rewrite.
+The first long run is tracked at
+<https://wandb.ai/jwheo/LuSIR/runs/q3t4hzms>.
 See
 [`docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md`](docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md).
 

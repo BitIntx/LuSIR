@@ -102,6 +102,17 @@ strong-cleanup objective 때문에 clean input을 과수정한 기록이 있다.
 - 학습 로그에 condition PSNR, condition 대비 PSNR delta, residual L1,
   gate mean을 추가했고 샘플에는 `Condition`과 `AbsDelta4x`를 추가했다.
 
+장기 run:
+
+```text
+tmux: highfreq-residual-v1
+W&B:  https://wandb.ai/jwheo/LuSIR/runs/q3t4hzms
+log:  /home/ubuntu/scratch/sr-diffusion/runs/diffusion_photo130k_lsdir_highfreq_residual_v1_b8/train_console.log
+```
+
+초기 안정 구간은 약 `1.10 micro-step/s`, GPU util `99%`, VRAM 약
+`30.3/46.1GB`다.
+
 ## 평가
 
 학습 중 확인:
