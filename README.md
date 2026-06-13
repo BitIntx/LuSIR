@@ -152,17 +152,14 @@ original LR, an evaluation-noise-level difference. The original `5e-6` LR is
 therefore retained, but another long same-objective continuation is not
 expected to close the full SwinIR gap or create visibly new texture.
 
-The next generative experiment separates the goals: keep the deterministic
-base for fidelity and train a stochastic gated high-frequency residual
-diffusion path for visible texture synthesis. It must preserve base
-low-frequency structure and will be selected with fixed visual review,
-LPIPS/DISTS, high-frequency metrics, and seed diversity rather than PSNR alone.
-The first runnable probe is
-`configs/diffusion_photo130k_lsdir_highfreq_residual_v1_b8.yaml`. Its 76.6M
-U-Net uses an explicitly zero-initialized output layer, so the initial decoded
-result is exactly the frozen Stage 2 condition rather than a random rewrite.
-The first long run is tracked at
-<https://wandb.ai/jwheo/LuSIR/runs/q3t4hzms>.
+Two separate generative-detail experiments have now been evaluated. The first
+latent residual probe added high-frequency energy without GT-aligned detail.
+The signed-Haar residual diffusion replacement preserved low-frequency
+structure and removed its early stochastic grain, but its residual and seed
+diversity collapsed toward zero during the 20,000-step continuation. The next
+generative experiment should keep the deterministic fidelity base while using
+a learned detail-need mask and patch-level perceptual or adversarial
+supervision, rather than continuing the same noise-MSE residual objective.
 See
 [`docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md`](docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md).
 
@@ -1462,12 +1459,13 @@ Stage 4: perceptual / GAN fine-tune
   artifact. Its visible effect remains stable and conservative.
 - The current separate generative path diffuses only the signed Haar
   high-frequency bands of `GT - detail v1d`; it cannot emit an LL band, so
-  low-frequency changes are structurally blocked. The first condition-start
-  probe reached step 3000 and improved monotonically, but it is not promoted:
-  start timestep 15 still trails v1d by `0.5768 dB`, while stronger settings
-  add visible stochastic grain. A step-20000 continuation is tracked with
-  `configs/wavelet_residual_diffusion_v2_condition_start_long.yaml`. See
-  `docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md`.
+  low-frequency changes are structurally blocked. The condition-start long run
+  completed 20,000 micro-steps. It removed the early stochastic grain, but the
+  residual and seed diversity collapsed toward zero instead of producing
+  useful missing detail. On val100, start timesteps 15, 25, and 50 trail v1d
+  by `0.0880`, `0.1392`, and `0.3152 dB`, and all worsen GT-aligned
+  Laplacian/highpass error. It is not promoted or continued with the same
+  objective. See `docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md`.
 
 Run the Stage 4-lite low-timestep fine-tune:
 

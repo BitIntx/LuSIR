@@ -4,7 +4,7 @@
 계속 누적하기 위한 기록이다. 최종 성능표가 아니라, 왜 다음 실험을 그렇게 잡았는지
 추적하는 용도다.
 
-## 2026-06-13 wavelet residual diffusion v2 condition-start probe
+## 2026-06-13 wavelet residual diffusion v2 장기 run 완료
 
 pure-noise v2 step1000 checkpoint를 이어 condition-start 방식으로 step3000까지
 학습했다. `start_timestep=50` sampled PSNR은 `22.85 -> 25.03 dB`,
@@ -24,11 +24,9 @@ signed wavelet L1은 `0.06111 -> 0.04331`로 계속 개선됐다. 따라서 학�
 GT-aligned high-frequency 오차가 악화했다. 현재 결론은 다음과 같다.
 
 - signed Haar residual과 LL 차단은 구조/색 보존에는 유효하다.
-- 현재 실패는 저주파 과수정이 아니라 덜 수렴한 residual noise prediction이다.
-- 총 `375` optimizer update만으로 구조를 폐기하기에는 이르다.
-- step `20000` 장기 continuation에서 동일 metric이 계속 개선되는지 확인한다.
-- 충분히 학습해도 Laplacian/highpass gain이 음수면 EMA/objective 변경 또는
-  perceptual/adversarial detail 경로로 전환한다.
+- step3000 시점에는 덜 수렴한 residual noise prediction이 주된 문제였다.
+- step20000까지 학습하면 노이즈는 사라지지만 residual/diversity도 함께 줄었다.
+- 저주파 과수정은 해결했으나 실제 missing detail 생성에는 실패했다.
 
 장기 run:
 `configs/wavelet_residual_diffusion_v2_condition_start_long.yaml`,
@@ -36,6 +34,24 @@ GT-aligned high-frequency 오차가 악화했다. 현재 결론은 다음과 같
 첫 `t=25` 중간 평가인 step4000은 PSNR `27.7734`, v1d 대비
 `-0.9274 dB`, signed wavelet L1 `0.02605`로 step3000의
 `27.4752 / -1.2256 / 0.02788`보다 개선됐다.
+
+장기 run은 step `20000`, `2500` optimizer update에서 정상 종료했다. 최종
+val100은 다음과 같다.
+
+| start timestep | PSNR delta | SSIM delta | Laplacian gain | diversity |
+| ---: | ---: | ---: | ---: | ---: |
+| 15 | -0.0880 dB | -0.00647 | -0.000833 | 0.00574 |
+| 25 | -0.1392 dB | -0.01040 | -0.001229 | 0.00722 |
+| 50 | -0.3152 dB | -0.02433 | -0.002516 | 0.01093 |
+
+판단:
+
+- oracle은 유효하지만 현재 condition/noise-MSE 조합은 불확실한 signed residual을
+  conditional mean인 zero에 가깝게 예측한다.
+- 장기 학습은 grain 제거에는 성공했지만 사용자 체감 detail을 만들지 못했다.
+- 모든 강도에서 v1d보다 GT-aligned metric이 낮으므로 승격하지 않는다.
+- 동일 objective continuation은 종료한다. 다음은 learned detail mask와
+  patch-level perceptual/adversarial supervision을 우선 검토한다.
 
 ## 2026-06-13 high-frequency residual diffusion v1 조기 중단
 

@@ -1,0 +1,56 @@
+{
+  "checkpoint": "wavelet_residual_diffusion_v2_condition_start_long step20000",
+  "conclusion": "not_promoted_conditional_mean_collapse",
+  "model_parameters": 18442249,
+  "optimizer_updates": 2500,
+  "training": {
+    "config": "configs/wavelet_residual_diffusion_v2_condition_start_long.yaml",
+    "finished_micro_step": 20000,
+    "wandb": "https://wandb.ai/jwheo/LuSIR/runs/zh1fktq4"
+  },
+  "val100": {
+    "base": {
+      "highpass_l1": 0.03188117053359747,
+      "laplacian_l1": 0.02091559987515211,
+      "psnr": 26.677679176330567,
+      "ssim": 0.8066019558906555
+    },
+    "sample_steps": 12,
+    "seeds": [123, 456, 789],
+    "start_timestep_results": {
+      "15": {
+        "diversity_l1": 0.005736756520345807,
+        "highpass_gain_vs_base": -0.0006002226037283703,
+        "laplacian_gain_vs_base": -0.0008326642401516454,
+        "lowpass_drift": 5.716986483700263e-05,
+        "psnr": 26.589681828816733,
+        "psnr_delta_vs_base": -0.08799734751383426,
+        "residual_energy_ratio": 0.267343140343825,
+        "signed_wavelet_l1": 0.024433906593670448,
+        "ssim": 0.8001363019148509
+      },
+      "25": {
+        "diversity_l1": 0.007219744920730591,
+        "highpass_gain_vs_base": -0.0009189605278273408,
+        "laplacian_gain_vs_base": -0.0012288325217862939,
+        "lowpass_drift": 7.757509498333092e-05,
+        "psnr": 26.538508694966634,
+        "psnr_delta_vs_base": -0.13917048136393362,
+        "residual_energy_ratio": 0.33594226151704787,
+        "signed_wavelet_l1": 0.02494229972362518,
+        "ssim": 0.7962047501405081
+      },
+      "50": {
+        "diversity_l1": 0.010930791385471822,
+        "highpass_gain_vs_base": -0.0019337483060856628,
+        "laplacian_gain_vs_base": -0.0025157534579435988,
+        "lowpass_drift": 0.00013340919069984618,
+        "psnr": 26.362458407084148,
+        "psnr_delta_vs_base": -0.3152207692464195,
+        "residual_energy_ratio": 0.5103854783376058,
+        "signed_wavelet_l1": 0.02650042071317633,
+        "ssim": 0.7822740383942922
+      }
+    }
+  }
+}

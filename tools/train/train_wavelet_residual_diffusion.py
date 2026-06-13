@@ -50,6 +50,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--resume", type=Path, default=None)
     parser.add_argument("--eval-only-checkpoint", type=Path, default=None)
     parser.add_argument("--eval-start-timestep", type=int, default=None)
+    parser.add_argument("--eval-limit", type=int, default=None)
     return parser.parse_args()
 
 
@@ -409,6 +410,8 @@ def main() -> None:
         config.setdefault("logging", {}).setdefault("wandb", {})["enabled"] = False
     if args.eval_start_timestep is not None:
         config.setdefault("eval", {})["start_timestep"] = int(args.eval_start_timestep)
+    if args.eval_limit is not None:
+        config.setdefault("eval", {})["limit"] = int(args.eval_limit)
     seed = int(config.get("seed", 1337))
     seed_everything(seed)
     device = get_device(str(config.get("train", {}).get("device", "auto")))
@@ -514,6 +517,7 @@ def main() -> None:
             "checkpoint": str(args.eval_only_checkpoint),
             "checkpoint_step": start_step,
             "eval_start_timestep": config.get("eval", {}).get("start_timestep"),
+            "eval_limit": config.get("eval", {}).get("limit"),
             "metrics": metrics,
         }
         (output_dir / "eval_only_summary.json").write_text(

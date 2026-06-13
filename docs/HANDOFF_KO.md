@@ -154,7 +154,7 @@ generative:
   - fixed sample Laplacian energy는 `0.00592 -> 0.00766`으로 증가했지만
     GT Laplacian L1 오차도 `0.00971 -> 0.01058`로 악화했다.
   - 결론: 실제 detail 복원이 아니라 고주파 에너지만 추가하여 중단했다.
-- 구현 완료, 현재 active 후보:
+- 구현 완료, 종료된 연구 후보:
   - config: `configs/wavelet_residual_diffusion_v2_probe.yaml`
   - trainer: `tools/train/train_wavelet_residual_diffusion.py`
   - 18.44M U-Net이 `GT - detail v1d`의 signed Haar LH/HL/HH residual에
@@ -170,19 +170,23 @@ generative:
     - `t=50`: PSNR `25.0289`, v1d 대비 `-3.6719 dB`, energy ratio `2.503`
   - 시각적으로 `t=15`는 안전하지만 명확한 유효 detail이 없고, `t=25/50`은
     입자 노이즈가 남는다. 아직 public/default 승격 후보가 아니다.
-  - 총 optimizer update가 `375`뿐이고 signed-wavelet 오차가 계속 감소해,
-    동일 구조 장기 continuation을 step `20000`까지 시작했다.
-  - active config:
+  - 총 optimizer update가 `375`뿐이던 시점에는 학습 부족 가능성이 있어,
+    동일 구조 장기 continuation을 step `20000`까지 수행했다.
+  - long config:
     `configs/wavelet_residual_diffusion_v2_condition_start_long.yaml`
-  - active tmux: `wavelet-condition-v2-long`
-  - active W&B: <https://wandb.ai/jwheo/LuSIR/runs/zh1fktq4>
-  - active log:
+  - W&B: <https://wandb.ai/jwheo/LuSIR/runs/zh1fktq4>
+  - log:
     `/home/ubuntu/scratch/sr-diffusion/runs/wavelet_residual_diffusion_v2_condition_start_long/train_console.log`
-  - 첫 long-run `t=25` eval step4000: PSNR `27.7734`, v1d 대비
-    `-0.9274 dB`, signed wavelet L1 `0.02605`. step3000의
-    `27.4752 / -1.2256 / 0.02788`보다 개선되어 학습 부족 가설은 현재 유효하다.
-  - 장기 run도 GT-aligned Laplacian/highpass를 개선하지 못하면 EMA/objective
-    변경 또는 perceptual/adversarial detail supervision으로 전환한다.
+  - 완료: step `20000`, `2500` optimizer update.
+  - 최종 val100:
+    - `t=15`: v1d 대비 PSNR `-0.0880 dB`, SSIM `-0.00647`
+    - `t=25`: v1d 대비 PSNR `-0.1392 dB`, SSIM `-0.01040`
+    - `t=50`: v1d 대비 PSNR `-0.3152 dB`, SSIM `-0.02433`
+  - 장기 학습으로 노이즈는 사라졌지만 residual/diversity도 함께 줄어
+    conditional mean/zero residual로 수렴했다. 모든 강도에서 Laplacian/highpass
+    오차도 v1d보다 나빠 승격하지 않는다.
+  - 다음 generative detail 연구는 동일 continuation이 아니라 learned detail
+    mask와 patch-level perceptual/adversarial supervision을 검토한다.
 - reproducible GPU throughput comparison commands are documented in
   `docs/GPU_SPEED_BENCHMARK_KO.md`. The quick benchmark now runs the real
   Stage2 `train_latent_pretrain.py` DDP path via `torchrun` and automatically
@@ -961,13 +965,12 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
 
 1. 현재 Stage2 continuation은 원래 LR로 보존하되, 같은 objective의 장기
    continuation이 SwinIR gap이나 visible detail을 해결할 것으로 기대하지 않는다.
-2. 다음 별도 학습은 frozen deterministic base 위에 bounded/gated
-   high-frequency residual만 생성하는 stochastic diffusion probe다. 설정:
-   `configs/diffusion_photo130k_lsdir_highfreq_residual_v1_b8.yaml`, 설계:
-   `docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md`. 76.6M U-Net 출력층을
-   zero-init하여 초기 출력이 condition과 정확히 같도록 검증했다.
-3. 생성형 probe는 PSNR 단독이 아니라 LPIPS/DISTS, fixed visual review,
-   lowpass drift, high-frequency metric, seed diversity로 판단한다.
+2. latent residual v1과 signed-wavelet residual v2는 모두 종료했다. v2는
+   step20000까지 노이즈를 제거했지만 residual/diversity도 zero 쪽으로 수렴해
+   실제 missing detail을 만들지 못했다. 같은 objective continuation은 하지 않는다.
+3. 다음 생성형 detail 실험은 LR에서 근거가 있는 위치만 여는 learned
+   uncertainty/detail mask와 patch-level perceptual/adversarial supervision을
+   결합하는 two-head 구조를 우선 검토한다.
 4. clean-fidelity gap 개선은 별도 Stage2/base 구조 연구로 유지하고,
    생성형 detail 목표와 섞지 않는다.
 5. public Colab 기본 경로는 residual refiner v2를 유지한다. detail branch v1d는
@@ -999,15 +1002,15 @@ clean-bicubic Stage2 continuation은 원래 LR 5e-6에서 step15000 val100 proxy
 25.057까지 오른 뒤 plateau했다. LR20x는 15.72로 붕괴했고, LR5x from-init
 step4000은 25.033으로 원래 LR의 25.031과 사실상 같아 LR 부족이 핵심 병목은
 아니다. 원래 LR continuation은 step17825에서 종료했고 best는 step15000이다.
-다음 별도 학습은 deterministic
-base를 frozen으로 두고 gated/bounded high-frequency residual만 생성하는
-stochastic diffusion probe다. 설정은
-configs/diffusion_photo130k_lsdir_highfreq_residual_v1_b8.yaml이고 설계는
-docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md에 있다. 생성형 목표는 classical PSNR과 분리하고 LPIPS/DISTS/fixed visual
-review/high-frequency metric/seed diversity로 판단한다. 첫 v1 run
-https://wandb.ai/jwheo/LuSIR/runs/q3t4hzms 은 step1650 부근에서 중단했다.
-다음 구현은 condition 자체를 노이즈화하는 현재 경로가 아니라 target residual을
-직접 diffuse하고 noise를 예측하는 residual-space diffusion이어야 한다.
+latent residual v1은 실제 detail 대신 고주파 에너지만 늘려 중단했다. 이후
+signed Haar residual diffusion v2를 구현하고 step20000까지 학습했지만,
+최종 val100에서 t15/t25/t50 모두 v1d보다 PSNR/SSIM/Laplacian/highpass가
+낮았다. 장기 학습은 noise와 residual/diversity를 함께 zero 쪽으로 줄여
+missing detail을 만들지 못했다. 같은 noise-MSE objective continuation은 하지
+않는다. 다음 생성형 detail 연구는 learned uncertainty/detail mask와
+patch-level perceptual/adversarial supervision을 결합하는 two-head 구조를
+우선 검토한다. 상세 결과는 docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md와
+metrics/wavelet_residual_diffusion_v2_long_final_summary.json에 있다.
 detail branch v1d는 Colab WebUI에서 단일 이미지/tiled inference 연구 옵션으로
 선택 가능하지만, public 기본값은 residual refiner v2를 유지한다.
 Colab demo는 notebooks/sr_diffusion_colab_demo.ipynb 에서 Gradio WebUI로 실행되며,

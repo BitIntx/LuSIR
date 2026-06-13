@@ -230,9 +230,38 @@ step3000: PSNR 27.4752, delta -1.2256 dB, signed wavelet L1 0.02788
 step4000: PSNR 27.7734, delta -0.9274 dB, signed wavelet L1 0.02605
 ```
 
-장기 run도 signed-wavelet/Laplacian 오차를 v1d보다 개선하지 못하면 단순
-학습 부족 가설을 폐기하고, EMA와 timestep-weighted objective 또는
-adversarial/perceptual detail supervision을 검토한다.
+장기 run은 step `20000`, `2500` optimizer update에서 정상 종료했다.
+`t=25` val8은 step3000 대비 크게 안정화됐지만, 후반에는 residual과 diversity가
+계속 줄며 zero residual 쪽으로 수렴했다.
+
+```text
+step3000:  PSNR delta -1.2256 dB, energy ratio 1.116, diversity 0.01846
+step10000: PSNR delta -0.4845 dB, energy ratio 0.618, diversity 0.01028
+step20000: PSNR delta -0.2475 dB, energy ratio 0.431, diversity 0.00724
+```
+
+최종 checkpoint의 val100 강도 비교:
+
+| start timestep | PSNR delta vs v1d | SSIM delta | Laplacian gain | energy ratio |
+| ---: | ---: | ---: | ---: | ---: |
+| 15 | -0.0880 dB | -0.00647 | -0.000833 | 0.267 |
+| 25 | -0.1392 dB | -0.01040 | -0.001229 | 0.336 |
+| 50 | -0.3152 dB | -0.02433 | -0.002516 | 0.510 |
+
+시각적으로 노이즈는 사라졌지만 v1d에 없던 의미 있는 질감도 만들지 못했다.
+모든 강도에서 GT-aligned Laplacian/highpass 오차가 악화하고, 강도를 높이면
+다양성과 함께 오류만 증가한다. 따라서 학습 부족 가설은 폐기하며 이 모델은
+승격하지 않는다.
+
+표현 공간의 oracle 가능성은 남아 있지만, 현재 조건과 noise-MSE objective는
+불확실한 residual을 conditional mean, 즉 거의 zero residual로 축소한다.
+다음 시도는 같은 설정의 continuation이나 단순 EMA가 아니라 다음 중 하나여야
+한다.
+
+- LR에서 근거가 있는 위치만 선택하는 learned uncertainty/detail mask
+- stochastic branch에 대한 discriminator 또는 patch-level perceptual objective
+- GT residual 직접 생성 대신 texture prior/teacher가 만든 detail target
+- fidelity base와 생성 detail을 사용자 강도로 혼합하는 명시적 two-head 구조
 
 ## 평가
 
@@ -264,3 +293,4 @@ checkpoint 비교:
 - 생성형 결과를 classical SR SOTA PSNR과 같은 목표로 설명하지 않는다.
 - full x0를 자유롭게 다시 그리는 장기 Stage4 continuation부터 시작하지 않는다.
 - pretrained text-to-image model을 runtime dependency로 추가하지 않는다.
+- wavelet v2를 같은 noise-MSE objective로 더 오래 continuation하지 않는다.

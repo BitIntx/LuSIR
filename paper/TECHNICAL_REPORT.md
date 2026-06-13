@@ -1,8 +1,8 @@
 # LuSIR: Latent Upscaling via Self-trained Image Restoration without T2I Pretraining
 
 Snapshot: formal x4 benchmark complete, Stage 2 clean-fidelity learning-rate
-probes complete, and a separate high-frequency residual diffusion path selected
-as the next generative experiment.
+probes complete, and signed-wavelet residual diffusion evaluated and rejected
+as the current generative-detail objective.
 
 `paper/TECHNICAL_REPORT.md` is the canonical report source.
 `paper/sr_diffusion_report.pdf` and `paper/main.tex` are generated from it with
@@ -867,16 +867,16 @@ option. The completed perceptual Stage 2 continuation is not promoted.
 Candidate next steps are:
 
 - preserve the deterministic base as the fidelity path and train a separate
-  gated, bounded high-frequency residual diffusion model for stochastic
-  texture synthesis;
+  learned detail-need mask before applying stochastic texture synthesis;
 - select the generative path with LPIPS, DISTS, fixed visual review,
   high-frequency metrics, lowpass drift, and seed diversity instead of PSNR
   alone;
 - continue Stage 2/base architecture research as a separate clean-fidelity
   track for the measured `0.9235 dB` DIV2K gap, rather than mixing that goal
   into the generative detail objective;
-- because v1d remains visually conservative, consider detail-only perceptual
-  or adversarial supervision instead of increasing branch capacity again;
+- because v1d remains visually conservative and noise-MSE residual diffusion
+  collapses toward zero, prioritize patch-level perceptual or adversarial
+  supervision instead of increasing branch capacity again;
 - keep a degradation-aware gate or strong-input guardrail as the primary
   response to the remaining strong-preset failure tail.
 
@@ -884,11 +884,14 @@ The first latent residual probe increased high-frequency energy but worsened
 GT-aligned detail and was stopped. The replacement diffuses only signed Haar
 high bands of the image-space residual over the frozen v1d base. Its clipped
 oracle improves the val8 base from `28.7012` to `31.4039` dB, confirming that
-the representation can express useful corrections. The step-3000
-condition-start model is not yet promoted: start timesteps 15, 25, and 50
-trail the base by `0.5768`, `1.2256`, and `3.6719` dB respectively, and
-stronger settings retain visible stochastic grain. Because this probe contains
-only 375 optimizer updates and its signed-wavelet error is still decreasing, a
-step-20000 continuation is running before the architecture is rejected.
+the representation can express useful corrections. The step-20,000
+condition-start continuation removed the early stochastic grain, but the
+residual magnitude and seed diversity also collapsed toward zero. On val100,
+start timesteps 15, 25, and 50 trail the v1d base by `0.0880`, `0.1392`, and
+`0.3152` dB respectively, and all settings worsen GT-aligned Laplacian and
+highpass error. The result is not promoted, and the same noise-MSE objective
+will not be continued. The next generative detail experiment should use an
+explicit learned detail-need mask plus patch-level perceptual or adversarial
+supervision rather than relying on conditional-mean residual prediction.
 Implementation and evaluation details are in
 `docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md`.
