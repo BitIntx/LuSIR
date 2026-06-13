@@ -87,8 +87,8 @@ eval:
   limit: 100
   batch_size: 8
   num_workers: 4
-  every: 500
-  run_at_start: true
+  every: 1000
+  run_at_start: false
   best_metric: eval/decoded_psnr
   best_mode: max
   best_checkpoint: best_eval_decoded.pt

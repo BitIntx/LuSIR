@@ -111,6 +111,8 @@ generative:
 - data augmentation: hflip `0.5`, texture crop retries `4`; HR color jitter는
   사용하지 않는다.
 - train: batch `8`, grad accumulation `4`, max `60000` micro steps, lr `5e-6`.
+- eval: val100 every `1000` micro steps, no run-at-start eval to avoid spending
+  several minutes before actual training begins.
 - loss는 PSNR/SSIM fidelity 쪽으로 decoded pixel을 `1.5`로 올리고
   highpass/edge 비중을 낮춘다.
 - `train_latent_pretrain.py`의 Stage2 dataset helper가 augmentation 옵션을

@@ -45,6 +45,7 @@ init:   checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt
 data:   manifest_photo130k_lsdir.csv, degradation_preset=benchmark_bicubic
 loss:   decoded_weight 1.5, edge 0.5, highpass 0.75, highpass_magnitude 0.25
 train:  batch 8, grad_accum 4, max 60000 micro steps
+eval:   val100 every 1000 micro steps, run_at_start=false
 ```
 
 같이 고친 점:
@@ -57,6 +58,9 @@ train:  batch 8, grad_accum 4, max 60000 micro steps
   있다.
 - smoke: best98000 checkpoint를 `stage2_base` variant로 Set5 한 장 tiled
   inference했고 정상 출력됐다.
+- 첫 launch에서 run-at-start val100 eval이 4분 이상 step 1을 잡아 학습을
+  시작하지 못했다. 해당 run은 끊고 `eval.every=1000`, `run_at_start=false`로
+  조정했다.
 
 이 continuation이 좋아지면 그 다음은 같은 benchmark에서 v1d를 새 base 위에
 다시 붙일지, 아니면 Stage2/base 자체를 더 키울지 판단한다.
