@@ -177,6 +177,23 @@ reconstruction:
 따라서 표현 공간 자체에는 충분한 복원 가능성이 있다. 첫 probe는 `2000`
 micro-step이며 250 step마다 3 seed DDIM sampling을 평가한다.
 
+첫 pure-noise sampling probe는 step1000까지 noise MSE와 signed residual
+오차가 감소했지만, sampled residual energy가 target의 약 10배로 남아 있었다.
+SR refinement에 pure noise `t=99` 시작은 지나치게 공격적이라 중단했다.
+
+두 번째 probe는 같은 step1000 가중치를 이어받고 zero residual에
+`start_timestep=50`만큼 noise를 넣어 복원한다. 학습 timestep도 `0..75`로
+제한한다.
+
+```text
+config: configs/wavelet_residual_diffusion_v2_condition_start_probe.yaml
+initial checkpoint: wavelet_residual_diffusion_v2_probe step1000
+```
+
+동일 checkpoint의 condition-start smoke는 full-noise sampler보다 sampled
+PSNR을 약 `18 dB -> 22.85 dB`, residual energy ratio를 `10배대 -> 3.95배`,
+lowpass drift를 `0.006대 -> 0.00157`로 개선했다.
+
 ## 평가
 
 학습 중 확인:

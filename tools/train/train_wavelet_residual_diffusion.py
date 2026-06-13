@@ -108,12 +108,13 @@ def ddim_sample(
     steps: int,
     seed: int,
     clip_x0: float,
+    start_timestep: int,
 ) -> torch.Tensor:
     generator = torch.Generator(device=condition.device)
     generator.manual_seed(int(seed))
     batch_size = int(condition.shape[0])
     residual_channels = int(model.latent_channels)
-    sample = torch.randn(
+    noise = torch.randn(
         batch_size,
         residual_channels,
         *condition.shape[-2:],
@@ -121,8 +122,11 @@ def ddim_sample(
         device=condition.device,
         dtype=torch.float32,
     )
+    start_timestep = max(0, min(int(start_timestep), scheduler.num_train_timesteps - 1))
+    start_alpha = scheduler.alphas_cumprod[start_timestep].to(device=condition.device, dtype=torch.float32)
+    sample = (1.0 - start_alpha).sqrt() * noise
     timestep_values = torch.linspace(
-        scheduler.num_train_timesteps - 1,
+        start_timestep,
         0,
         steps=max(2, int(steps)),
         device=condition.device,
@@ -147,6 +151,22 @@ def ddim_sample(
         next_alpha = extract(alphas, next_timestep, sample.shape)
         sample = next_alpha.sqrt() * predicted_x0 + (1.0 - next_alpha).sqrt() * predicted_noise
     return sample
+
+
+def sample_train_timesteps(
+    scheduler: NoiseScheduler,
+    batch_size: int,
+    device: torch.device,
+    diffusion_config: dict[str, Any],
+) -> torch.Tensor:
+    minimum = max(0, int(diffusion_config.get("train_min_timestep", 0)))
+    maximum = min(
+        scheduler.num_train_timesteps - 1,
+        int(diffusion_config.get("train_max_timestep", scheduler.num_train_timesteps - 1)),
+    )
+    if maximum < minimum:
+        raise ValueError(f"train_max_timestep must be >= train_min_timestep, got {maximum} < {minimum}")
+    return torch.randint(minimum, maximum + 1, (batch_size,), device=device, dtype=torch.long)
 
 
 def save_checkpoint(
@@ -248,6 +268,7 @@ def evaluate(
     residual_scale = float(diffusion_cfg.get("residual_scale", 0.08))
     clip_x0 = float(diffusion_cfg.get("clip_x0", 4.0))
     sample_steps = int(eval_cfg.get("sample_steps", 12))
+    start_timestep = int(eval_cfg.get("start_timestep", scheduler.num_train_timesteps - 1))
     seeds = [int(value) for value in eval_cfg.get("seeds", [123, 456, 789])]
     totals = {
         "base_psnr": 0.0,
@@ -298,6 +319,7 @@ def evaluate(
                     steps=sample_steps,
                     seed=seed + batch_index * 100_000,
                     clip_x0=clip_x0,
+                    start_timestep=start_timestep,
                 )
             high = normalized_high.float() * residual_scale
             residual = image_from_haar_high(high, channels=3)
@@ -501,7 +523,12 @@ def main() -> None:
             wavelet_condition = make_wavelet_condition(detail_sr, bicubic)
             target_high = (haar_high_bands(hr - detail_sr) / residual_scale).clamp(-clip_x0, clip_x0)
             noise = torch.randn_like(target_high)
-            timesteps = scheduler.sample_timesteps(int(hr.shape[0]), device=device)
+            timesteps = sample_train_timesteps(
+                scheduler,
+                int(hr.shape[0]),
+                device=device,
+                diffusion_config=diffusion_cfg,
+            )
             noisy_high = scheduler.add_noise(target_high, noise, timesteps)
         with autocast_context(device, dtype_name):
             predicted_noise = model(noisy_high, timesteps, wavelet_condition, domain_id)

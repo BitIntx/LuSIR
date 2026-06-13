@@ -29,6 +29,12 @@ LL 대역은 출력할 수 없다. val8에서 동일한 ±0.16 clipping을 적�
 v1d 평균 PSNR을 `28.7012 -> 31.4039`, Laplacian L1을
 `0.018342 -> 0.010721`로 개선해 표현 공간의 가능성을 확인했다.
 
+첫 v2 pure-noise sampler는 step1000에서 residual energy가 target의 약 10배로
+남아 중단했다. 동일 checkpoint를 `start_timestep=50` condition-start로
+평가하면 sampled PSNR이 약 `18 dB -> 22.85 dB`, lowpass drift가
+`0.006대 -> 0.00157`로 개선됐다. 다음 probe는 이 checkpoint에서 이어
+train timestep을 `0..75`로 제한한다.
+
 ## 2026-06-13 정식 full-image x4 benchmark
 
 five-crop RGB PSNR 진단만으로는 공개 SR 결과와 비교할 수 없어서 DIV2K

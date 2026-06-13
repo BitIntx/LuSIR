@@ -162,6 +162,12 @@ generative:
   - val8 clipped oracle: v1d PSNR `28.7012 -> 31.4039`,
     Laplacian L1 `0.018342 -> 0.010721`
   - probe: 2000 micro-step, eval every 250, 3 fixed seeds
+  - 첫 full-noise probe는 step1000에서 중단했다. noise loss는 수렴했지만
+    sampled residual energy가 target의 약 10배로 남았다.
+  - 다음 config:
+    `configs/wavelet_residual_diffusion_v2_condition_start_probe.yaml`
+  - full-noise step1000을 이어받아 residual zero-start + `start_timestep=50`,
+    train timestep `0..75`로 2000 micro-step 추가 학습한다.
 - reproducible GPU throughput comparison commands are documented in
   `docs/GPU_SPEED_BENCHMARK_KO.md`. The quick benchmark now runs the real
   Stage2 `train_latent_pretrain.py` DDP path via `torchrun` and automatically
