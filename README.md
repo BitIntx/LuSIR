@@ -136,6 +136,12 @@ by `0.9235 dB` and `0.01807`. This makes the next clean-fidelity priority
 clear: improve the Stage 2/base reconstruction path before increasing detail
 branch capacity again.
 
+The next Stage2 experiment is isolated in
+`configs/latent_pretrain_photo130k_lsdir_dual_bicubic_fidelity_continue.yaml`.
+It continues from dual-context best98000 on `benchmark_bicubic` with a
+PSNR-oriented decoded loss balance and uses the new `stage2_base` benchmark
+runner variant for formal full-image evaluation.
+
 Historical first-pass photo100k Stage 3/4 comparison:
 
 ```text

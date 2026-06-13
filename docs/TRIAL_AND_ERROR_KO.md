@@ -33,6 +33,34 @@ evaluator로 다시 계산한 결과는 `31.0838 / 0.85228`이다. V1d보다 Y P
 하지만, 다음 clean-fidelity 병목은 branch 용량이 아니라 Stage2/base
 reconstruction 경로다.
 
+## 2026-06-13 Stage2 clean-bicubic fidelity continuation 준비
+
+SwinIR gap을 줄이기 위해 새 Stage2 continuation을 별도 config로 분리했다.
+목표는 real-world denoise가 아니라 공식 x4 bicubic LR pair와 같은 조건에서
+Stage2/base reconstruction 자체를 끌어올리는 것이다.
+
+```text
+config: configs/latent_pretrain_photo130k_lsdir_dual_bicubic_fidelity_continue.yaml
+init:   checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt
+data:   manifest_photo130k_lsdir.csv, degradation_preset=benchmark_bicubic
+loss:   decoded_weight 1.5, edge 0.5, highpass 0.75, highpass_magnitude 0.25
+train:  batch 8, grad_accum 4, max 60000 micro steps
+```
+
+같이 고친 점:
+
+- `train_latent_pretrain.py`가 `hflip_prob`, `texture_crop_retries`,
+  `hr_color_jitter_*`를 `ManifestImageDataset`으로 전달하도록 수정했다.
+  Dataset에는 이미 구현돼 있었지만 Stage2 train helper가 쓰지 않고 있었다.
+- `run_sr_benchmark.py`에 `stage2_base` variant를 추가했다. 새 Stage2
+  checkpoint가 나오면 detail branch 없이 바로 full-image benchmark에 넣을 수
+  있다.
+- smoke: best98000 checkpoint를 `stage2_base` variant로 Set5 한 장 tiled
+  inference했고 정상 출력됐다.
+
+이 continuation이 좋아지면 그 다음은 같은 benchmark에서 v1d를 새 base 위에
+다시 붙일지, 아니면 Stage2/base 자체를 더 키울지 판단한다.
+
 ## 2026-06-13 detail branch v1d 3 epoch 완료
 
 V1b는 안정적이지만 visible residual이 너무 작았다. 같은 branch를 단순히 더

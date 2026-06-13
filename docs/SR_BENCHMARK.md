@@ -64,6 +64,18 @@ python tools/eval/run_sr_benchmark.py \
   --tile-batch-size 8
 ```
 
+Stage2/base checkpoint 단독 비교:
+
+```bash
+python tools/eval/run_sr_benchmark.py \
+  --variant stage2_base \
+  --config configs/latent_pretrain_photo130k_lsdir_dual_bicubic_fidelity_continue.yaml \
+  --checkpoint /path/to/stage2_checkpoint.pt \
+  --manifest /home/ubuntu/scratch/sr-diffusion/benchmarks/x4_benchmark_manifest.csv \
+  --output-dir /home/ubuntu/scratch/sr-diffusion/benchmark_outputs/stage2_base_candidate \
+  --tile-batch-size 8
+```
+
 ## Metrics
 
 ```bash
@@ -71,6 +83,7 @@ python tools/eval/eval_sr_benchmark.py \
   --manifest /home/ubuntu/scratch/sr-diffusion/benchmarks/x4_benchmark_manifest.csv \
   --output-dir outputs/formal_benchmark_lusir \
   --candidate detail_base=/home/ubuntu/scratch/sr-diffusion/benchmark_outputs/detail_v1d/{dataset}/{id}/base.png \
+  --candidate stage2_base_candidate=/home/ubuntu/scratch/sr-diffusion/benchmark_outputs/stage2_base_candidate/{dataset}/{id}/base.png \
   --candidate detail_v1d=/home/ubuntu/scratch/sr-diffusion/benchmark_outputs/detail_v1d/{dataset}/{id}/detail.png \
   --candidate refiner_condition=/home/ubuntu/scratch/sr-diffusion/benchmark_outputs/refiner_v2/{dataset}/{id}/condition.png \
   --candidate refiner_v2=/home/ubuntu/scratch/sr-diffusion/benchmark_outputs/refiner_v2/{dataset}/{id}/refined.png

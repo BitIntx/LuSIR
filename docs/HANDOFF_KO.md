@@ -99,6 +99,25 @@ generative:
 - protocol/results: `docs/SR_BENCHMARK.md`,
   `metrics/formal_x4_benchmark_lusir_realesr_summary.json`.
 
+### Stage2 clean-bicubic fidelity continuation
+
+- 목적: SwinIR 대비 DIV2K `0.9235 dB` gap을 줄이기 위해 Stage2/base
+  reconstruction을 clean bicubic 조건에 맞춰 continuation한다.
+- config:
+  `configs/latent_pretrain_photo130k_lsdir_dual_bicubic_fidelity_continue.yaml`
+- init checkpoint:
+  `checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt`
+- degradation: `benchmark_bicubic`
+- data augmentation: hflip `0.5`, texture crop retries `4`; HR color jitter는
+  사용하지 않는다.
+- train: batch `8`, grad accumulation `4`, max `60000` micro steps, lr `5e-6`.
+- loss는 PSNR/SSIM fidelity 쪽으로 decoded pixel을 `1.5`로 올리고
+  highpass/edge 비중을 낮춘다.
+- `train_latent_pretrain.py`의 Stage2 dataset helper가 augmentation 옵션을
+  실제 Dataset으로 전달하도록 수정했다.
+- `tools/eval/run_sr_benchmark.py --variant stage2_base`를 추가했다. 새 Stage2
+  checkpoint가 나오면 formal x4 benchmark에 바로 투입할 수 있다.
+
 ### 최신 완료 장기 실험
 
 - perceptual continuation의 `+0.01~0.03 dB`는 고정 sample에서 거의 구분되지
