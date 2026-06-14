@@ -133,10 +133,10 @@ without T2I Pretraining}
 \tableofcontents
 }
 Snapshot: masked detail branch v2 and its formal x4 benchmark are
-complete, the bounded masked detail v3 perceptual/adversarial probe is
-implemented but not yet trained, Stage 2 clean-fidelity learning-rate
-probes are complete, and signed-wavelet residual diffusion was evaluated
-and rejected as the current generative-detail objective.
+complete, Stage 2 clean-fidelity learning-rate probes are complete, the
+Stage 2 detail-perceptual continuation has been formally reviewed but
+not promoted, and several deterministic/generative visible-detail probes
+were evaluated without producing a clear texture breakthrough.
 
 \texttt{paper/TECHNICAL\_REPORT.md} is the canonical report source.
 \texttt{paper/sr\_diffusion\_report.pdf} and \texttt{paper/main.tex} are
@@ -390,6 +390,8 @@ results are in:
 \NormalTok{metrics/formal\_x4\_benchmark\_div2k\_swinir\_metrics.csv}
 \NormalTok{metrics/formal\_x4\_benchmark\_detail\_v2\_masked\_summary.json}
 \NormalTok{metrics/formal\_x4\_benchmark\_detail\_v2\_masked\_metrics.csv}
+\NormalTok{metrics/formal\_x4\_benchmark\_stage2\_detail\_perceptual\_v1\_summary.json}
+\NormalTok{metrics/formal\_x4\_benchmark\_stage2\_detail\_perceptual\_v1\_metrics.csv}
 \end{Highlighting}
 \end{Shaded}
 
@@ -435,6 +437,76 @@ scarcity is rejected as the main bottleneck.
 The result also clarifies the objective boundary. Same-objective Stage 2
 continuation can refine deterministic fidelity, but it is unlikely to
 produce the visibly new fine texture expected from a generative model.
+
+\hypertarget{stage-2-detail-perceptual-continuation-review}{%
+\section{Stage 2 Detail-Perceptual Continuation
+Review}\label{stage-2-detail-perceptual-continuation-review}}
+
+A separate Stage 2 continuation started from dual-context best98000 and
+trained on \texttt{photo\_detail\_mix} with lower latent/decoded weight,
+stronger highpass magnitude, VGG feature loss, and a detail-score
+selection metric:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{config: configs/latent\_pretrain\_photo130k\_lsdir\_dual\_detail\_perceptual\_v1.yaml}
+\NormalTok{run:    /home/ubuntu/scratch/sr{-}diffusion/runs/latent\_pretrain\_photo130k\_lsdir\_dual\_detail\_perceptual\_v1}
+\NormalTok{W\&B:    https://wandb.ai/jwheo/LuSIR/runs/hybqq4rj}
+\end{Highlighting}
+\end{Shaded}
+
+The val100 proxy confirmed that the loss can raise high-frequency
+energy: step6000 reached decoded PSNR \texttt{24.5921} with Laplacian
+energy ratio \texttt{0.3824}, and latest step12000 reached decoded PSNR
+\texttt{24.6144} with ratio \texttt{0.3533}. The original dual-context
+step98000 baseline on the same proxy was \texttt{24.6197} and
+\texttt{0.3123}.
+
+The decisive review used the same 219-image formal x4 benchmark as
+above, but with the Stage 2 base path only:
+
+\begin{longtable}[]{@{}lrrrr@{}}
+\toprule\noalign{}
+Candidate & Mean Y PSNR & Mean Y SSIM & Mean RGB PSNR & Mean RGB SSIM \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Bicubic & \texttt{25.7170} & \texttt{0.71773} & \texttt{24.2697} &
+\texttt{0.69205} \\
+Dual-context step98000 & \textbf{\texttt{27.8431}} & \texttt{0.79742} &
+\textbf{\texttt{26.3131}} & \texttt{0.77340} \\
+Detail-perceptual step6000 & \texttt{27.7737} &
+\textbf{\texttt{0.79914}} & \texttt{26.2482} &
+\textbf{\texttt{0.77506}} \\
+Detail-perceptual latest12000 & \texttt{27.8356} & \texttt{0.79827} &
+\texttt{26.3107} & \texttt{0.77417} \\
+\end{longtable}
+
+Relative to dual-context step98000, step6000 loses \texttt{0.0694\ dB} Y
+PSNR while gaining \texttt{0.00172} Y SSIM. Latest step12000 is almost
+tied: \texttt{-0.0076\ dB} Y PSNR, \texttt{+0.00085} Y SSIM, and
+\texttt{156/219} Y-SSIM wins. Dataset-level latest12000 deltas are
+\texttt{-0.0193\ dB} on DIV2K, \texttt{+0.0272\ dB} on Set5,
+\texttt{-0.0555\ dB} on Set14, and \texttt{+0.0092\ dB} on Urban100.
+
+Visual crop review shows small improvements on some building/window grid
+regions, but not a clear user-visible texture breakthrough. The
+conclusion is therefore conservative: keep dual-context step98000 as the
+default Stage 2 checkpoint, preserve latest12000 as an optional
+SSIM/detail-biased research candidate, and avoid spending the next run
+on a longer continuation of the same objective.
+
+The new machine-readable results and visual crop sheet are:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{metrics/formal\_x4\_benchmark\_stage2\_detail\_perceptual\_v1\_summary.json}
+\NormalTok{metrics/formal\_x4\_benchmark\_stage2\_detail\_perceptual\_v1\_metrics.csv}
+\NormalTok{metrics/formal\_x4\_benchmark\_stage2\_detail\_perceptual\_v1\_delta\_crop\_selection.csv}
+\NormalTok{samples/stage2\_detail\_perceptual\_v1\_benchmark\_delta\_crop\_sheet.jpg}
+\end{Highlighting}
+\end{Shaded}
 
 The first separate generative probe is
 \texttt{configs/diffusion\_photo130k\_lsdir\_highfreq\_residual\_v1\_b8.yaml}.
@@ -1311,6 +1383,9 @@ Hugging Face:
 \NormalTok{metrics/detail\_branch\_v2\_masked\_photo130k\_lsdir\_summary.json}
 \NormalTok{metrics/formal\_x4\_benchmark\_detail\_v2\_masked\_summary.json}
 \NormalTok{metrics/formal\_x4\_benchmark\_detail\_v2\_masked\_metrics.csv}
+\NormalTok{metrics/formal\_x4\_benchmark\_stage2\_detail\_perceptual\_v1\_summary.json}
+\NormalTok{metrics/formal\_x4\_benchmark\_stage2\_detail\_perceptual\_v1\_metrics.csv}
+\NormalTok{metrics/formal\_x4\_benchmark\_stage2\_detail\_perceptual\_v1\_delta\_crop\_selection.csv}
 \NormalTok{samples/stage4\_photo100k\_xl\_edge\_b16\_val100\_t50\_32step\_grid\_lr\_bicubic\_sr\_gt.png}
 \NormalTok{samples/diagnose\_stage2\_xl\_residuals\_mild\_val100\_grid.png}
 \NormalTok{samples/residual\_refiner\_stage2\_xl\_mild\_probe\_step500\_grid.png}
@@ -1333,6 +1408,7 @@ Hugging Face:
 \NormalTok{samples/detail\_branch\_v1d\_deep3m\_photo130k\_lsdir\_best99500\_grid.png}
 \NormalTok{samples/benchmark\_bicubic5\_detail\_v1d\_best99500\_grid.png}
 \NormalTok{samples/detail\_branch\_v2\_masked\_photo130k\_lsdir\_best38000\_grid.png}
+\NormalTok{samples/stage2\_detail\_perceptual\_v1\_benchmark\_delta\_crop\_sheet.jpg}
 \NormalTok{configs/diffusion\_photo100k\_xl\_stage4\_condition\_v3\_edge\_b16.yaml}
 \NormalTok{configs/residual\_refiner\_stage2\_xl\_mild\_probe.yaml}
 \NormalTok{configs/diffusion\_photo100k\_xl\_stage4\_condition\_v3\_teacher\_residual\_photo\_v3\_b8\_probe.yaml}

@@ -1,0 +1,13 @@
+dataset,id,selection,delta_y_psnr_vs_dual,delta_y_ssim_vs_dual,crop
+Urban100,img_074,urban_ssim_gain,-0.015575,+0.006155,"(240, 624, 624, 1008)"
+Urban100,img_039,urban_ssim_gain,+0.052892,+0.005690,"(288, 288, 672, 672)"
+Urban100,img_030,urban_ssim_gain,+0.030644,+0.005057,"(0, 432, 384, 816)"
+Urban100,img_053,urban_ssim_gain,+0.034636,+0.004109,"(576, 240, 960, 624)"
+Urban100,img_082,urban_psnr_gain,+0.315366,+0.001093,"(0, 0, 384, 384)"
+Urban100,img_081,urban_psnr_gain,+0.179298,+0.000216,"(624, 0, 1008, 384)"
+Urban100,img_044,urban_psnr_loss,-0.187976,-0.003874,"(528, 288, 912, 672)"
+Urban100,img_052,urban_psnr_loss,-0.094601,-0.000691,"(480, 288, 864, 672)"
+DIV2K,0885,div2k_ssim_gain,+0.000853,+0.004430,"(1488, 336, 1872, 720)"
+DIV2K,0807,div2k_ssim_gain,-0.012787,+0.003870,"(1344, 480, 1728, 864)"
+DIV2K,0832,div2k_psnr_loss,-0.197125,-0.001139,"(96, 48, 480, 432)"
+DIV2K,0802,div2k_psnr_loss,-0.187796,-0.000812,"(816, 240, 1200, 624)"

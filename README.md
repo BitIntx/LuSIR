@@ -160,6 +160,13 @@ original LR, an evaluation-noise-level difference. The original `5e-6` LR is
 therefore retained, but another long same-objective continuation is not
 expected to close the full SwinIR gap or create visibly new texture.
 
+The later Stage 2 detail-perceptual continuation from dual-context best98000
+also completed formal 219-image evaluation. Its latest step12000 checkpoint is
+nearly tied with dual best98000 (`27.8356` vs `27.8431` Y PSNR) and slightly
+higher on SSIM (`0.79827` vs `0.79742`), but the visible crop review still shows
+only subtle differences. It is preserved as a research candidate, not promoted
+as the default Stage 2 checkpoint.
+
 Two separate generative-detail experiments have now been evaluated. The first
 latent residual probe added high-frequency energy without GT-aligned detail.
 The signed-Haar residual diffusion replacement preserved low-frequency

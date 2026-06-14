@@ -1,0 +1,182 @@
+{
+  "candidates": {
+    "bicubic": {
+      "by_dataset": {
+        "DIV2K": {
+          "count": 100,
+          "mean_rgb_psnr": 26.682888905924038,
+          "mean_rgb_ssim": 0.7519832918206025,
+          "mean_y_psnr": 28.104447077829068,
+          "mean_y_ssim": 0.7744344440926121
+        },
+        "Set14": {
+          "count": 14,
+          "mean_rgb_psnr": 24.466428790177485,
+          "mean_rgb_ssim": 0.6639526695647072,
+          "mean_y_psnr": 26.092754727832787,
+          "mean_y_ssim": 0.7049105502099173
+        },
+        "Set5": {
+          "count": 5,
+          "mean_rgb_psnr": 26.695956233017256,
+          "mean_rgb_ssim": 0.7733691878543689,
+          "mean_y_psnr": 28.43175355184288,
+          "mean_y_ssim": 0.8112626696705835
+        },
+        "Urban100": {
+          "count": 100,
+          "mean_rgb_psnr": 21.70767561927902,
+          "mean_rgb_ssim": 0.6319762536793598,
+          "mean_y_psnr": 23.141237611962925,
+          "mean_y_ssim": 0.6581525881373521
+        }
+      },
+      "count": 219,
+      "mean_rgb_psnr": 24.269708843597616,
+      "mean_rgb_ssim": 0.6920462916126666,
+      "mean_y_psnr": 25.71701279875833,
+      "mean_y_ssim": 0.7177340834442383
+    },
+    "detail_v1_latest12000": {
+      "by_dataset": {
+        "DIV2K": {
+          "count": 100,
+          "mean_rgb_psnr": 28.456246024451353,
+          "mean_rgb_ssim": 0.8077520492969059,
+          "mean_y_psnr": 29.938209889847275,
+          "mean_y_ssim": 0.8291486028383608
+        },
+        "Set14": {
+          "count": 14,
+          "mean_rgb_psnr": 26.37434673667682,
+          "mean_rgb_ssim": 0.7341279003877809,
+          "mean_y_psnr": 28.188614203780677,
+          "mean_y_ssim": 0.7739892074634647
+        },
+        "Set5": {
+          "count": 5,
+          "mean_rgb_psnr": 29.736507807687996,
+          "mean_rgb_ssim": 0.8528540168371596,
+          "mean_y_psnr": 31.6892827492204,
+          "mean_y_ssim": 0.8898222901654191
+        },
+        "Urban100": {
+          "count": 100,
+          "mean_rgb_psnr": 23.984898425744976,
+          "mean_rgb_ssim": 0.742269908954144,
+          "mean_y_psnr": 25.490814864394636,
+          "mean_y_ssim": 0.7662125518842298
+        }
+      },
+      "count": 219,
+      "mean_rgb_psnr": 26.3106750610573,
+      "mean_rgb_psnr_delta_vs_bicubic": 2.0409662174596876,
+      "mean_rgb_ssim": 0.7741746872818251,
+      "mean_rgb_ssim_delta_vs_bicubic": 0.08212839566915862,
+      "mean_y_psnr": 27.835568438462204,
+      "mean_y_psnr_delta_vs_bicubic": 2.1185556397038785,
+      "mean_y_ssim": 0.7982697526373271,
+      "mean_y_ssim_delta_vs_bicubic": 0.08053566919308894,
+      "wins_rgb_psnr_vs_bicubic": 219,
+      "wins_rgb_ssim_vs_bicubic": 219,
+      "wins_y_psnr_vs_bicubic": 219,
+      "wins_y_ssim_vs_bicubic": 219
+    },
+    "detail_v1_step6000": {
+      "by_dataset": {
+        "DIV2K": {
+          "count": 100,
+          "mean_rgb_psnr": 28.37358019293363,
+          "mean_rgb_ssim": 0.8080674556369946,
+          "mean_y_psnr": 29.859259113888847,
+          "mean_y_ssim": 0.8295072235159643
+        },
+        "Set14": {
+          "count": 14,
+          "mean_rgb_psnr": 26.32311958010763,
+          "mean_rgb_ssim": 0.7350988159464221,
+          "mean_y_psnr": 28.133337480413143,
+          "mean_y_ssim": 0.7747814201246273
+        },
+        "Set5": {
+          "count": 5,
+          "mean_rgb_psnr": 29.622755646437525,
+          "mean_rgb_ssim": 0.8541055997858635,
+          "mean_y_psnr": 31.55316935447707,
+          "mean_y_ssim": 0.8895314192330227
+        },
+        "Urban100": {
+          "count": 100,
+          "mean_rgb_psnr": 23.94369304364248,
+          "mean_rgb_ssim": 0.7436942696894004,
+          "mean_y_psnr": 25.448894085990414,
+          "mean_y_ssim": 0.7676584050175594
+        }
+      },
+      "count": 219,
+      "mean_rgb_psnr": 26.248240986352997,
+      "mean_rgb_psnr_delta_vs_bicubic": 1.9785321427553826,
+      "mean_rgb_ssim": 0.7750597440859303,
+      "mean_rgb_ssim_delta_vs_bicubic": 0.08301345247326368,
+      "mean_y_psnr": 27.77373466432007,
+      "mean_y_psnr_delta_vs_bicubic": 2.0567218655617467,
+      "mean_y_ssim": 0.7991377161244853,
+      "mean_y_ssim_delta_vs_bicubic": 0.08140363268024703,
+      "wins_rgb_psnr_vs_bicubic": 218,
+      "wins_rgb_ssim_vs_bicubic": 219,
+      "wins_y_psnr_vs_bicubic": 218,
+      "wins_y_ssim_vs_bicubic": 219
+    },
+    "dual_best98000": {
+      "by_dataset": {
+        "DIV2K": {
+          "count": 100,
+          "mean_rgb_psnr": 28.46529121489821,
+          "mean_rgb_ssim": 0.8076267448733444,
+          "mean_y_psnr": 29.957542547588247,
+          "mean_y_ssim": 0.828865864704912
+        },
+        "Set14": {
+          "count": 14,
+          "mean_rgb_psnr": 26.437126596449893,
+          "mean_rgb_ssim": 0.7335407118228926,
+          "mean_y_psnr": 28.244083373865628,
+          "mean_y_ssim": 0.7733978485552729
+        },
+        "Set5": {
+          "count": 5,
+          "mean_rgb_psnr": 29.7074322440176,
+          "mean_rgb_ssim": 0.8535329346790954,
+          "mean_y_psnr": 31.66210132469651,
+          "mean_y_ssim": 0.8895217519722765
+        },
+        "Urban100": {
+          "count": 100,
+          "mean_rgb_psnr": 23.973750906274034,
+          "mean_rgb_ssim": 0.7407498182467216,
+          "mean_y_psnr": 25.4816471191694,
+          "mean_y_ssim": 0.7647310285117633
+        }
+      },
+      "count": 219,
+      "mean_rgb_psnr": 26.31306459218087,
+      "mean_rgb_psnr_delta_vs_bicubic": 2.0433557485832576,
+      "mean_rgb_ssim": 0.7734013285430255,
+      "mean_rgb_ssim_delta_vs_bicubic": 0.08135503693035893,
+      "mean_y_psnr": 27.84313534490121,
+      "mean_y_psnr_delta_vs_bicubic": 2.1261225461428905,
+      "mean_y_ssim": 0.7974194884077751,
+      "mean_y_ssim_delta_vs_bicubic": 0.07968540496353683,
+      "wins_rgb_psnr_vs_bicubic": 219,
+      "wins_rgb_ssim_vs_bicubic": 219,
+      "wins_y_psnr_vs_bicubic": 219,
+      "wins_y_ssim_vs_bicubic": 219
+    }
+  },
+  "crop_border": 4,
+  "include_rgb_ssim": true,
+  "manifest": "/home/ubuntu/scratch/sr-diffusion/benchmarks/x4_benchmark_manifest.csv",
+  "num_images": 219,
+  "protocol": "official x4 LR pairs; MATLAB BT.601 Y; scale-pixel shave; MATLAB-style SSIM",
+  "workers": 4
+}

@@ -1787,3 +1787,59 @@ step 12000, latest:
 - 따라서 바로 public/default Stage2로 승격하지 않는다. 다음은 latest 또는
   step6000을 formal/fixed visual review에 넣어, 수치 detail ratio가 실제 체감
   sharpness로 이어지는지 확인한다.
+
+### 2026-06-14 Stage2 detail-perceptual v1 formal/fixed review
+
+위 Stage2 후보 2개를 같은 219장 full-image x4 benchmark에 넣어
+dual-context step98000과 직접 비교했다. protocol은 DIV2K validation 100,
+Set5 5, Set14 14, Urban100 100, public x4 LR pair, MATLAB-compatible Y,
+4-pixel shave, MATLAB-style SSIM이다.
+
+```text
+outputs:
+  /home/ubuntu/scratch/sr-diffusion/benchmark_outputs/stage2_dual_best98000
+  /home/ubuntu/scratch/sr-diffusion/benchmark_outputs/stage2_detail_perceptual_v1_step6000
+  /home/ubuntu/scratch/sr-diffusion/benchmark_outputs/stage2_detail_perceptual_v1_latest12000
+metrics:
+  metrics/formal_x4_benchmark_stage2_detail_perceptual_v1_summary.json
+  metrics/formal_x4_benchmark_stage2_detail_perceptual_v1_metrics.csv
+visual:
+  samples/stage2_detail_perceptual_v1_benchmark_delta_crop_sheet.jpg
+```
+
+전체 평균:
+
+| candidate | Y PSNR | Y SSIM | RGB PSNR | RGB SSIM |
+| --- | ---: | ---: | ---: | ---: |
+| bicubic | 25.7170 | 0.71773 | 24.2697 | 0.69205 |
+| dual step98000 | 27.8431 | 0.79742 | 26.3131 | 0.77340 |
+| detail-perceptual step6000 | 27.7737 | 0.79914 | 26.2482 | 0.77506 |
+| detail-perceptual latest12000 | 27.8356 | 0.79827 | 26.3107 | 0.77417 |
+
+dual step98000 대비:
+
+| candidate | dY PSNR | Y PSNR wins | dY SSIM | Y SSIM wins |
+| --- | ---: | ---: | ---: | ---: |
+| step6000 | -0.0694 dB | 42/219 | +0.00172 | 160/219 |
+| latest12000 | -0.0076 dB | 87/219 | +0.00085 | 156/219 |
+
+dataset별 latest12000의 dual 대비 Y 변화:
+
+| dataset | dY PSNR | dY SSIM |
+| --- | ---: | ---: |
+| DIV2K | -0.0193 dB | +0.00028 |
+| Set5 | +0.0272 dB | +0.00030 |
+| Set14 | -0.0555 dB | +0.00059 |
+| Urban100 | +0.0092 dB | +0.00148 |
+
+판단:
+
+- step6000은 SSIM/detail 쪽은 좋아지지만 PSNR 손실이 커서 기본 Stage2 후보로
+  승격하지 않는다.
+- latest12000은 dual step98000과 거의 동률이다. Urban100과 Set5에서는 약간
+  이기고, 전체 Y SSIM도 소폭 높지만 전체 Y PSNR은 아직 `-0.0076 dB`다.
+- 확대 crop sheet에서 건물 격자/창문류는 latest12000이 살짝 단단해 보이는
+  경우가 있으나, 사용자 체감상 명확한 texture breakthrough는 아니다.
+- 결론: dual step98000을 public/default Stage2 기준으로 유지한다. latest12000은
+  "SSIM/detail-biased optional research candidate"로 보존하되, 같은 objective의
+  단순 continuation을 더 길게 돌리는 우선순위는 낮다.

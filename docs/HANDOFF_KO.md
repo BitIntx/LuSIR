@@ -84,6 +84,14 @@ generative:
   ratio `0.3533`이다. 기준 dual-context step98000은 decoded PSNR `24.6197`,
   detail ratio `0.3123`이므로 detail ratio는 올랐지만 눈으로 보이는 차이는
   아직 작고, public/default Stage2로 바로 승격하지 않는다.
+- 같은 후보들을 219장 formal x4 benchmark에도 넣었다. 전체 평균 Y PSNR/SSIM은
+  dual step98000 `27.8431 / 0.79742`, detail-perceptual step6000
+  `27.7737 / 0.79914`, latest12000 `27.8356 / 0.79827`이다. latest12000은
+  dual 대비 Y PSNR `-0.0076 dB`, Y SSIM `+0.00085`, Y SSIM wins `156/219`로
+  거의 동률이지만 명확한 시각 개선은 작다. 보존 파일:
+  `metrics/formal_x4_benchmark_stage2_detail_perceptual_v1_summary.json`,
+  `metrics/formal_x4_benchmark_stage2_detail_perceptual_v1_metrics.csv`,
+  `samples/stage2_detail_perceptual_v1_benchmark_delta_crop_sheet.jpg`.
 
 ### 최신 완료 detail v1d와 strict-bicubic 진단
 

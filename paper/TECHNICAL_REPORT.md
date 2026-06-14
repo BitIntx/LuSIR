@@ -1,10 +1,10 @@
 # LuSIR: Latent Upscaling via Self-trained Image Restoration without T2I Pretraining
 
 Snapshot: masked detail branch v2 and its formal x4 benchmark are complete,
-the bounded masked detail v3 perceptual/adversarial probe is implemented but
-not yet trained, Stage 2 clean-fidelity learning-rate probes are complete, and
-signed-wavelet residual diffusion was evaluated and rejected as the current
-generative-detail objective.
+Stage 2 clean-fidelity learning-rate probes are complete, the Stage 2
+detail-perceptual continuation has been formally reviewed but not promoted,
+and several deterministic/generative visible-detail probes were evaluated
+without producing a clear texture breakthrough.
 
 `paper/TECHNICAL_REPORT.md` is the canonical report source.
 `paper/sr_diffusion_report.pdf` and `paper/main.tex` are generated from it with
@@ -191,6 +191,8 @@ metrics/formal_x4_benchmark_div2k_swinir_summary.json
 metrics/formal_x4_benchmark_div2k_swinir_metrics.csv
 metrics/formal_x4_benchmark_detail_v2_masked_summary.json
 metrics/formal_x4_benchmark_detail_v2_masked_metrics.csv
+metrics/formal_x4_benchmark_stage2_detail_perceptual_v1_summary.json
+metrics/formal_x4_benchmark_stage2_detail_perceptual_v1_metrics.csv
 ```
 
 ## Stage 2 Clean-Fidelity Continuation and Learning-Rate Probes
@@ -225,6 +227,56 @@ the main bottleneck.
 The result also clarifies the objective boundary. Same-objective Stage 2
 continuation can refine deterministic fidelity, but it is unlikely to produce
 the visibly new fine texture expected from a generative model.
+
+## Stage 2 Detail-Perceptual Continuation Review
+
+A separate Stage 2 continuation started from dual-context best98000 and trained
+on `photo_detail_mix` with lower latent/decoded weight, stronger highpass
+magnitude, VGG feature loss, and a detail-score selection metric:
+
+```text
+config: configs/latent_pretrain_photo130k_lsdir_dual_detail_perceptual_v1.yaml
+run:    /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_detail_perceptual_v1
+W&B:    https://wandb.ai/jwheo/LuSIR/runs/hybqq4rj
+```
+
+The val100 proxy confirmed that the loss can raise high-frequency energy:
+step6000 reached decoded PSNR `24.5921` with Laplacian energy ratio `0.3824`,
+and latest step12000 reached decoded PSNR `24.6144` with ratio `0.3533`.
+The original dual-context step98000 baseline on the same proxy was
+`24.6197` and `0.3123`.
+
+The decisive review used the same 219-image formal x4 benchmark as above, but
+with the Stage 2 base path only:
+
+| Candidate | Mean Y PSNR | Mean Y SSIM | Mean RGB PSNR | Mean RGB SSIM |
+| --- | ---: | ---: | ---: | ---: |
+| Bicubic | `25.7170` | `0.71773` | `24.2697` | `0.69205` |
+| Dual-context step98000 | **`27.8431`** | `0.79742` | **`26.3131`** | `0.77340` |
+| Detail-perceptual step6000 | `27.7737` | **`0.79914`** | `26.2482` | **`0.77506`** |
+| Detail-perceptual latest12000 | `27.8356` | `0.79827` | `26.3107` | `0.77417` |
+
+Relative to dual-context step98000, step6000 loses `0.0694 dB` Y PSNR while
+gaining `0.00172` Y SSIM. Latest step12000 is almost tied: `-0.0076 dB`
+Y PSNR, `+0.00085` Y SSIM, and `156/219` Y-SSIM wins. Dataset-level
+latest12000 deltas are `-0.0193 dB` on DIV2K, `+0.0272 dB` on Set5,
+`-0.0555 dB` on Set14, and `+0.0092 dB` on Urban100.
+
+Visual crop review shows small improvements on some building/window grid
+regions, but not a clear user-visible texture breakthrough. The conclusion is
+therefore conservative: keep dual-context step98000 as the default Stage 2
+checkpoint, preserve latest12000 as an optional SSIM/detail-biased research
+candidate, and avoid spending the next run on a longer continuation of the same
+objective.
+
+The new machine-readable results and visual crop sheet are:
+
+```text
+metrics/formal_x4_benchmark_stage2_detail_perceptual_v1_summary.json
+metrics/formal_x4_benchmark_stage2_detail_perceptual_v1_metrics.csv
+metrics/formal_x4_benchmark_stage2_detail_perceptual_v1_delta_crop_selection.csv
+samples/stage2_detail_perceptual_v1_benchmark_delta_crop_sheet.jpg
+```
 
 The first separate generative probe is
 `configs/diffusion_photo130k_lsdir_highfreq_residual_v1_b8.yaml`. It freezes the
@@ -894,6 +946,9 @@ metrics/benchmark_bicubic5_detail_v1d_best99500_summary.json
 metrics/detail_branch_v2_masked_photo130k_lsdir_summary.json
 metrics/formal_x4_benchmark_detail_v2_masked_summary.json
 metrics/formal_x4_benchmark_detail_v2_masked_metrics.csv
+metrics/formal_x4_benchmark_stage2_detail_perceptual_v1_summary.json
+metrics/formal_x4_benchmark_stage2_detail_perceptual_v1_metrics.csv
+metrics/formal_x4_benchmark_stage2_detail_perceptual_v1_delta_crop_selection.csv
 samples/stage4_photo100k_xl_edge_b16_val100_t50_32step_grid_lr_bicubic_sr_gt.png
 samples/diagnose_stage2_xl_residuals_mild_val100_grid.png
 samples/residual_refiner_stage2_xl_mild_probe_step500_grid.png
@@ -916,6 +971,7 @@ samples/detail_branch_v1b_aug_photo130k_lsdir_best39500_grid.png
 samples/detail_branch_v1d_deep3m_photo130k_lsdir_best99500_grid.png
 samples/benchmark_bicubic5_detail_v1d_best99500_grid.png
 samples/detail_branch_v2_masked_photo130k_lsdir_best38000_grid.png
+samples/stage2_detail_perceptual_v1_benchmark_delta_crop_sheet.jpg
 configs/diffusion_photo100k_xl_stage4_condition_v3_edge_b16.yaml
 configs/residual_refiner_stage2_xl_mild_probe.yaml
 configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_v3_b8_probe.yaml
