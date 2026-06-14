@@ -1557,10 +1557,10 @@ metrics/detail_branch_v2_masked_photo130k_lsdir_summary.json
 configs/hf/detail_branch_v2_masked_photo130k_lsdir.yaml
 ```
 
-### 2026-06-14 masked detail branch v3 patch probe 구현
+### 2026-06-14 masked detail branch v3 patch probe 완료
 
 v2의 위치 선택은 유지하면서 missing texture 생성 objective만 바꾸는 짧은
-방향성 probe를 구현했다. 장기 학습은 아직 시작하지 않았다.
+방향성 probe를 구현하고 5k step까지 학습했다.
 
 - generator는 선택된 v2 step 38000과 같은 3.02M bounded/highpass-only
   branch를 사용한다.
@@ -1590,3 +1590,30 @@ update 뒤 checkpoint에 양쪽 optimizer state가 모두 저장되는 것을 �
 
 구현 문서와 stop criterion은 `docs/DETAIL_BRANCH_V3_PATCH_KO.md`, probe
 config는 `configs/detail_branch_v3_masked_patch_gan_probe.yaml`에 있다.
+
+학습 결과:
+
+```text
+run: /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v3_masked_patch_gan_probe
+wandb: https://wandb.ai/jwheo/LuSIR/runs/jjz0ylip
+best checkpoint: checkpoints/best_eval_detail.pt
+best step: 1000
+val100 best:
+  eval/detail_score:       26.699334
+  eval/sr_vs_base_psnr:   +0.18418 dB
+  eval/sr_vs_base_ssim:   +0.00718
+  eval/lowpass_drift_l1:   0.000189
+  eval/outside_mask_l1:    0.004150
+  eval/sr_wins:            100/100
+```
+
+정식 219장 benchmark에서 v3 best step1000은 v2 대비 Y PSNR `+0.00667 dB`,
+RGB PSNR `+0.00470 dB`였고 Y SSIM은 `-0.000234`였다. 수치상으로는 v2보다
+아주 조금 낫지만, grid를 눈으로 보면 artifact는 없고 texture 생성도 거의
+없다. 따라서 v3를 public/default로 승격하지 않는다.
+
+다음 v3b는 v3 best generator에서 시작하되, `image/residual/highpass`
+anchor를 약간 낮추고 masked perceptual과 PatchGAN 압력을 올린다. 목적은
+0.00x dB 개선이 아니라 visible texture correction 가능성을 확인하는 것이다.
+guardrail로 lowpass anchor, learned mask, bounded highpass residual은 유지한다.
+config는 `configs/detail_branch_v3b_stronger_patch_gan_probe.yaml`이다.

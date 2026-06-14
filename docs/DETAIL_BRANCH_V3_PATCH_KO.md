@@ -18,7 +18,7 @@ highpass-only residual, learned soft mask와 `0.05` floor를 유지한다. 따�
 perceptual/adversarial supervision이 과하게 작동해도 저주파 색상과 전체
 구조를 바꾸기 어렵게 제한되어 있다.
 
-## 설정
+## v3 설정
 
 ```text
 config: configs/detail_branch_v3_masked_patch_gan_probe.yaml
@@ -58,6 +58,53 @@ adversarial warmup: first 500 micro-steps
 
 probe가 통과해야만 장기 학습과 정식 219장 benchmark를 진행한다.
 
+## v3 결과
+
+v3는 5k step까지 완료했다. best checkpoint는 step 1000이었다.
+
+```text
+run: /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v3_masked_patch_gan_probe
+wandb: https://wandb.ai/jwheo/LuSIR/runs/jjz0ylip
+best checkpoint: checkpoints/best_eval_detail.pt
+val100:
+  detail_score:          26.699334
+  PSNR delta vs base:   +0.18418 dB
+  SSIM delta vs base:   +0.00718
+  lowpass_drift_l1:      0.000189
+  outside_mask_l1:       0.004150
+  wins:                  100/100
+formal 219 benchmark vs v2:
+  Y PSNR:               +0.00667 dB
+  Y SSIM:               -0.000234
+  RGB PSNR:             +0.00470 dB
+```
+
+v3는 안정적이지만 너무 보수적이다. artifact나 lowpass drift는 없었지만,
+사용자가 문제로 본 missing fine texture를 눈에 띄게 복구하지 못했다. 따라서
+v3 best를 public/default로 올리지 않고 더 강한 objective probe로 넘어간다.
+
+## v3b stronger-detail 설정
+
+```text
+config: configs/detail_branch_v3b_stronger_patch_gan_probe.yaml
+init: /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v3_masked_patch_gan_probe/checkpoints/best_eval_detail.pt
+maximum: 8000 micro-steps
+adversarial warmup: first 250 micro-steps
+```
+
+v3b는 구조를 키우지 않고 objective balance만 바꾼다.
+
+- `masked_perceptual_weight`: `0.05 -> 0.20`
+- VGG layer: `[3, 8, 15] -> [3, 8, 15, 22]`
+- `adversarial.generator_weight`: `0.005 -> 0.02`
+- discriminator: `base_channels 32 -> 48`
+- `image/residual/highpass` anchor는 낮추고, `laplacian` weight는 올린다.
+- `lowpass_anchor`, learned mask, bounded highpass residual은 유지한다.
+
+v3b의 성공 기준은 단순 PSNR `+0.00x dB`가 아니다. grid에서 실제 texture
+correction이 보여야 하며, 동시에 `lowpass_drift_l1`,
+`outside_mask_residual_l1`, PSNR/SSIM guardrail이 크게 악화되지 않아야 한다.
+
 ## 실행
 
 장기 학습을 시작하기 전 smoke:
@@ -79,4 +126,12 @@ probe를 시작할 때:
 source /home/ubuntu/venvs/cuda/bin/activate
 python -u tools/train/train_detail_branch.py \
   --config configs/detail_branch_v3_masked_patch_gan_probe.yaml
+```
+
+v3b를 시작할 때:
+
+```bash
+source /home/ubuntu/venvs/cuda/bin/activate
+python -u tools/train/train_detail_branch.py \
+  --config configs/detail_branch_v3b_stronger_patch_gan_probe.yaml
 ```

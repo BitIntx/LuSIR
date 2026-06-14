@@ -55,15 +55,15 @@ generative:
 - 추론/정식 benchmark에서 learned mask가 누락된 재현성 버그를 수정했다.
   새 HF config와 `detail_branch_v2_masked` preset은 predictor step 3250,
   floor `0.05`, branch step 38000을 함께 로드한다.
-- 다음 방향성 실험인 masked detail branch v3 patch probe는 구현과 CUDA smoke를
-  완료했지만 장기 학습은 아직 시작하지 않았다. v2 step 38000에서 시작해
-  mask-weighted frozen-VGG feature loss와 작은 conditional high-frequency
-  PatchGAN을 추가하며, 기존 bounded/highpass residual 구조는 유지한다.
-  config는 `configs/detail_branch_v3_masked_patch_gan_probe.yaml`, 설계와 중단
-  기준은 `docs/DETAIL_BRANCH_V3_PATCH_KO.md`다.
-- v3 시작점 guardrail은 `eval/lowpass_drift_l1 0.000198`,
-  `eval/outside_mask_residual_l1 0.004333`이다. probe에서 이 값과 PSNR/SSIM,
-  고정 grid가 함께 악화되면 장기 학습으로 확장하지 않는다.
+- masked detail branch v3 patch probe는 완료됐다. best step `1000`은 val100에서
+  frozen base 대비 PSNR `+0.18418 dB`, SSIM `+0.00718`, wins `100/100`,
+  `lowpass_drift_l1 0.000189`였다. formal 219 benchmark에서는 v2 대비 Y PSNR
+  `+0.00667 dB`, RGB PSNR `+0.00470 dB`, Y SSIM `-0.000234`였다.
+- v3는 안정적이지만 눈으로 보이는 texture 생성이 거의 없어 public/default로
+  승격하지 않는다. 다음 실험은 v3 best generator에서 시작하는
+  `configs/detail_branch_v3b_stronger_patch_gan_probe.yaml`이다. masked VGG와
+  PatchGAN weight를 올리고 image/residual anchor를 낮춘 visible-detail probe다.
+  설계와 중단 기준은 `docs/DETAIL_BRANCH_V3_PATCH_KO.md`다.
 
 ### 최신 완료 detail v1d와 strict-bicubic 진단
 
