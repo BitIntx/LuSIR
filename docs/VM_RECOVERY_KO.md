@@ -100,6 +100,15 @@ python scripts/download_hf_checkpoints.py --preset detail_branch_v1d
 V1d step `99500`은 최신 public detail artifact다. V1b도 이전 비교용
 `detail_branch_v1b` preset으로 보존되어 있다.
 
+learned mask predictor와 masked v2 step `38000` 연구 후보까지 받으려면:
+
+```bash
+python scripts/download_hf_checkpoints.py --preset detail_branch_v2_masked
+```
+
+이 preset의 HF config는 predictor step `3250`, mask floor `0.05`, branch
+step `38000`을 함께 로드한다. public Colab 기본값은 계속 residual refiner v2다.
+
 정식 x4 benchmark dataset과 manifest를 scratch에 복구하려면:
 
 ```bash
@@ -155,8 +164,8 @@ https://colab.research.google.com/github/BitIntx/LuSIR/blob/main/notebooks/sr_di
 현재 Colab은 Gradio WebUI를 실행한다. 유저 업로드가 기본이고 correction strength,
 tile overlap, tile batch size, diffusion steps는 slider로 조정한다. 결과 화면은
 bicubic/Stage 2 condition/Input LR nearest 중 하나와 SR output을 before/after
-slider로 비교한다. residual refiner v2가 public 기본값이며, 선택된 detail branch
-v1d는 단일 이미지/tiled inference 연구 옵션으로 선택할 수 있다.
+slider로 비교한다. residual refiner v2가 public 기본값이며, detail branch v1d와
+masked detail v2는 단일 이미지/tiled inference 연구 옵션으로 선택할 수 있다.
 
 ## 5. Scratch/data 복구
 

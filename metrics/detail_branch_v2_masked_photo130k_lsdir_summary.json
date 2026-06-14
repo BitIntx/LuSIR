@@ -1,0 +1,55 @@
+{
+  "experiment": "detail_branch_v2_masked_photo130k_lsdir",
+  "initialization": {
+    "detail_branch": "detail_branch_v1d_deep3m_photo130k_lsdir_best99500",
+    "detail_mask": "detail_mask_predictor_v1_best3250"
+  },
+  "selection": {
+    "checkpoint": "checkpoints/detail_branch_v2_masked_photo130k_lsdir_best38000.pt",
+    "metric": "eval/detail_score",
+    "step": 38000
+  },
+  "selected_val100": {
+    "detail_score": 26.696006602346895,
+    "detail_wins_vs_base": 100,
+    "detail_mask_floor": 0.05,
+    "highpass_l1_error_improvement": 0.0007837862893938993,
+    "laplacian_l1_error_improvement": 0.0003592998161911949,
+    "mean_psnr_delta_vs_base_db": 0.20431533813476577,
+    "psnr_delta_vs_base_db": 0.18176917898701817,
+    "ssim_delta_vs_base": 0.0075535202026367765,
+    "wins_vs_base": 100
+  },
+  "nearby_candidate": {
+    "detail_score": 26.69527724429965,
+    "mean_psnr_delta_vs_base_db": 0.2052146148681615,
+    "psnr_delta_vs_base_db": 0.1874370434516912,
+    "ssim_delta_vs_base": 0.007208392620086657,
+    "step": 36000,
+    "wins_vs_base": 100
+  },
+  "formal_x4_benchmark_vs_v1d": {
+    "DIV2K": {
+      "y_psnr_delta_db": 0.003371598830462119,
+      "y_ssim_delta": 0.0009131811839617754
+    },
+    "Set14": {
+      "y_psnr_delta_db": 0.013455879436634177,
+      "y_ssim_delta": 0.0010403822410310903
+    },
+    "Set5": {
+      "y_psnr_delta_db": 0.06024382756815427,
+      "y_ssim_delta": 0.0009321885062134605
+    },
+    "Urban100": {
+      "y_psnr_delta_db": 0.01670654515992709,
+      "y_ssim_delta": 0.0014708377221539504
+    },
+    "overall": {
+      "y_psnr_delta_db": 0.011403725337867598,
+      "y_ssim_delta": 0.0011763844041877691
+    }
+  },
+  "stop_reason": "The selected score peaked at step 38000 and did not improve through step 50000. Fixed grids at steps 34000, 38000, and 48000 were nearly indistinguishable.",
+  "interpretation": "The learned mask is a valid localization gate and masked v2 modestly improves ordinary val100 over v1d, but the deterministic reconstruction objective still does not synthesize visibly missing fine texture. Do not continue the same objective or promote it as the public default."
+}

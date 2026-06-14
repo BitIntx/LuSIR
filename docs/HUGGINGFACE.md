@@ -78,6 +78,13 @@ artifacts:
 python scripts/download_hf_checkpoints.py --preset detail_branch_v1d
 ```
 
+Download the latest masked detail v2 research candidate, learned mask
+predictor, config, and review artifacts:
+
+```bash
+python scripts/download_hf_checkpoints.py --preset detail_branch_v2_masked
+```
+
 V1d is the latest public detail-branch artifact. It completed exactly three
 epochs and selected step 99500 by `eval/detail_score`. V1b remains available as
 the earlier comparison artifact. The v1d preset also includes the formal
@@ -91,6 +98,17 @@ python tools/infer/infer_detail_branch.py \
   --config configs/hf/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml \
   --input-lr input.png \
   --output-dir outputs/detail_v1d \
+  --tile --tile-overlap 32 --tile-batch-size 1
+```
+
+Run masked detail v2 with the same inference tool. The config loads the frozen
+mask predictor and its `0.05` floor automatically:
+
+```bash
+python tools/infer/infer_detail_branch.py \
+  --config configs/hf/detail_branch_v2_masked_photo130k_lsdir.yaml \
+  --input-lr input.png \
+  --output-dir outputs/detail_v2_masked \
   --tile --tile-overlap 32 --tile-batch-size 1
 ```
 
@@ -135,6 +153,15 @@ python tools/eval/run_sr_benchmark.py \
   --variant detail_v1d \
   --manifest /home/ubuntu/scratch/sr-diffusion/benchmarks/x4_benchmark_manifest.csv \
   --output-dir /home/ubuntu/scratch/sr-diffusion/benchmark_outputs/detail_v1d
+```
+
+For masked v2, replace the variant and output directory:
+
+```bash
+python tools/eval/run_sr_benchmark.py \
+  --variant detail_v2_masked \
+  --manifest /home/ubuntu/scratch/sr-diffusion/benchmarks/x4_benchmark_manifest.csv \
+  --output-dir /home/ubuntu/scratch/sr-diffusion/benchmark_outputs/detail_v2_masked
 ```
 
 The full protocol, external baseline commands, and selected result table are in

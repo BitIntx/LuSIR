@@ -10,7 +10,7 @@ Restoration**)입니다. GitHub repo id는 `BitIntx/LuSIR`, Hugging Face repo id
 `jwheo/LuSIR`입니다. W&B 기존 run URL, 로컬 scratch 경로, Python import
 namespace에는 아직 `sr-diffusion`/`sr_diffusion` 호환 이름이 남아 있습니다.
 
-## 2026-06-13 현재 상태
+## 2026-06-14 현재 상태
 
 ### 학습 단계와 실제 추론 경로
 
@@ -34,23 +34,27 @@ generative:
 - 현재 사용자용 public deterministic 기본값은 residual refiner v2이다.
 - 기준 deterministic condition 후보는 multiscale Stage 2 step `46000`이고,
   최신 보존 연구 후보는 dual-context LSDIR Stage 2 step `98000`이다.
-- 최신 완료/public detail artifact는 v1d step `99500`이다. 3.02M branch를
+- 최신 public detail artifact는 v1d step `99500`이다. 3.02M branch를
   정확히 3 epoch 학습했고, v1c에서 identity-preserving 초기화했다.
-- public Colab 기본값은 아직 residual refiner v2다. detail branch v1d는
-  단일 이미지/tiled inference 연구 옵션으로 선택 가능하다.
+- 최신 research detail candidate는 learned mask를 적용한 v2 step `38000`이다.
+  같은 val100에서 frozen base 대비 PSNR `+0.18177 dB`, mean PSNR
+  `+0.20432 dB`, SSIM `+0.00755`, wins `100/100`이다. v1d보다 수치는
+  소폭 좋아졌지만 시각적으로 거의 구분되지 않아 public 기본값으로 승격하지 않았다.
+- public Colab 기본값은 아직 residual refiner v2다. detail branch v1d와 masked
+  v2는 단일 이미지/tiled inference 연구 옵션으로 선택 가능하다.
 - 새 NVIDIA GPU VM 재현을 위한 최소 Docker 구성이 추가됐다. `Dockerfile`,
   `.dockerignore`, `scripts/docker_lusir.sh`, `docs/DOCKER_KO.md`를 사용한다.
   dataset/checkpoint/output은 image에 넣지 않고 호스트 scratch를 mount한다.
 - learned detail-mask predictor v1은 photo-detail val100에서 observable proxy
   baseline을 통과했다. best step `3250`은 correlation `0.7456`, top20 missing
   capture `0.3861`, excess capture `0.4304`, selection score `0.7013`이다.
-- 이 predictor를 frozen soft gate로 쓰는 masked detail branch v2 장기 run을
-  시작했다. config는 `configs/detail_branch_v2_masked_long_20ep.yaml`, W&B는
-  <https://wandb.ai/jwheo/LuSIR/runs/lyo21m9r>, tmux는
-  `detail-mask-branch-v2-long`이다.
-- L40S 46GB에서 batch 5는 OOM이므로 batch 4가 최대다. 현재 run은
-  `grad_accum_steps: 1`, LR `1.25e-5`, 20 epoch 상한이며 W&B grid와
-  eval 정체 시 조기 중단한다.
+- 이 predictor를 frozen soft gate로 쓰는 masked detail branch v2 장기 run은
+  완료됐다. step 38000 이후 step 50000까지 best를 갱신하지 못하고 고정 grid도
+  거의 같아 조기 중단했다. 위치 선택은 성공했지만 같은 deterministic objective는
+  missing texture를 생성하지 못했다.
+- 추론/정식 benchmark에서 learned mask가 누락된 재현성 버그를 수정했다.
+  새 HF config와 `detail_branch_v2_masked` preset은 predictor step 3250,
+  floor `0.05`, branch step 38000을 함께 로드한다.
 
 ### 최신 완료 detail v1d와 strict-bicubic 진단
 
@@ -103,6 +107,10 @@ generative:
   `+0.2027 / +0.2271 / +0.1682 / +0.3939 dB`.
 - v1d는 네 dataset 모두에서 base의 PSNR/SSIM을 개선했다. v1d redesign은
   정식 full-image protocol에서도 유효하다.
+- masked v2 step38000도 같은 219장 protocol을 완료했다. v1d 대비 Y PSNR은
+  DIV2K `+0.0034`, Set5 `+0.0602`, Set14 `+0.0135`, Urban100 `+0.0167 dB`,
+  전체 평균 `+0.0114 dB`이며 Y SSIM 전체 평균은 `+0.00118`이다. 네
+  dataset 모두 개선했지만 시각적 돌파로 볼 크기는 아니다.
 - 같은 clean-bicubic protocol에서 테스트한 RealESRNet/RealESRGAN보다
   fidelity는 높지만, real-world/perceptual 목적 모델과의 결과이므로 SOTA
   주장으로 해석하지 않는다.
@@ -994,13 +1002,15 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
    밀도는 `2.4389x`다. 최고 observable proxy는 highpass disagreement이며
    correlation `0.5403`, top20 capture `0.3252`, excess capture `0.4838`이다.
    상세 정의와 결과는 `docs/DETAIL_NEED_MASK_KO.md`를 따른다.
-7. learned mask predictor는 baseline을 통과했다. 현재 masked detail branch v2
-   장기 run에서 실제 SR 품질 개선으로 이어지는지 검증 중이다.
-8. 매 2000 step W&B `samples/eval_grid`와 val100을 확인한다. PSNR/SSIM,
-   GT-aligned highpass/laplacian error, wins가 정체되거나 artifact가 증가하면
-   20 epoch 전에 중단한다.
-9. masked branch 후보가 나오면 strict-bicubic/formal benchmark와
-   real-degradation 고정 visual set을 통과할 때만 public 후보로 승격한다.
+7. learned mask predictor와 masked detail branch v2 검증은 완료됐다. selected
+   step38000은 ordinary val100에서 PSNR `+0.18177 dB`, SSIM `+0.00755`,
+   wins `100/100`이지만 시각적으로 v1d와 거의 같고 step50000까지 plateau했다.
+8. masked v2 추론/benchmark 재현 경로와 HF preset은 추가됐다. formal
+   clean-bicubic benchmark와 real-degradation 고정 visual set 결과를 확인한 뒤
+   연구 옵션 유지 여부만 결정한다. public 기본값은 바꾸지 않는다.
+9. 다음 detail 실험은 같은 objective continuation이 아니라 frozen fidelity base와
+   learned mask 위에 작은 bounded patch perceptual/adversarial head를 붙인다.
+   lowpass drift, PSNR, strong-input artifact, blind visual review를 guardrail로 둔다.
 
 ## 새 VM에서 Codex에게 줄 짧은 프롬프트
 
@@ -1036,8 +1046,10 @@ missing detail을 만들지 못했다. 같은 noise-MSE objective continuation�
 patch-level perceptual/adversarial supervision을 결합하는 two-head 구조를
 우선 검토한다. 상세 결과는 docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md와
 metrics/wavelet_residual_diffusion_v2_long_final_summary.json에 있다.
-detail branch v1d는 Colab WebUI에서 단일 이미지/tiled inference 연구 옵션으로
-선택 가능하지만, public 기본값은 residual refiner v2를 유지한다.
+detail branch v1d와 masked v2는 Colab WebUI에서 단일 이미지/tiled inference
+연구 옵션으로 선택 가능하지만, public 기본값은 residual refiner v2를 유지한다.
+masked v2는 step38000을 선택했고 ordinary val100에서 v1d보다 소폭 개선했지만
+고정 grid가 거의 같아 missing texture 문제를 해결한 것으로 보지 않는다.
 Colab demo는 notebooks/sr_diffusion_colab_demo.ipynb 에서 Gradio WebUI로 실행되며,
 업로드/slider 조정/before-after 비교 slider를 제공한다.
 상업적 이용은 금지이고, raw dataset은 GitHub/HF에 올리지 않는다.

@@ -155,7 +155,7 @@ photo-detail val100:
 metrics/detail_mask_predictor_v1_val100_summary.json
 ```
 
-## Masked detail branch 장기 run
+## Masked detail branch v2 장기 run 완료
 
 `configs/detail_branch_v2_masked_long_20ep.yaml`은 v1d best99500과 predictor
 best3250에서 시작한다. predictor는 frozen이고, soft mask에 `0.05` floor를 둬
@@ -175,15 +175,31 @@ batch 4, grad accumulation 4에서 쓰던 `5e-5`를 그대로 사용하면 샘�
 update 강도가 4배가 된다. 따라서 grad accumulation을 제거하면서 LR도 4분의
 1로 낮춰 기존 update 강도를 보존했다.
 
-로그:
+20 epoch는 상한으로만 두고, 두 독립 continuation을 관찰해 plateau에서
+조기 종료했다. W&B:
 
-```bash
-tail -f /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v2_masked_long_20ep/train.log
-tmux attach -t detail-mask-branch-v2-long
-```
+- <https://wandb.ai/jwheo/LuSIR/runs/lyo21m9r>
+- <https://wandb.ai/jwheo/LuSIR/runs/oiyutuds>
+
+선택 기준은 config에 고정한 `eval/detail_score`다. 동일한 val100 evaluator로
+다시 비교한 결과:
+
+| checkpoint | detail score | PSNR delta | mean PSNR delta | SSIM delta | wins |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| step 36000 | `26.69528` | `+0.18744 dB` | `+0.20521 dB` | `+0.00721` | `100/100` |
+| **step 38000** | **`26.69601`** | `+0.18177 dB` | `+0.20432 dB` | **`+0.00755`** | `100/100` |
+
+- step 38000은 detail score가 `+0.00073` 높아 selected v2 checkpoint다.
+- step 36000은 aggregate PSNR delta가 `+0.00567 dB` 높다. 차이는 평가/선택
+  편차 수준이며 두 grid는 눈으로 거의 구분되지 않는다.
+- step 38000 이후 step 50000까지 detail score best를 갱신하지 못했다.
+- step 34000/38000/48000 grid도 거의 동일해 조기 중단 판단이 맞다.
+- v1d ordinary val100 대비 수치는 소폭 좋아졌지만, GT에 없는 가짜 texture나
+  흰 점 없이 보수적인 correction을 유지한 정도다. 실제 missing fine texture
+  생성 문제는 해결하지 못했다.
 
 W&B의 `samples/eval_grid`는 왼쪽부터 `LR`, `bicubic`, `base`, `detail`,
-`residual`, `detail mask`, `GT`다. 다음을 함께 본다.
+`residual`, `detail mask`, `GT`다. 해석 기준은 다음과 같다.
 
 - `detail`이 base보다 선명해지되 흰 점, ringing, 가짜 무늬가 늘지 않는지.
 - `detail mask`가 털, 잎맥, 표면 무늬에 열리고 평탄한 하늘/피부에는 과도하게
@@ -195,3 +211,30 @@ W&B의 `samples/eval_grid`는 왼쪽부터 `LR`, `bicubic`, `base`, `detail`,
 - `eval/wins_vs_base`, `eval/detail_wins_vs_base`가 감소하면서 residual/gate만
   커지면 중단한다.
 - `eval/detail_score`는 checkpoint shortlist용이며 샘플 grid보다 우선하지 않는다.
+
+보존 artifact:
+
+```text
+checkpoints/detail_branch_v2_masked_photo130k_lsdir_best38000.pt
+configs/hf/detail_branch_v2_masked_photo130k_lsdir.yaml
+metrics/detail_branch_v2_masked_photo130k_lsdir_summary.json
+samples/detail_branch_v2_masked_photo130k_lsdir_best38000_grid.png
+```
+
+중요한 재현성 수정:
+
+- 초기 구현은 학습/val에서만 learned mask를 적용하고 사용자 추론과 정식
+  benchmark에서는 mask를 누락했다.
+- `tools/infer/infer_detail_branch.py`와 `tools/eval/run_sr_benchmark.py`가
+  config의 predictor checkpoint와 floor를 로드하도록 수정했다.
+- mask가 없는 v1d config는 기존 동작을 그대로 유지한다.
+
+결론:
+
+- learned predictor는 `어디를 고칠지` 찾는 prerequisite로 유효하다.
+- 그러나 기존 L1/highpass 중심 deterministic branch를 mask로 제한하는 것만으로
+  `무엇을 생성할지` 문제가 해결되지는 않았다.
+- 같은 objective의 추가 continuation이나 단순 branch 증량은 하지 않는다.
+- 다음 detail 실험은 frozen fidelity base와 learned mask를 유지하면서,
+  mask-weighted patch perceptual/adversarial supervision을 작은 bounded head에
+  적용하고 lowpass drift/PSNR/real-image artifact guardrail로 제한한다.

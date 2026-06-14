@@ -20,7 +20,8 @@ OUTPUT_ROOT = ROOT / "outputs" / "colab_webui"
 
 MODEL_OPTIONS = {
     "Recommended quality - Residual Refiner v2": "residual_refiner_v2",
-    "Latest detail research - Detail Branch v1d": "detail_branch_v1d",
+    "Latest masked detail research - Detail Branch v2": "detail_branch_v2_masked",
+    "Previous detail research - Detail Branch v1d": "detail_branch_v1d",
     "Sharper diffusion comparison - XL Edge": "photo100k_xl_edge_b16",
     "Smaller diffusion comparison - Stage 4 v2": "photo100k_v2_stage4",
     "Mild diffusion comparison - Stage 4": "photo100k_stage4",
@@ -50,6 +51,16 @@ VARIANTS: dict[str, dict[str, Any]] = {
             "checkpoints/detail_branch_v1d_deep3m_photo130k_lsdir_best99500.pt",
         ],
         "note": "Latest deterministic detail research path: dual-context Stage 2 -> Stage 1 decoder -> detail branch v1d.",
+    },
+    "detail_branch_v2_masked": {
+        "runner": "detail_branch",
+        "config": "configs/hf/detail_branch_v2_masked_photo130k_lsdir.yaml",
+        "files": [
+            "checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt",
+            "checkpoints/detail_mask_predictor_v1_best3250.pt",
+            "checkpoints/detail_branch_v2_masked_photo130k_lsdir_best38000.pt",
+        ],
+        "note": "Latest research path: learned detail-need mask gates the deterministic v2 detail branch.",
     },
     "photo100k_xl_edge_b16": {
         "runner": "diffusion",

@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
+from sr_diffusion.detail_mask import DetailMaskPredictor
 from sr_diffusion.utils import autocast_context, get_device, load_config, seed_everything
 from tools.infer.infer_diffusion import (
     edge_pad_image,
@@ -90,6 +91,27 @@ def load_detail_branch(
     return model, int(checkpoint.get("step", 0))
 
 
+def load_detail_mask_predictor(
+    config: dict[str, Any],
+    device: torch.device,
+) -> tuple[DetailMaskPredictor | None, int]:
+    mask_cfg = config.get("detail_mask", {})
+    checkpoint_value = mask_cfg.get("checkpoint")
+    if not checkpoint_value:
+        return None, 0
+    predictor_config_path = resolve_path(config, Path(mask_cfg["config"]).expanduser())
+    predictor_config = load_config(predictor_config_path)
+    predictor = DetailMaskPredictor.from_config(predictor_config["model"])
+    checkpoint_path = resolve_path(config, Path(checkpoint_value).expanduser())
+    checkpoint = torch.load(checkpoint_path, map_location="cpu")
+    predictor.load_state_dict(checkpoint["model"])
+    predictor.to(device)
+    predictor.eval()
+    for parameter in predictor.parameters():
+        parameter.requires_grad_(False)
+    return predictor, int(checkpoint.get("step", 0))
+
+
 @torch.no_grad()
 def detail_batch(
     vae: torch.nn.Module,
@@ -99,13 +121,25 @@ def detail_batch(
     domain_id: torch.Tensor,
     dtype_name: str,
     detail_strength: float,
+    detail_mask_predictor: DetailMaskPredictor | None = None,
+    detail_mask_floor: float = 0.0,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     device = lr.device
     with autocast_context(device, dtype_name):
         condition = condition_encoder(normalize_image(lr), domain_id)
         base = denormalize(vae.decode(condition)).float()
         bicubic = F.interpolate(lr.float(), size=base.shape[-2:], mode="bicubic", align_corners=False).clamp(0.0, 1.0)
-        _, residual, _, _ = detail_branch(base, bicubic, condition, domain_id)
+        detail_mask = (
+            detail_mask_predictor(base, bicubic, condition, domain_id) if detail_mask_predictor is not None else None
+        )
+        _, residual, _, _ = detail_branch(
+            base,
+            bicubic,
+            condition,
+            domain_id,
+            detail_mask=detail_mask,
+            detail_mask_floor=detail_mask_floor,
+        )
         detail = (base + float(detail_strength) * residual.float()).clamp(0.0, 1.0)
     return base.float(), detail.float()
 
@@ -124,6 +158,8 @@ def tiled_detail(
     dtype_name: str,
     device: torch.device,
     detail_strength: float,
+    detail_mask_predictor: DetailMaskPredictor | None = None,
+    detail_mask_floor: float = 0.0,
 ) -> tuple[Image.Image, Image.Image]:
     if tile_batch_size <= 0:
         raise ValueError(f"tile_batch_size must be positive: {tile_batch_size}")
@@ -163,6 +199,8 @@ def tiled_detail(
             domain_id=domain_ids,
             dtype_name=dtype_name,
             detail_strength=detail_strength,
+            detail_mask_predictor=detail_mask_predictor,
+            detail_mask_floor=detail_mask_floor,
         )
         for base_tile, detail_tile, (x, y) in zip(decoded_base, decoded_detail, batch_coords, strict=True):
             mask = tile_blend_mask(
@@ -235,8 +273,12 @@ def main() -> None:
     vae = load_autoencoder(config, device, dtype_name)
     condition_encoder = load_condition_encoder(config, device, dtype_name)
     detail_branch, checkpoint_step = load_detail_branch(config, checkpoint_path, device)
+    detail_mask_predictor, detail_mask_step = load_detail_mask_predictor(config, device)
+    detail_mask_floor = float(config.get("detail_mask", {}).get("floor", 0.0))
     print(
-        f"checkpoint={checkpoint_path} step={checkpoint_step} device={device} detail_strength={args.detail_strength:.2f}",
+        f"checkpoint={checkpoint_path} step={checkpoint_step} device={device} detail_strength={args.detail_strength:.2f} "
+        f"detail_mask_step={detail_mask_step if detail_mask_predictor is not None else 'disabled'} "
+        f"detail_mask_floor={detail_mask_floor:.3f}",
         flush=True,
     )
 
@@ -258,6 +300,8 @@ def main() -> None:
             dtype_name=dtype_name,
             device=device,
             detail_strength=float(args.detail_strength),
+            detail_mask_predictor=detail_mask_predictor,
+            detail_mask_floor=detail_mask_floor,
         )
         save_outputs(args.output_dir, lr_image, base_image, detail_image)
         print(f"saved {args.output_dir}", flush=True)
@@ -274,6 +318,8 @@ def main() -> None:
         domain_id=domain_id,
         dtype_name=dtype_name,
         detail_strength=float(args.detail_strength),
+        detail_mask_predictor=detail_mask_predictor,
+        detail_mask_floor=detail_mask_floor,
     )
     save_outputs(
         args.output_dir,

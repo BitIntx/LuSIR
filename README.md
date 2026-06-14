@@ -98,7 +98,8 @@ Research deterministic candidate:
 
 Current detail research candidate:
   LR -> dual-context LSDIR Stage 2 step 98000 -> Stage 1 VAE decoder
-     -> high-frequency detail branch v1d step 99500 -> SR
+     -> learned detail mask step 3250
+     -> masked high-frequency detail branch v2 step 38000 -> SR
 
 Generative comparison:
   LR -> Stage 2 condition encoder -> Stage 3 OR Stage 4 diffusion U-Net
@@ -110,9 +111,10 @@ Stage 3. The planned Stage 5 distillation would replace the slower Stage 3/4
 sampler with a faster one; it would not be appended after Stage 4.
 
 The Colab notebook defaults to the deterministic residual refiner v2 path.
-Users can explicitly select the latest detail branch v1d or Stage 3/4 diffusion
-comparisons in the notebook, but those are not the recommended default. The latest VGG-feature-supervised
-continuation of multiscale Stage 2 step 46000 is complete but not promoted.
+Users can explicitly select masked detail branch v2, detail branch v1d, or
+Stage 3/4 diffusion comparisons in the notebook, but those are not the
+recommended default. The latest VGG-feature-supervised continuation of
+multiscale Stage 2 step 46000 is complete but not promoted.
 The later dual-context LSDIR Stage 2 run is also complete: step 98000 is the
 cleaner-preset best checkpoint, while step 100000 is slightly safer on strong
 degradations.
@@ -129,6 +131,12 @@ with a four-pixel border shave. Its Y PSNR is `30.1602`, `31.8892`, `28.4123`,
 and `25.8755 dB`, respectively. The largest branch gain is `+0.3939 dB` on
 Urban100. See [`docs/SR_BENCHMARK.md`](docs/SR_BENCHMARK.md) for the protocol,
 external baseline results, and interpretation.
+
+Masked detail v2 also completes the same 219-image protocol and improves v1d
+on all four datasets, but only modestly: Y PSNR changes by `+0.0034`,
+`+0.0602`, `+0.0135`, and `+0.0167 dB` on DIV2K, Set5, Set14, and Urban100.
+The overall gain is `+0.0114 dB` Y PSNR and `+0.00118` Y SSIM. This confirms a
+reproducible correction gain, not a visible fine-texture breakthrough.
 
 The official SwinIR classical x4 baseline reaches `31.0838 dB` Y PSNR and
 `0.85228` Y SSIM on the same DIV2K validation evaluator, ahead of detail v1d
@@ -163,15 +171,19 @@ supervision, rather than continuing the same noise-MSE residual objective.
 See
 [`docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md`](docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md).
 
-The first learned detail-mask prerequisite is now implemented and trained.
+The first learned detail-mask prerequisite and its masked v2 branch are now complete.
 On photo-detail val100, the GT-supervised target's top 20% pixels capture
 `48.78%` of missing-detail energy at `2.44x` average concentration. The best
 inference-time hand-crafted proxy captures only `32.52%`. The 460K-parameter
 learned predictor raises target correlation from `0.5403` to `0.7456`, top-20%
 missing-detail capture from `0.3252` to `0.3861`, and lowers excess-detail
-capture from `0.4838` to `0.4304`. A masked detail-branch v2 run now uses this
-predictor as a frozen soft spatial gate; this is still an experiment, not a
-public-model promotion. See
+capture from `0.4838` to `0.4304`. The masked detail-branch v2 selected step
+38000 by `eval/detail_score`; on ordinary val100 it improves the frozen base
+by `+0.18177 dB` PSNR and `+0.00755` SSIM with `100/100` wins. It plateaued
+through step 50000 and remains visually close to v1d, so it is exposed as a
+research option rather than promoted as the public default. The result confirms
+that location selection works, but spatial gating alone does not synthesize
+missing fine texture. See
 [`docs/DETAIL_NEED_MASK_KO.md`](docs/DETAIL_NEED_MASK_KO.md).
 
 For comparing training throughput on another GPU VM, use the DDP quick benchmark in
@@ -542,6 +554,12 @@ Download the selected v1d checkpoint and evaluation artifacts with:
 python scripts/download_hf_checkpoints.py --preset detail_branch_v1d
 ```
 
+Download the latest learned-mask-gated v2 research candidate with:
+
+```bash
+python scripts/download_hf_checkpoints.py --preset detail_branch_v2_masked
+```
+
 Run the selected deterministic detail path on a user LR image with:
 
 ```bash
@@ -549,6 +567,16 @@ python tools/infer/infer_detail_branch.py \
   --config configs/hf/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml \
   --input-lr input.png \
   --output-dir outputs/detail_v1d \
+  --tile --tile-overlap 32 --tile-batch-size 1
+```
+
+Run the masked v2 research path with:
+
+```bash
+python tools/infer/infer_detail_branch.py \
+  --config configs/hf/detail_branch_v2_masked_photo130k_lsdir.yaml \
+  --input-lr input.png \
+  --output-dir outputs/detail_v2_masked \
   --tile --tile-overlap 32 --tile-batch-size 1
 ```
 

@@ -54,6 +54,20 @@ python tools/eval/run_sr_benchmark.py \
   --tile-batch-size 8
 ```
 
+learned-mask-gated detail branch v2:
+
+```bash
+python tools/eval/run_sr_benchmark.py \
+  --variant detail_v2_masked \
+  --manifest /home/ubuntu/scratch/sr-diffusion/benchmarks/x4_benchmark_manifest.csv \
+  --output-dir /home/ubuntu/scratch/sr-diffusion/benchmark_outputs/detail_v2_masked \
+  --tile-batch-size 8
+```
+
+V2 config는 learned mask predictor step `3250`, floor `0.05`, branch step
+`38000`을 함께 로드한다. Run summary의 `detail_mask_step`과
+`detail_mask_floor`로 적용 여부를 확인한다.
+
 public Colab default residual refiner v2:
 
 ```bash
@@ -130,11 +144,19 @@ perceptual/GAN 출력 비교에 사용한다.
 | LuSIR residual refiner v2 | 28.7857 / 0.81931 | 28.1896 / 0.84075 | 27.3704 / 0.76602 | 24.9176 / 0.74489 |
 | LuSIR dual-context base | 29.9575 / 0.82887 | 31.6621 / 0.88952 | 28.2441 / 0.77340 | 25.4816 / 0.76473 |
 | **LuSIR detail v1d** | **30.1602 / 0.83421** | **31.8892 / 0.89440** | **28.4123 / 0.77998** | **25.8755 / 0.77875** |
+| **LuSIR masked detail v2** | **30.1636 / 0.83512** | **31.9495 / 0.89534** | **28.4257 / 0.78102** | **25.8922 / 0.78022** |
 
 V1d는 frozen dual-context base 대비 모든 dataset에서 PSNR과 SSIM을 높였다.
 Y PSNR 증가는 DIV2K `+0.2027`, Set5 `+0.2271`, Set14 `+0.1682`,
 Urban100 `+0.3939 dB`다. 따라서 branch redesign과 3-epoch 학습은 정식
 full-image protocol에서도 유효했다.
+
+Masked v2는 v1d 대비 Y PSNR을 DIV2K `+0.0034`, Set5 `+0.0602`, Set14
+`+0.0135`, Urban100 `+0.0167 dB` 개선하고, 전체 평균 Y SSIM을
+`+0.00118` 높였다. 네 dataset 모두에서 방향은 일관되지만 전체 평균 Y PSNR
+이득은 `+0.0114 dB`에 그친다. 따라서 learned mask는 재현 가능한 작은
+correction 개선으로 해석하며, visible texture recovery 돌파나 SOTA 승격
+근거로 해석하지 않는다.
 
 공식 SwinIR repository commit `6545850fbf8df298df73d81f3e8cba638787c8bd`의
 `001_classicalSR_DF2K_s64w8_SwinIR-M_x4.pth`를 DIV2K validation에 실행한
@@ -155,6 +177,8 @@ metrics/formal_x4_benchmark_lusir_realesr_summary.json
 metrics/formal_x4_benchmark_lusir_realesr_metrics.csv
 metrics/formal_x4_benchmark_div2k_swinir_summary.json
 metrics/formal_x4_benchmark_div2k_swinir_metrics.csv
+metrics/formal_x4_benchmark_detail_v2_masked_summary.json
+metrics/formal_x4_benchmark_detail_v2_masked_metrics.csv
 ```
 
 SwinIR output은 외부 official repository에서 생성한 뒤 같은 evaluator에

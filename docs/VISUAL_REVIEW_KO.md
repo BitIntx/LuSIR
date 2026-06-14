@@ -58,6 +58,20 @@ T4 실행 가능성은 장점이다. 반면 공개 선도 생성형 복원 모�
 입력 blind A/B와 표준 벤치마크에서 LPIPS/DISTS/MANIQA/MUSIQ 및 사용자
 선호도를 함께 측정해야 한다.
 
+## 2026-06-14 masked detail v2 판단
+
+- learned detail-mask predictor는 라임 표면, 털, 잎맥처럼 실제 detail이
+  부족한 위치를 hand-crafted proxy보다 잘 찾는다.
+- masked branch step 34000/38000/48000의 고정 grid는 거의 구분되지 않았다.
+- selected step38000은 v1d보다 ordinary val100과 정식 219장 benchmark를
+  일관되게 조금 개선했지만, missing texture가 새로 복구됐다고 볼 시각적
+  차이는 없다.
+- 흰 점/격자/과도한 sharpening이 늘지 않은 것은 장점이지만, learned mask만
+  붙여서는 기존 deterministic branch의 보수적인 출력을 바꾸지 못했다.
+- 다음 시각 검토는 같은 branch continuation이 아니라 mask-weighted patch
+  perceptual/adversarial head가 실제 texture를 만들면서 artifact guardrail을
+  지키는지 판단하는 데 사용한다.
+
 ## 판단 기준
 
 1. 선명해 보이는지가 아니라 GT의 선, 질감, 물체 경계에 실제로 가까워졌는지 본다.

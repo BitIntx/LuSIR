@@ -1525,3 +1525,34 @@ tmux: detail-mask-branch-v2-long
 W&B: https://wandb.ai/jwheo/LuSIR/runs/lyo21m9r
 log: /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v2_masked_long_20ep/train.log
 ```
+
+### 2026-06-14 masked detail branch v2 완료와 조기 종료
+
+두 독립 continuation을 같은 photo-detail val100 evaluator로 비교했다.
+
+| checkpoint | detail score | PSNR delta | mean PSNR delta | SSIM delta |
+| --- | ---: | ---: | ---: | ---: |
+| step 36000 | 26.69528 | +0.18744 dB | +0.20521 dB | +0.00721 |
+| selected step 38000 | **26.69601** | +0.18177 dB | +0.20432 dB | **+0.00755** |
+
+- config의 선택 metric인 `eval/detail_score` 기준으로 step 38000을 선택했다.
+- step 38000 이후 step 50000까지 best가 갱신되지 않았고, step
+  34000/38000/48000 grid도 거의 구분되지 않아 20-epoch 상한 전에 중단했다.
+- learned mask는 평탄 영역 correction을 제한하면서 `100/100` wins를
+  유지했다. ordinary val100은 v1d보다 소폭 좋아졌다.
+- 하지만 사용자가 지적한 뭉개짐과 missing fine texture는 해결되지 않았다.
+  위치 선택 성공과 detail 생성 성공은 별개다.
+- 학습/val에는 mask가 적용됐지만 기존 단일 이미지 추론과 formal benchmark에는
+  mask 로드가 빠져 있던 재현성 버그를 발견해 수정했다.
+- 같은 deterministic L1/highpass objective continuation이나 단순 capacity 증가는
+  다음 실험으로 사용하지 않는다. 다음 후보는 mask-weighted patch
+  perceptual/adversarial detail head이며, bounded residual과 lowpass/fidelity
+  guardrail을 함께 둔다.
+
+선택 artifact:
+
+```text
+checkpoints/detail_branch_v2_masked_photo130k_lsdir_best38000.pt
+metrics/detail_branch_v2_masked_photo130k_lsdir_summary.json
+configs/hf/detail_branch_v2_masked_photo130k_lsdir.yaml
+```

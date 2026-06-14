@@ -19,7 +19,12 @@ sys.path.insert(0, str(ROOT / "src"))
 from sr_diffusion.models import LRToLatentPredictor
 from sr_diffusion.utils import autocast_context
 from sr_diffusion.utils import get_device, load_config, seed_everything
-from tools.infer.infer_detail_branch import load_detail_branch, resolve_checkpoint as resolve_detail_checkpoint, tiled_detail
+from tools.infer.infer_detail_branch import (
+    load_detail_branch,
+    load_detail_mask_predictor,
+    resolve_checkpoint as resolve_detail_checkpoint,
+    tiled_detail,
+)
 from tools.infer.infer_diffusion import (
     edge_pad_image,
     float_array_to_pil,
@@ -36,14 +41,22 @@ from tools.infer.infer_residual_refiner import load_refiner, resolve_checkpoint 
 
 VARIANTS: dict[str, dict[str, Any]] = {
     "stage2_base": {
+        "kind": "stage2",
         "config": Path("configs/latent_pretrain_photo130k_lsdir_dual_multiscale_long.yaml"),
         "outputs": ("base",),
     },
     "detail_v1d": {
+        "kind": "detail",
         "config": Path("configs/hf/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml"),
         "outputs": ("base", "detail"),
     },
+    "detail_v2_masked": {
+        "kind": "detail",
+        "config": Path("configs/hf/detail_branch_v2_masked_photo130k_lsdir.yaml"),
+        "outputs": ("base", "detail"),
+    },
     "refiner_v2": {
+        "kind": "refiner",
         "config": Path("configs/hf/residual_refiner_stage2_xl_photo_detail_v2.yaml"),
         "outputs": ("condition", "refined"),
     },
@@ -237,14 +250,20 @@ def main() -> None:
     domain_id = int(config["data"].get("domains", {"photo": 0})["photo"])
     vae = load_autoencoder(config, device, dtype_name)
 
-    if args.variant == "stage2_base":
+    kind = variant["kind"]
+    detail_mask_predictor = None
+    detail_mask_step = 0
+    detail_mask_floor = 0.0
+    if kind == "stage2":
         checkpoint = resolve_stage2_checkpoint(config, args.checkpoint)
         condition_encoder, checkpoint_step = load_stage2_encoder(config, checkpoint, device, dtype_name)
         model = None
-    elif args.variant == "detail_v1d":
+    elif kind == "detail":
         condition_encoder = load_condition_encoder(config, device, dtype_name)
         checkpoint = resolve_detail_checkpoint(config, args.checkpoint)
         model, checkpoint_step = load_detail_branch(config, checkpoint, device)
+        detail_mask_predictor, detail_mask_step = load_detail_mask_predictor(config, device)
+        detail_mask_floor = float(config.get("detail_mask", {}).get("floor", 0.0))
     else:
         condition_encoder = load_condition_encoder(config, device, dtype_name)
         checkpoint = resolve_refiner_checkpoint(config, args.checkpoint)
@@ -262,7 +281,7 @@ def main() -> None:
             continue
         lr_image = Image.open(resolve_manifest_path(args.manifest, row["lr_path"])).convert("RGB")
         started = time.perf_counter()
-        if args.variant == "stage2_base":
+        if kind == "stage2":
             results = (
                 tiled_stage2(
                     vae,
@@ -277,7 +296,7 @@ def main() -> None:
                     device=device,
                 ),
             )
-        elif args.variant == "detail_v1d":
+        elif kind == "detail":
             assert model is not None
             results = tiled_detail(
                 vae,
@@ -292,6 +311,8 @@ def main() -> None:
                 dtype_name=dtype_name,
                 device=device,
                 detail_strength=float(args.strength),
+                detail_mask_predictor=detail_mask_predictor,
+                detail_mask_floor=detail_mask_floor,
             )
         else:
             assert model is not None
@@ -322,6 +343,8 @@ def main() -> None:
         "config": str(config_path),
         "checkpoint": str(checkpoint),
         "checkpoint_step": checkpoint_step,
+        "detail_mask_step": detail_mask_step if detail_mask_predictor is not None else None,
+        "detail_mask_floor": detail_mask_floor if detail_mask_predictor is not None else None,
         "manifest": str(args.manifest),
         "output_dir": str(args.output_dir),
         "num_selected": len(rows),

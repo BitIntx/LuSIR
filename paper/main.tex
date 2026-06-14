@@ -132,9 +132,10 @@ without T2I Pretraining}
 \setcounter{tocdepth}{3}
 \tableofcontents
 }
-Snapshot: formal x4 benchmark complete, Stage 2 clean-fidelity
-learning-rate probes complete, and signed-wavelet residual diffusion
-evaluated and rejected as the current generative-detail objective.
+Snapshot: masked detail branch v2 and its formal x4 benchmark are
+complete, Stage 2 clean-fidelity learning-rate probes are complete, and
+signed-wavelet residual diffusion was evaluated and rejected as the
+current generative-detail objective.
 
 \texttt{paper/TECHNICAL\_REPORT.md} is the canonical report source.
 \texttt{paper/sr\_diffusion\_report.pdf} and \texttt{paper/main.tex} are
@@ -174,7 +175,8 @@ current runtime choices are:
 \NormalTok{  LR {-}\textgreater{} Stage 2 XL condition encoder {-}\textgreater{} residual refiner v2 {-}\textgreater{} Stage 1 decoder}
 
 \NormalTok{current detail research candidate:}
-\NormalTok{  LR {-}\textgreater{} dual{-}context LSDIR Stage 2 {-}\textgreater{} Stage 1 decoder {-}\textgreater{} detail branch v1d}
+\NormalTok{  LR {-}\textgreater{} dual{-}context LSDIR Stage 2 {-}\textgreater{} Stage 1 decoder}
+\NormalTok{     {-}\textgreater{} learned detail mask {-}\textgreater{} masked detail branch v2}
 
 \NormalTok{generative comparison:}
 \NormalTok{  LR {-}\textgreater{} Stage 2 condition encoder {-}\textgreater{} Stage 3 OR Stage 4 diffusion U{-}Net}
@@ -350,6 +352,8 @@ LuSIR refiner v2 & 28.7857 & 28.1896 & 27.3704 & 24.9176 \\
 LuSIR dual-context base & 29.9575 & 31.6621 & 28.2441 & 25.4816 \\
 \textbf{LuSIR detail v1d} & \textbf{30.1602} & \textbf{31.8892} &
 \textbf{28.4123} & \textbf{25.8755} \\
+\textbf{LuSIR masked detail v2} & \textbf{30.1636} & \textbf{31.9495} &
+\textbf{28.4257} & \textbf{25.8922} \\
 \end{longtable}
 
 The table reports Y PSNR; full Y SSIM and RGB PSNR values are preserved
@@ -383,6 +387,8 @@ results are in:
 \NormalTok{metrics/formal\_x4\_benchmark\_lusir\_realesr\_metrics.csv}
 \NormalTok{metrics/formal\_x4\_benchmark\_div2k\_swinir\_summary.json}
 \NormalTok{metrics/formal\_x4\_benchmark\_div2k\_swinir\_metrics.csv}
+\NormalTok{metrics/formal\_x4\_benchmark\_detail\_v2\_masked\_summary.json}
+\NormalTok{metrics/formal\_x4\_benchmark\_detail\_v2\_masked\_metrics.csv}
 \end{Highlighting}
 \end{Shaded}
 
@@ -413,8 +419,8 @@ The run was stopped manually at step 17825 after no new best beyond step
 15000. Its checkpoints remain available for future clean-fidelity work.
 
 These values are not directly comparable with the formal full-image
-Y-channel results. The formal DIV2K comparison remains LuSIR detail v1d
-at \texttt{30.1602\ dB} and SwinIR classical x4 at \texttt{31.0838\ dB}.
+Y-channel results. The formal DIV2K comparison is LuSIR masked detail v2
+at \texttt{30.1636\ dB} and SwinIR classical x4 at \texttt{31.0838\ dB}.
 
 Separate learning-rate probes preserved the original step-15000
 checkpoint. A \texttt{20x} continuation collapsed to \texttt{15.72\ dB}
@@ -1183,6 +1189,66 @@ produced meaningful stable progress, but still did not close the visible
 fine-texture gap to ground truth. Further same-objective continuation or
 simple capacity scaling is not planned.
 
+\hypertarget{learned-detail-need-mask-and-masked-detail-branch-v2}{%
+\section{Learned Detail-Need Mask and Masked Detail Branch
+v2}\label{learned-detail-need-mask-and-masked-detail-branch-v2}}
+
+The next experiment separated \texttt{where\ detail\ is\ missing} from
+\texttt{what\ detail\ should\ be\ generated}. A compact
+460,545-parameter predictor observes the frozen base reconstruction,
+bicubic input, Stage-2 condition latent, and four inference-time detail
+proxies. On fixed \texttt{photo\_detail\_mix} val100, predictor step
+3250 raises pixel correlation with the GT-supervised detail-need target
+from \texttt{0.5403} to \texttt{0.7456}, raises top-20\% missing-detail
+capture from \texttt{0.3252} to \texttt{0.3861}, and lowers
+excess-detail capture from \texttt{0.4838} to \texttt{0.4304}.
+
+Masked detail branch v2 initializes from v1d step 99500 and applies the
+frozen predictor as a soft spatial gate with a \texttt{0.05} floor. Two
+independent continuations converged to nearly identical candidates:
+
+\begin{longtable}[]{@{}lrrrr@{}}
+\toprule\noalign{}
+Checkpoint & Detail score & PSNR delta & Mean PSNR delta & SSIM delta \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+step 36000 & 26.69528 & +0.18744 dB & +0.20521 dB & +0.00721 \\
+selected step 38000 & \textbf{26.69601} & +0.18177 dB & +0.20432 dB &
+\textbf{+0.00755} \\
+\end{longtable}
+
+Step 38000 is selected by the configured \texttt{eval/detail\_score}. No
+new best appeared through step 50000, and fixed grids at steps 34000,
+38000, and 48000 were nearly indistinguishable, so the run stopped
+before its 20-epoch upper bound.
+
+The predictor establishes that missing-detail localization is learnable
+from inference-time observations. However, gating the same deterministic
+L1/highpass-oriented branch does not visibly synthesize the missing fine
+texture. Location selection and texture generation remain separate
+problems. The next detail experiment should retain the frozen fidelity
+base and learned mask, but train a small bounded head with mask-weighted
+patch perceptual or adversarial supervision and explicit
+lowpass/fidelity guardrails.
+
+During reproducibility review, the original single-image and
+formal-benchmark inference paths were found to omit the learned
+predictor even though training and validation applied it. The inference
+and benchmark runners now load the predictor checkpoint and floor from
+the HF config. V1d configs without a mask retain their previous
+behavior.
+
+The masked v2 checkpoint also completed the formal 219-image
+clean-bicubic benchmark. Relative to v1d, Y PSNR improves by
+\texttt{+0.0034}, \texttt{+0.0602}, \texttt{+0.0135}, and
+\texttt{+0.0167\ dB} on DIV2K, Set5, Set14, and Urban100. The overall
+gain is \texttt{+0.0114\ dB} Y PSNR and \texttt{+0.00118} Y SSIM. This
+consistent but small gain supports the same conclusion as the fixed
+grids: learned gating improves correction placement, but does not solve
+visible texture synthesis.
+
 \hypertarget{public-artifacts}{%
 \section{Public Artifacts}\label{public-artifacts}}
 
@@ -1201,6 +1267,8 @@ Hugging Face:
 \NormalTok{checkpoints/stage2\_photo130k\_lsdir\_dual\_multiscale\_best98000.pt}
 \NormalTok{checkpoints/detail\_branch\_v1b\_aug\_photo130k\_lsdir\_best39500.pt}
 \NormalTok{checkpoints/detail\_branch\_v1d\_deep3m\_photo130k\_lsdir\_best99500.pt}
+\NormalTok{checkpoints/detail\_mask\_predictor\_v1\_best3250.pt}
+\NormalTok{checkpoints/detail\_branch\_v2\_masked\_photo130k\_lsdir\_best38000.pt}
 \NormalTok{metrics/stage4\_photo100k\_xl\_edge\_b16\_val100\_t50\_32step\_summary.json}
 \NormalTok{metrics/diagnose\_stage2\_xl\_residuals\_mild\_val100\_summary.json}
 \NormalTok{metrics/residual\_refiner\_stage2\_xl\_mild\_probe\_early\_stop\_summary.json}
@@ -1222,6 +1290,9 @@ Hugging Face:
 \NormalTok{metrics/detail\_branch\_v1b\_aug\_photo130k\_lsdir\_summary.json}
 \NormalTok{metrics/detail\_branch\_v1d\_deep3m\_photo130k\_lsdir\_3ep\_summary.json}
 \NormalTok{metrics/benchmark\_bicubic5\_detail\_v1d\_best99500\_summary.json}
+\NormalTok{metrics/detail\_branch\_v2\_masked\_photo130k\_lsdir\_summary.json}
+\NormalTok{metrics/formal\_x4\_benchmark\_detail\_v2\_masked\_summary.json}
+\NormalTok{metrics/formal\_x4\_benchmark\_detail\_v2\_masked\_metrics.csv}
 \NormalTok{samples/stage4\_photo100k\_xl\_edge\_b16\_val100\_t50\_32step\_grid\_lr\_bicubic\_sr\_gt.png}
 \NormalTok{samples/diagnose\_stage2\_xl\_residuals\_mild\_val100\_grid.png}
 \NormalTok{samples/residual\_refiner\_stage2\_xl\_mild\_probe\_step500\_grid.png}
@@ -1243,6 +1314,7 @@ Hugging Face:
 \NormalTok{samples/detail\_branch\_v1b\_aug\_photo130k\_lsdir\_best39500\_grid.png}
 \NormalTok{samples/detail\_branch\_v1d\_deep3m\_photo130k\_lsdir\_best99500\_grid.png}
 \NormalTok{samples/benchmark\_bicubic5\_detail\_v1d\_best99500\_grid.png}
+\NormalTok{samples/detail\_branch\_v2\_masked\_photo130k\_lsdir\_best38000\_grid.png}
 \NormalTok{configs/diffusion\_photo100k\_xl\_stage4\_condition\_v3\_edge\_b16.yaml}
 \NormalTok{configs/residual\_refiner\_stage2\_xl\_mild\_probe.yaml}
 \NormalTok{configs/diffusion\_photo100k\_xl\_stage4\_condition\_v3\_teacher\_residual\_photo\_v3\_b8\_probe.yaml}
@@ -1256,6 +1328,8 @@ Hugging Face:
 \NormalTok{configs/hf/detail\_branch\_v1b\_aug\_photo130k\_lsdir.yaml}
 \NormalTok{configs/detail\_branch\_v1d\_deep3m\_photo130k\_lsdir\_3ep.yaml}
 \NormalTok{configs/hf/detail\_branch\_v1d\_deep3m\_photo130k\_lsdir\_3ep.yaml}
+\NormalTok{configs/hf/detail\_mask\_predictor\_v1.yaml}
+\NormalTok{configs/hf/detail\_branch\_v2\_masked\_photo130k\_lsdir.yaml}
 \end{Highlighting}
 \end{Shaded}
 
@@ -1263,16 +1337,16 @@ Hugging Face:
 \section{Next Work}\label{next-work}}
 
 The selected residual refiner remains the public Colab default, while
-detail branch v1d is available as a selectable single-image/tiled Colab
-research option. The completed perceptual Stage 2 continuation is not
-promoted. Candidate next steps are:
+detail branch v1d and masked detail branch v2 are selectable
+single-image/tiled Colab research options. The completed perceptual
+Stage 2 continuation is not promoted. Candidate next steps are:
 
 \begin{itemize}
 \tightlist
 \item
-  preserve the deterministic base as the fidelity path and train a
-  separate learned detail-need mask before applying stochastic texture
-  synthesis;
+  preserve the deterministic base and validated learned detail-need
+  mask, then test a small bounded mask-weighted patch
+  perceptual/adversarial head;
 \item
   select the generative path with LPIPS, DISTS, fixed visual review,
   high-frequency metrics, lowpass drift, and seed diversity instead of
@@ -1307,5 +1381,20 @@ learned detail-need mask plus patch-level perceptual or adversarial
 supervision rather than relying on conditional-mean residual prediction.
 Implementation and evaluation details are in
 \texttt{docs/HIGH\_FREQUENCY\_RESIDUAL\_DIFFUSION\_KO.md}.
+
+The learned-mask prerequisite was subsequently trained as a compact
+460,545-parameter predictor using the frozen fidelity base, bicubic
+image, Stage-2 condition latent, and four observable detail proxies. On
+the fixed photo-detail val100 set, it improved pixel correlation with
+the supervised detail-need target from \texttt{0.5403} to
+\texttt{0.7456}, improved top-20\% missing-detail capture from
+\texttt{0.3252} to \texttt{0.3861}, and reduced excess-detail capture
+from \texttt{0.4838} to \texttt{0.4304}. This clears the predefined
+localization gate, but does not by itself establish improved SR output.
+The subsequent masked v2 branch modestly improved ordinary val100
+metrics but remained visually close to v1d and plateaued by step 38000.
+Therefore the same deterministic objective will not be continued; the
+next experiment must change texture-generation supervision while keeping
+the validated spatial gate and fidelity guardrails.
 
 \end{document}

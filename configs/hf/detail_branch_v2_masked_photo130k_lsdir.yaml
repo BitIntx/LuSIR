@@ -1,0 +1,43 @@
+project:
+  name: detail_branch_v2_masked_photo130k_lsdir_hf
+
+autoencoder:
+  config: configs/autoencoder_photo10k.yaml
+  checkpoint: checkpoints/stage1_autoencoder_best_eval_recon.pt
+
+condition_encoder:
+  config: configs/latent_pretrain_photo130k_lsdir_dual_multiscale_long.yaml
+  checkpoint: checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt
+  trainable: false
+
+detail_mask:
+  config: configs/hf/detail_mask_predictor_v1.yaml
+  checkpoint: checkpoints/detail_mask_predictor_v1_best3250.pt
+  trainable: false
+  floor: 0.05
+
+data:
+  hr_size: 512
+  scale: 4
+  degradation_preset: photo_detail_mix
+  domains:
+    photo: 0
+    anime: 1
+
+model:
+  image_channels: 3
+  latent_channels: 16
+  hidden_channels: 96
+  num_blocks: 18
+  norm_groups: 32
+  num_domains: 2
+  residual_scale: 0.24
+  gate_bias: -1.5
+  highpass_kernel: 15
+  use_condition_latent: true
+
+train:
+  dtype: bf16
+
+inference:
+  checkpoint: checkpoints/detail_branch_v2_masked_photo130k_lsdir_best38000.pt

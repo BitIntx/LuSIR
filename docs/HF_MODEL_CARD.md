@@ -22,7 +22,7 @@ sample grids. It does not redistribute training datasets.
 
 ## Current Selected Detail Artifact
 
-The latest public detail-branch research checkpoint is:
+The latest public stable detail-branch checkpoint remains:
 
 ```text
 checkpoints/detail_branch_v1d_deep3m_photo130k_lsdir_best99500.pt
@@ -81,11 +81,38 @@ change that conclusion: `20x` LR collapsed, while a `5x` from-init run matched
 the original LR within evaluation noise. These val100 values are not directly
 comparable with the formal full-image Y-channel benchmark above.
 
-The next separate generative research path keeps the deterministic base frozen
-and trains a gated, bounded high-frequency residual diffusion model. It targets
-visible stochastic texture synthesis and will be evaluated with perceptual,
-high-frequency, fixed visual review, and seed-diversity criteria rather than
-PSNR alone.
+The signed-high-frequency residual diffusion path was evaluated and rejected:
+longer noise-MSE training collapsed residual magnitude and seed diversity
+toward zero. The next separate generative research path keeps the
+deterministic base and validated learned mask frozen, then tests a small
+bounded mask-weighted patch perceptual/adversarial head with fidelity and
+artifact guardrails.
+
+## Latest Masked Detail Research Candidate
+
+The learned-mask-gated v2 candidate is:
+
+```text
+checkpoints/detail_branch_v2_masked_photo130k_lsdir_best38000.pt
+```
+
+It combines the frozen 460K-parameter detail-mask predictor step 3250 with the
+3.02M-parameter detail branch and a soft-mask floor of `0.05`. On ordinary
+`photo_detail_mix` val100, selected step 38000 improves the frozen base by
+`+0.18177 dB` aggregate PSNR, `+0.20432 dB` mean PSNR, and `+0.00755` SSIM,
+with `100/100` wins.
+
+The score plateaued after step 38000 and fixed grids were nearly
+indistinguishable from nearby checkpoints. It modestly improves metrics over
+v1d but does not visibly recover the missing fine texture that motivated the
+experiment. It is therefore a reproducible research option, not the public
+default.
+
+On the same formal 219-image clean-bicubic benchmark, masked v2 reaches
+`30.1636 / 0.83512`, `31.9495 / 0.89534`, `28.4257 / 0.78102`, and
+`25.8922 / 0.78022` on DIV2K, Set5, Set14, and Urban100. It improves v1d on
+all four datasets, but the overall gain is only `+0.0114 dB` Y PSNR and
+`+0.00118` Y SSIM.
 
 ## Download
 
@@ -101,13 +128,13 @@ Other useful presets include:
 residual_refiner_v2
 stage2_photo130k_lsdir_dual
 detail_branch_v1b
+detail_branch_v2_masked
 photo100k_xl_stage4_edge
 ```
 
 The public Colab default remains the conservative deterministic residual
-refiner v2 path. Detail v1d is preserved as the latest research detail
-candidate and is available in the Colab WebUI with single-image and tiled
-inference.
+refiner v2 path. Detail v1d and masked detail v2 are available as research
+options in the Colab WebUI with single-image and tiled inference.
 
 ## Runtime Paths
 
@@ -117,7 +144,7 @@ public deterministic default:
 
 selected detail research path:
   LR -> dual-context LSDIR Stage 2 -> Stage 1 decoder
-     -> detail branch v1d -> SR
+     -> learned detail mask -> masked detail branch v2 -> SR
 
 generative comparison:
   LR -> Stage 2 condition encoder -> Stage 3 OR Stage 4 diffusion U-Net
