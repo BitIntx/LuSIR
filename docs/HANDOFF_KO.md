@@ -98,6 +98,10 @@ generative:
   FFN block은 zero-init residual branch라 시작 출력은 기존 dual과 거의 같고,
   smoke 8 step은 통과했다. 목표는 같은 continuation이 아니라 Stage2/base
   feature mixing 구조가 formal/visual 병목을 바꾸는지 확인하는 것이다.
+  active run은 tmux `stage2-attn-v2`, W&B
+  <https://wandb.ai/jwheo/LuSIR/runs/68fwnfry>. step 500 eval은 decoded PSNR
+  `24.61`, detail ratio `0.316`으로 기존 dual baseline `24.6197 / 0.3123`
+  근처라 초반 fidelity 붕괴는 없다.
 
 ### 최신 완료 detail v1d와 strict-bicubic 진단
 

@@ -1881,6 +1881,22 @@ smoke:
 - 2-step CUDA bf16 forward/backward 통과
 - 8-step smoke로 첫 optimizer update와 checkpoint save 통과
 
+active run:
+
+```text
+tmux: stage2-attn-v2
+wandb: https://wandb.ai/jwheo/LuSIR/runs/68fwnfry
+log: /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_attention_v2_probe/train_console.log
+```
+
+초기 상태:
+
+- 안정 속도는 약 `2.1` micro-step/s.
+- VRAM은 약 `27.3 / 46.1 GB`, GPU util은 `98-100%`로 병목 없이 돈다.
+- step 500 eval은 decoded PSNR `24.61`, detail ratio `0.316`이다. 기존
+  dual-context step98000 baseline `24.6197 / 0.3123`과 거의 같은 출발점이므로
+  새 attention branch가 초반부터 fidelity를 망가뜨리지는 않았다.
+
 성공 기준:
 
 - 초기 500-2000 step에서 dual step98000 근처의 decoded PSNR을 유지해야 한다.
