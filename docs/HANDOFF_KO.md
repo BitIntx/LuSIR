@@ -77,6 +77,11 @@ generative:
   SSIM delta `+0.00638`, wins `100/100`이지만 step 0의 `+0.18418 dB`,
   `+0.00718`보다 낮다. grid도 시작점과 거의 구분되지 않는다. teacher loss는
   실제 non-zero로 들어갔으나 visible texture generation으로 이어지지 않았다.
+- 다음 권장 실험은 Stage2/base 경로다. 새 config
+  `configs/latent_pretrain_photo130k_lsdir_dual_detail_perceptual_v1.yaml`는
+  dual-context best98000에서 시작해 `photo_detail_mix`에서 VGG perceptual과
+  highpass magnitude를 추가한 detail-perceptual continuation이다. clean-bicubic
+  점수용이 아니라 base decoded image가 덜 뭉개지는지 확인하는 run이다.
 
 ### 최신 완료 detail v1d와 strict-bicubic 진단
 

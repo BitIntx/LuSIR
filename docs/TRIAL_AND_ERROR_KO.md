@@ -1706,3 +1706,39 @@ generation 방향으로는 충분한 신호가 아니었다. 결론은 다음과
 - 다음 개선은 같은 branch/loss의 추가 continuation보다 Stage2/base 경로,
   explicit texture-aware training target, 또는 더 생성적인 구조 쪽을 다시
   검토해야 한다.
+
+### 2026-06-14 Stage2 dual-context detail-perceptual continuation 시작
+
+detail branch v3/v3b/v4가 모두 visible texture bottleneck을 풀지 못했으므로,
+다음 실험은 frozen detail head가 아니라 Stage2/base reconstruction 경로로
+되돌아간다. clean-bicubic fidelity continuation은 이미 plateau했고 LR 증가도
+효과가 없었으므로, 이번 목표는 strict-bicubic 점수 전용이 아니라
+`photo_detail_mix`에서 base decoded image 자체가 덜 뭉개지는지 확인하는 것이다.
+
+```text
+config: configs/latent_pretrain_photo130k_lsdir_dual_detail_perceptual_v1.yaml
+init: checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt
+data: manifest_photo130k_lsdir.csv, degradation_preset=photo_detail_mix
+loss:
+  latent_weight: 0.15
+  decoded_weight: 0.75
+  edge_weight: 1.0
+  highpass_weight: 2.0
+  highpass_magnitude_weight: 1.5
+  perceptual_weight: 0.35
+  detail_score_weight: 3.0
+train:
+  batch_size: 4
+  grad_accum_steps: 8
+  lr: 5e-6
+  max_steps: 12000
+eval:
+  val100 every 500
+  best_metric: eval/psnr_detail_score
+```
+
+기존 dual-context loss에서 decoded/latent 비중을 낮추고 highpass magnitude와
+VGG feature loss를 추가한다. 단, v3b에서 본 fidelity 붕괴를 피하기 위해 GAN과
+teacher output 모방은 쓰지 않는다. 성공 기준은 `eval/decoded_psnr`가 크게
+깨지지 않으면서 `eval/laplacian_energy_ratio`와 fixed W&B `samples/Pred`가
+눈으로 좋아지는 것이다.
