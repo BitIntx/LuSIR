@@ -1742,3 +1742,48 @@ VGG feature loss를 추가한다. 단, v3b에서 본 fidelity 붕괴를 피하�
 teacher output 모방은 쓰지 않는다. 성공 기준은 `eval/decoded_psnr`가 크게
 깨지지 않으면서 `eval/laplacian_energy_ratio`와 fixed W&B `samples/Pred`가
 눈으로 좋아지는 것이다.
+
+### 2026-06-14 Stage2 dual-context detail-perceptual v1 완료
+
+`latent_pretrain_photo130k_lsdir_dual_detail_perceptual_v1`은 `12000` step까지
+완료됐다.
+
+```text
+run: /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_detail_perceptual_v1
+wandb: https://wandb.ai/jwheo/LuSIR/runs/hybqq4rj
+best detail-score checkpoint: checkpoints/best_eval_psnr_detail.pt
+best detail-score step: 6000
+latest checkpoint: checkpoints/latest.pt, step 12000
+```
+
+기준 dual-context selected step98000의 같은 val100 proxy는 decoded PSNR
+`24.6197`, Laplacian detail ratio `0.3123`이었다. 새 run은 detail ratio를
+올리지만 PSNR을 조금 잃는다.
+
+```text
+step 6000, best detail-score:
+  decoded_psnr:            24.5921
+  laplacian_energy_ratio:   0.3824
+  psnr_detail_score:       25.7392
+
+step 11500, best PSNR eval only:
+  decoded_psnr:            24.6180
+  laplacian_energy_ratio:   0.3500
+  psnr_detail_score:       25.6682
+
+step 12000, latest:
+  decoded_psnr:            24.6144
+  laplacian_energy_ratio:   0.3533
+  psnr_detail_score:       25.6744
+```
+
+판단:
+
+- 수치상 detail ratio는 확실히 오른다. step 6000은 기준 대비 약 `+0.070`,
+  latest는 약 `+0.041`이다.
+- PSNR 손실은 step 6000에서 약 `-0.028 dB`, latest에서 약 `-0.005 dB`다.
+- fixed sample strip을 눈으로 보면 step 1/6000/12000 차이는 아직 매우 작다.
+  뚜렷한 texture synthesis breakthrough로 보기는 어렵다.
+- 따라서 바로 public/default Stage2로 승격하지 않는다. 다음은 latest 또는
+  step6000을 formal/fixed visual review에 넣어, 수치 detail ratio가 실제 체감
+  sharpness로 이어지는지 확인한다.
