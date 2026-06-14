@@ -186,6 +186,14 @@ that location selection works, but spatial gating alone does not synthesize
 missing fine texture. See
 [`docs/DETAIL_NEED_MASK_KO.md`](docs/DETAIL_NEED_MASK_KO.md).
 
+A bounded masked detail v3 probe is now implemented, but no long run has been
+started. It initializes from masked v2 step 38000 and adds a mask-weighted
+frozen-VGG feature loss plus a small conditional high-frequency PatchGAN after
+a 500-step warmup. The existing highpass-only bounded residual path remains
+unchanged. New `lowpass_drift_l1` and `outside_mask_residual_l1` evaluation
+metrics act as fidelity guardrails. Design, stop criteria, and commands are in
+[`docs/DETAIL_BRANCH_V3_PATCH_KO.md`](docs/DETAIL_BRANCH_V3_PATCH_KO.md).
+
 For comparing training throughput on another GPU VM, use the DDP quick benchmark in
 [`docs/GPU_SPEED_BENCHMARK_KO.md`](docs/GPU_SPEED_BENCHMARK_KO.md). The current
 single-L40S reference for this config is about `1.15` micro-steps/s after warmup.

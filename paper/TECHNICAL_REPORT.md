@@ -1,9 +1,10 @@
 # LuSIR: Latent Upscaling via Self-trained Image Restoration without T2I Pretraining
 
 Snapshot: masked detail branch v2 and its formal x4 benchmark are complete,
-Stage 2 clean-fidelity learning-rate probes are complete, and signed-wavelet
-residual diffusion was evaluated and rejected as the current generative-detail
-objective.
+the bounded masked detail v3 perceptual/adversarial probe is implemented but
+not yet trained, Stage 2 clean-fidelity learning-rate probes are complete, and
+signed-wavelet residual diffusion was evaluated and rejected as the current
+generative-detail objective.
 
 `paper/TECHNICAL_REPORT.md` is the canonical report source.
 `paper/sr_diffusion_report.pdf` and `paper/main.tex` are generated from it with
@@ -823,6 +824,21 @@ texture. Location selection and texture generation remain separate problems.
 The next detail experiment should retain the frozen fidelity base and learned
 mask, but train a small bounded head with mask-weighted patch perceptual or
 adversarial supervision and explicit lowpass/fidelity guardrails.
+
+That direction is now implemented as the untrained masked detail v3 patch
+probe. It preserves the selected v2 generator and its bounded highpass-only
+residual path, adds a frozen-VGG feature loss spatially weighted by the learned
+mask, and adds a small conditional PatchGAN that receives the frozen base
+reconstruction and real/fake high-frequency content. The adversarial objective
+starts after a 500-micro-step warmup with a deliberately small generator
+weight. No long-run result is claimed yet.
+
+The evaluator now reports lowpass drift and residual energy inside and outside
+the learned mask. At the selected v2 initialization, the L40S smoke baseline is
+`0.000198` lowpass drift and `0.004333` outside-mask residual L1. These values,
+PSNR/SSIM, and fixed visual grids are explicit stop criteria for the v3 probe;
+the experiment is rejected if it creates repeated texture, ringing, white
+points, or persistent fidelity regression.
 
 During reproducibility review, the original single-image and formal-benchmark
 inference paths were found to omit the learned predictor even though training

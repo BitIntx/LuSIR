@@ -1,8 +1,16 @@
 from __future__ import annotations
 
 import torch
+from torch import nn
 
-from tools.train.train_detail_branch import GatedHighFrequencyDetailBranch, init_model_from_checkpoint, training_loss
+from sr_diffusion.detail_adversarial import MaskedHighpassPatchDiscriminator
+from tools.train.train_detail_branch import (
+    GatedHighFrequencyDetailBranch,
+    init_model_from_checkpoint,
+    load_checkpoint,
+    save_checkpoint,
+    training_loss,
+)
 
 
 def test_detail_branch_zero_init_preserves_base_image() -> None:
@@ -168,3 +176,109 @@ def test_detail_branch_training_loss_backpropagates() -> None:
     assert torch.isfinite(parts["sr"]).all()
     assert model.output.weight.grad is not None
     assert model.output.weight.grad.abs().sum() > 0
+
+
+class _MaskedPixelLoss(nn.Module):
+    def forward(self, prediction: torch.Tensor, target: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        difference = (prediction - target).abs().mean(dim=1, keepdim=True)
+        return (difference * mask).sum() / mask.sum().clamp_min(1e-8)
+
+
+def test_detail_branch_optional_masked_perceptual_and_adversarial_losses_backpropagate() -> None:
+    torch.manual_seed(5)
+    model = GatedHighFrequencyDetailBranch(
+        hidden_channels=16,
+        num_blocks=1,
+        norm_groups=8,
+        highpass_kernel=5,
+    )
+    discriminator = MaskedHighpassPatchDiscriminator(
+        base_channels=8,
+        channel_multipliers=(1, 2),
+        highpass_kernel=5,
+        use_spectral_norm=False,
+    )
+    base = torch.rand(2, 3, 32, 32) * 0.5 + 0.25
+    bicubic = torch.rand(2, 3, 32, 32)
+    condition = torch.rand(2, 16, 8, 8)
+    hr = (base + 0.05 * torch.randn_like(base)).clamp(0.0, 1.0)
+    domain_id = torch.tensor([0, 1], dtype=torch.long)
+    detail_mask = torch.rand(2, 1, 32, 32)
+
+    loss, parts = training_loss(
+        model=model,
+        base_sr=base,
+        bicubic=bicubic,
+        condition=condition,
+        hr=hr,
+        domain_id=domain_id,
+        loss_cfg={
+            "highpass_kernel": 5,
+            "lowpass_kernel": 7,
+            "masked_perceptual_weight": 0.1,
+        },
+        detail_mask=detail_mask,
+        perceptual_model=_MaskedPixelLoss(),
+        discriminator=discriminator,
+        adversarial_cfg={"generator_weight": 0.01, "mask_floor": 0.05},
+        adversarial_active=True,
+    )
+    loss.backward()
+
+    assert parts["masked_perceptual"] > 0
+    assert parts["adversarial"] > 0
+    assert model.output.weight.grad is not None
+    assert model.output.weight.grad.abs().sum() > 0
+
+
+def test_detail_branch_checkpoint_round_trips_optional_discriminator(tmp_path) -> None:
+    model = GatedHighFrequencyDetailBranch(hidden_channels=8, num_blocks=1, norm_groups=4, highpass_kernel=5)
+    discriminator = MaskedHighpassPatchDiscriminator(
+        base_channels=4,
+        channel_multipliers=(1,),
+        highpass_kernel=5,
+        use_spectral_norm=False,
+    )
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
+    discriminator_optimizer = torch.optim.AdamW(discriminator.parameters(), lr=2e-5)
+    for parameter in model.parameters():
+        parameter.grad = torch.ones_like(parameter)
+    for parameter in discriminator.parameters():
+        parameter.grad = torch.ones_like(parameter)
+    optimizer.step()
+    discriminator_optimizer.step()
+    checkpoint = tmp_path / "detail_v3.pt"
+
+    save_checkpoint(
+        checkpoint,
+        model,
+        optimizer,
+        step=17,
+        config={},
+        discriminator=discriminator,
+        discriminator_optimizer=discriminator_optimizer,
+    )
+
+    restored_model = GatedHighFrequencyDetailBranch(hidden_channels=8, num_blocks=1, norm_groups=4, highpass_kernel=5)
+    restored_discriminator = MaskedHighpassPatchDiscriminator(
+        base_channels=4,
+        channel_multipliers=(1,),
+        highpass_kernel=5,
+        use_spectral_norm=False,
+    )
+    restored_optimizer = torch.optim.AdamW(restored_model.parameters(), lr=1e-4)
+    restored_discriminator_optimizer = torch.optim.AdamW(restored_discriminator.parameters(), lr=2e-5)
+    step = load_checkpoint(
+        checkpoint,
+        restored_model,
+        restored_optimizer,
+        torch.device("cpu"),
+        discriminator=restored_discriminator,
+        discriminator_optimizer=restored_discriminator_optimizer,
+    )
+
+    assert step == 17
+    assert restored_optimizer.state_dict()["state"]
+    assert restored_discriminator_optimizer.state_dict()["state"]
+    for expected, actual in zip(discriminator.parameters(), restored_discriminator.parameters(), strict=True):
+        assert torch.allclose(actual, expected)

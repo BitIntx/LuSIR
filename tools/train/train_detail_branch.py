@@ -19,8 +19,14 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
+from sr_diffusion.detail_adversarial import (
+    MaskedHighpassPatchDiscriminator,
+    discriminator_logistic_loss,
+    generator_logistic_loss,
+)
 from sr_diffusion.detail_mask import DetailMaskPredictor
 from sr_diffusion.datasets import ManifestImageDataset
+from sr_diffusion.losses import FrozenVGGFeatureLoss
 from sr_diffusion.models import AutoencoderKL, LRToLatentPredictor
 from sr_diffusion.utils import autocast_context, get_device, load_config, save_config, seed_everything, seed_worker
 from tools.train.train_residual_refiner import (
@@ -46,6 +52,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--eval-only-checkpoint", type=Path, default=None)
     parser.add_argument("--output-dir", type=Path, default=None)
     parser.add_argument("--disable-wandb", action="store_true")
+    parser.add_argument("--skip-initial-eval", action="store_true")
+    parser.add_argument("--adversarial-start-step", type=int, default=None)
     return parser.parse_args()
 
 
@@ -248,26 +256,82 @@ def save_checkpoint(
     step: int,
     config: dict[str, Any],
     metrics: dict[str, float] | None = None,
+    discriminator: nn.Module | None = None,
+    discriminator_optimizer: torch.optim.Optimizer | None = None,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    torch.save(
-        {
-            "step": int(step),
-            "model": model.state_dict(),
-            "optimizer": optimizer.state_dict(),
-            "config": clean_config(config),
-            "metrics": metrics or {},
-        },
-        path,
-    )
+    checkpoint = {
+        "step": int(step),
+        "model": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+        "config": clean_config(config),
+        "metrics": metrics or {},
+    }
+    if discriminator is not None:
+        checkpoint["discriminator"] = discriminator.state_dict()
+    if discriminator_optimizer is not None:
+        checkpoint["discriminator_optimizer"] = discriminator_optimizer.state_dict()
+    torch.save(checkpoint, path)
 
 
-def load_checkpoint(path: Path, model: nn.Module, optimizer: torch.optim.Optimizer | None, device: torch.device) -> int:
+def load_checkpoint(
+    path: Path,
+    model: nn.Module,
+    optimizer: torch.optim.Optimizer | None,
+    device: torch.device,
+    discriminator: nn.Module | None = None,
+    discriminator_optimizer: torch.optim.Optimizer | None = None,
+) -> int:
     checkpoint = torch.load(path, map_location=device)
     model.load_state_dict(checkpoint["model"])
     if optimizer is not None and "optimizer" in checkpoint:
         optimizer.load_state_dict(checkpoint["optimizer"])
+    if discriminator is not None and "discriminator" in checkpoint:
+        discriminator.load_state_dict(checkpoint["discriminator"])
+    if discriminator_optimizer is not None and "discriminator_optimizer" in checkpoint:
+        discriminator_optimizer.load_state_dict(checkpoint["discriminator_optimizer"])
     return int(checkpoint.get("step", 0))
+
+
+def make_perceptual_model(loss_cfg: dict[str, Any], device: torch.device) -> FrozenVGGFeatureLoss | None:
+    if float(loss_cfg.get("masked_perceptual_weight", 0.0)) <= 0.0:
+        return None
+    perceptual_cfg = loss_cfg.get("masked_perceptual", {})
+    model = FrozenVGGFeatureLoss(
+        resize=int(perceptual_cfg.get("resize", 256)),
+        layer_indices=perceptual_cfg.get("layer_indices", [3, 8, 15]),
+        layer_weights=perceptual_cfg.get("layer_weights", [1.0, 1.0, 1.0]),
+    ).to(device)
+    model.eval()
+    return model
+
+
+def make_discriminator(
+    config: dict[str, Any],
+    device: torch.device,
+) -> tuple[MaskedHighpassPatchDiscriminator | None, torch.optim.Optimizer | None]:
+    adversarial_cfg = config.get("adversarial", {})
+    if not bool(adversarial_cfg.get("enabled", False)) or float(adversarial_cfg.get("generator_weight", 0.0)) <= 0.0:
+        return None, None
+    discriminator = MaskedHighpassPatchDiscriminator(
+        image_channels=int(adversarial_cfg.get("image_channels", 3)),
+        base_channels=int(adversarial_cfg.get("base_channels", 32)),
+        channel_multipliers=adversarial_cfg.get("channel_multipliers", [1, 2, 4, 4]),
+        highpass_kernel=int(adversarial_cfg.get("highpass_kernel", 15)),
+        use_spectral_norm=bool(adversarial_cfg.get("use_spectral_norm", True)),
+    ).to(device)
+    optimizer = torch.optim.AdamW(
+        discriminator.parameters(),
+        lr=float(adversarial_cfg.get("discriminator_lr", 2e-5)),
+        betas=tuple(float(value) for value in adversarial_cfg.get("betas", [0.0, 0.99])),
+        weight_decay=float(adversarial_cfg.get("weight_decay", 0.0)),
+    )
+    return discriminator, optimizer
+
+
+def set_requires_grad(model: nn.Module, enabled: bool) -> None:
+    for parameter in model.parameters():
+        parameter.requires_grad_(enabled)
 
 
 def init_model_from_checkpoint(
@@ -401,6 +465,7 @@ def evaluate(
     sample_count: int = 0,
     detail_mask_predictor: DetailMaskPredictor | None = None,
     detail_mask_floor: float = 0.0,
+    lowpass_kernel: int = 31,
 ) -> dict[str, float]:
     was_training = model.training
     model.eval()
@@ -422,6 +487,9 @@ def evaluate(
         "base_highpass_ratio": 0.0,
         "sr_highpass_ratio": 0.0,
         "residual_l1": 0.0,
+        "masked_residual_l1": 0.0,
+        "outside_mask_residual_l1": 0.0,
+        "lowpass_drift_l1": 0.0,
         "gate_mean": 0.0,
         "detail_mask_mean": 0.0,
         "wins_vs_base": 0.0,
@@ -477,6 +545,14 @@ def evaluate(
         sr_high_l1_per = (sr_high - target_high).abs().flatten(1).mean(dim=1)
         base_lap_l1_per = (base_lap - target_lap).abs().flatten(1).mean(dim=1)
         sr_lap_l1_per = (sr_lap - target_lap).abs().flatten(1).mean(dim=1)
+        mask = detail_mask.float() if detail_mask is not None else torch.ones_like(gate)
+        residual_energy = residual.abs().mean(dim=1, keepdim=True)
+        inverse_mask = 1.0 - mask
+        masked_residual_l1_per = (residual_energy * mask).flatten(1).sum(dim=1) / mask.flatten(1).sum(dim=1).clamp_min(1e-8)
+        outside_mask_residual_l1_per = (residual_energy * inverse_mask).flatten(1).sum(dim=1) / inverse_mask.flatten(1).sum(dim=1).clamp_min(1e-8)
+        lowpass_drift_l1_per = (
+            lowpass(sr, lowpass_kernel) - lowpass(base_sr, lowpass_kernel)
+        ).abs().flatten(1).mean(dim=1)
         totals["bicubic_mse"] += float(bicubic_mse_per.sum().cpu())
         totals["base_mse"] += float(base_mse_per.sum().cpu())
         totals["sr_mse"] += float(sr_mse_per.sum().cpu())
@@ -494,6 +570,9 @@ def evaluate(
         totals["base_highpass_ratio"] += float((base_high.abs().flatten(1).mean(dim=1) / target_high_energy).sum().cpu())
         totals["sr_highpass_ratio"] += float((sr_high.abs().flatten(1).mean(dim=1) / target_high_energy).sum().cpu())
         totals["residual_l1"] += float(residual.abs().mean().cpu()) * batch_size
+        totals["masked_residual_l1"] += float(masked_residual_l1_per.sum().cpu())
+        totals["outside_mask_residual_l1"] += float(outside_mask_residual_l1_per.sum().cpu())
+        totals["lowpass_drift_l1"] += float(lowpass_drift_l1_per.sum().cpu())
         totals["gate_mean"] += float(gate.mean().cpu()) * batch_size
         totals["detail_mask_mean"] += (
             float(detail_mask.float().mean().cpu()) * batch_size if detail_mask is not None else float(batch_size)
@@ -537,6 +616,9 @@ def evaluate(
         "eval/base_highpass_ratio": totals["base_highpass_ratio"] / count,
         "eval/sr_highpass_ratio": totals["sr_highpass_ratio"] / count,
         "eval/residual_l1": totals["residual_l1"] / count,
+        "eval/masked_residual_l1": totals["masked_residual_l1"] / count,
+        "eval/outside_mask_residual_l1": totals["outside_mask_residual_l1"] / count,
+        "eval/lowpass_drift_l1": totals["lowpass_drift_l1"] / count,
         "eval/gate_mean": totals["gate_mean"] / count,
         "eval/detail_mask_mean": totals["detail_mask_mean"] / count,
         "eval/wins_vs_base": totals["wins_vs_base"],
@@ -576,6 +658,10 @@ def training_loss(
     loss_cfg: dict[str, Any],
     detail_mask: torch.Tensor | None = None,
     detail_mask_floor: float = 0.0,
+    perceptual_model: nn.Module | None = None,
+    discriminator: MaskedHighpassPatchDiscriminator | None = None,
+    adversarial_cfg: dict[str, Any] | None = None,
+    adversarial_active: bool = False,
 ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
     eps = float(loss_cfg.get("charbonnier_eps", 1e-3))
     highpass_kernel = int(loss_cfg.get("highpass_kernel", 15))
@@ -596,6 +682,23 @@ def training_loss(
     lowpass_anchor_loss = charbonnier(lowpass(sr, lowpass_kernel), lowpass(base_sr.detach(), lowpass_kernel), eps)
     gate_l1 = gate.float().mean()
     residual_l1 = raw_residual.float().abs().mean()
+    masked_perceptual_loss = sr.new_zeros(())
+    masked_perceptual_weight = float(loss_cfg.get("masked_perceptual_weight", 0.0))
+    if perceptual_model is not None and masked_perceptual_weight > 0.0:
+        if detail_mask is None:
+            raise ValueError("detail_mask is required when masked perceptual supervision is enabled")
+        masked_perceptual_loss = perceptual_model(normalize_image(sr), normalize_image(hr), detail_mask)
+    adversarial_loss = sr.new_zeros(())
+    adversarial_cfg = adversarial_cfg or {}
+    adversarial_weight = float(adversarial_cfg.get("generator_weight", 0.0))
+    if discriminator is not None and adversarial_active and adversarial_weight > 0.0:
+        adversarial_loss = generator_logistic_loss(
+            discriminator,
+            base_sr=base_sr.detach(),
+            fake=sr,
+            mask=detail_mask,
+            mask_floor=float(adversarial_cfg.get("mask_floor", detail_mask_floor)),
+        )
     loss = (
         float(loss_cfg.get("image_weight", 1.0)) * image_loss
         + float(loss_cfg.get("residual_target_weight", 0.5)) * residual_target_loss
@@ -604,6 +707,8 @@ def training_loss(
         + float(loss_cfg.get("lowpass_anchor_weight", 1.0)) * lowpass_anchor_loss
         + float(loss_cfg.get("gate_l1_weight", 0.001)) * gate_l1
         + float(loss_cfg.get("residual_l1_weight", 0.001)) * residual_l1
+        + masked_perceptual_weight * masked_perceptual_loss
+        + adversarial_weight * adversarial_loss
     )
     return loss, {
         "image": image_loss,
@@ -613,6 +718,8 @@ def training_loss(
         "lowpass_anchor": lowpass_anchor_loss,
         "gate": gate_l1,
         "residual_l1": residual_l1,
+        "masked_perceptual": masked_perceptual_loss,
+        "adversarial": adversarial_loss,
         "sr": sr,
     }
 
@@ -624,6 +731,8 @@ def main() -> None:
         config["project"]["output_dir"] = str(args.output_dir)
     if args.disable_wandb:
         config.setdefault("logging", {}).setdefault("wandb", {})["enabled"] = False
+    if args.adversarial_start_step is not None:
+        config.setdefault("adversarial", {})["start_step"] = int(args.adversarial_start_step)
     seed = int(config.get("seed", 1337))
     seed_everything(seed)
     device = get_device(str(config.get("train", {}).get("device", "auto")))
@@ -639,6 +748,11 @@ def main() -> None:
     detail_mask_predictor = load_detail_mask_predictor(config, device)
     detail_mask_floor = float(config.get("detail_mask", {}).get("floor", 0.0))
     model = GatedHighFrequencyDetailBranch.from_config(config["model"]).to(device)
+    loss_cfg = config.get("loss", {})
+    perceptual_model = make_perceptual_model(loss_cfg, device)
+    discriminator, discriminator_optimizer = make_discriminator(config, device)
+    adversarial_cfg = config.get("adversarial", {})
+    adversarial_start_step = int(adversarial_cfg.get("start_step", 0))
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=float(config["train"].get("lr", 1e-4)),
@@ -655,7 +769,14 @@ def main() -> None:
         print(f"model_init={json.dumps(init_stats, sort_keys=True)}", flush=True)
     start_step = 0
     if args.resume is not None:
-        start_step = load_checkpoint(args.resume, model, optimizer, device)
+        start_step = load_checkpoint(
+            args.resume,
+            model,
+            optimizer,
+            device,
+            discriminator=discriminator,
+            discriminator_optimizer=discriminator_optimizer,
+        )
         print(f"resumed={args.resume} step={start_step}", flush=True)
     run = init_wandb(config, output_dir, model)
 
@@ -673,7 +794,6 @@ def main() -> None:
 
     train_cfg = config.get("train", {})
     eval_cfg = config.get("eval", {})
-    loss_cfg = config.get("loss", {})
     max_steps = int(args.limit_steps or train_cfg.get("max_steps", 12000))
     grad_accum_steps = int(train_cfg.get("grad_accum_steps", 1))
     log_every = int(train_cfg.get("log_every", 25))
@@ -702,6 +822,7 @@ def main() -> None:
             sample_count=sample_count,
             detail_mask_predictor=detail_mask_predictor,
             detail_mask_floor=detail_mask_floor,
+            lowpass_kernel=int(loss_cfg.get("lowpass_kernel", 31)),
         )
         print(
             f"eval step={step} sr_psnr={metrics['eval/sr_psnr']:.4f} "
@@ -711,6 +832,8 @@ def main() -> None:
             f"ssim_delta={metrics['eval/sr_vs_base_ssim']:+.5f} "
             f"hp_delta={metrics['eval/sr_vs_base_highpass_ratio']:+.4f} "
             f"lap_delta={metrics['eval/sr_vs_base_laplacian_ratio']:+.4f} "
+            f"lowpass_drift={metrics['eval/lowpass_drift_l1']:.6f} "
+            f"outside_mask={metrics['eval/outside_mask_residual_l1']:.6f} "
             f"wins={metrics['eval/wins_vs_base']:.0f}/{metrics['eval/num_images']:.0f}",
             flush=True,
         )
@@ -726,7 +849,14 @@ def main() -> None:
         return metrics
 
     if args.eval_only_checkpoint is not None:
-        checkpoint_step = load_checkpoint(args.eval_only_checkpoint, model, optimizer, device)
+        checkpoint_step = load_checkpoint(
+            args.eval_only_checkpoint,
+            model,
+            optimizer,
+            device,
+            discriminator=discriminator,
+            discriminator_optimizer=discriminator_optimizer,
+        )
         metrics = run_eval(checkpoint_step)
         summary = {"config": str(args.config), "checkpoint": str(args.eval_only_checkpoint), "checkpoint_step": checkpoint_step, "metrics": metrics}
         (output_dir / f"eval_only_step_{checkpoint_step:06d}_summary.json").write_text(
@@ -738,19 +868,32 @@ def main() -> None:
             run.finish()
         return
 
-    if bool(eval_cfg.get("run_at_start", True)) and start_step == 0:
+    if bool(eval_cfg.get("run_at_start", True)) and start_step == 0 and not args.skip_initial_eval:
         metrics = run_eval(0)
         best_metric = float(metrics[best_metric_name])
         best_metrics = metrics
-        save_checkpoint(checkpoints_dir / "best_eval_detail.pt", model, optimizer, 0, config, metrics)
+        save_checkpoint(
+            checkpoints_dir / "best_eval_detail.pt",
+            model,
+            optimizer,
+            0,
+            config,
+            metrics,
+            discriminator=discriminator,
+            discriminator_optimizer=discriminator_optimizer,
+        )
 
     step = start_step
     optimizer_updates = start_step // max(grad_accum_steps, 1)
     train_iter = iter(train_loader)
     optimizer.zero_grad(set_to_none=True)
+    if discriminator_optimizer is not None:
+        discriminator_optimizer.zero_grad(set_to_none=True)
     last_log_time = time.time()
     last_log_step = step
     model.train()
+    if discriminator is not None:
+        discriminator.train()
     while step < max_steps:
         try:
             batch = next(train_iter)
@@ -776,6 +919,9 @@ def main() -> None:
                     detail_mask = detail_mask_predictor(base_sr, bicubic, condition, domain_id)
             else:
                 detail_mask = None
+        adversarial_active = discriminator is not None and step >= adversarial_start_step
+        if discriminator is not None and adversarial_active:
+            set_requires_grad(discriminator, False)
         with autocast_context(device, dtype_name):
             loss, loss_parts = training_loss(
                 model=model,
@@ -787,11 +933,32 @@ def main() -> None:
                 loss_cfg=loss_cfg,
                 detail_mask=detail_mask,
                 detail_mask_floor=detail_mask_floor,
+                perceptual_model=perceptual_model,
+                discriminator=discriminator,
+                adversarial_cfg=adversarial_cfg,
+                adversarial_active=adversarial_active,
             )
         (loss / grad_accum_steps).backward()
+        discriminator_loss = loss.new_zeros(())
+        if discriminator is not None and discriminator_optimizer is not None and adversarial_active:
+            set_requires_grad(discriminator, True)
+            with autocast_context(device, dtype_name):
+                discriminator_loss = discriminator_logistic_loss(
+                    discriminator,
+                    base_sr=base_sr.detach(),
+                    real=hr,
+                    fake=loss_parts["sr"].detach(),
+                    mask=detail_mask,
+                    mask_floor=float(adversarial_cfg.get("mask_floor", detail_mask_floor)),
+                )
+            (discriminator_loss / grad_accum_steps).backward()
         if (step + 1) % grad_accum_steps == 0:
             optimizer.step()
             optimizer.zero_grad(set_to_none=True)
+            if discriminator_optimizer is not None:
+                if adversarial_active:
+                    discriminator_optimizer.step()
+                discriminator_optimizer.zero_grad(set_to_none=True)
             optimizer_updates += 1
         step += 1
 
@@ -810,6 +977,10 @@ def main() -> None:
                 "train/lowpass_anchor": float(loss_parts["lowpass_anchor"].detach().cpu()),
                 "train/gate": float(loss_parts["gate"].detach().cpu()),
                 "train/residual_l1": float(loss_parts["residual_l1"].detach().cpu()),
+                "train/masked_perceptual": float(loss_parts["masked_perceptual"].detach().cpu()),
+                "train/adversarial": float(loss_parts["adversarial"].detach().cpu()),
+                "train/discriminator": float(discriminator_loss.detach().cpu()),
+                "train/adversarial_active": float(adversarial_active),
                 "train/lr": float(optimizer.param_groups[0]["lr"]),
                 "train/optimizer_updates": float(optimizer_updates),
                 "system/steps_per_s": steps_per_s,
@@ -821,6 +992,9 @@ def main() -> None:
                 f"highpass={train_metrics['train/highpass']:.5f} "
                 f"lap={train_metrics['train/laplacian']:.5f} "
                 f"low_anchor={train_metrics['train/lowpass_anchor']:.5f} "
+                f"perceptual={train_metrics['train/masked_perceptual']:.5f} "
+                f"adv={train_metrics['train/adversarial']:.5f} "
+                f"disc={train_metrics['train/discriminator']:.5f} "
                 f"gate={train_metrics['train/gate']:.5f} "
                 f"updates={optimizer_updates} "
                 f"steps_per_s={steps_per_s:.3f}",
@@ -829,8 +1003,24 @@ def main() -> None:
             wandb_log(run, train_metrics, step=step)
 
         if step % save_every == 0:
-            save_checkpoint(checkpoints_dir / f"step_{step:07d}.pt", model, optimizer, step, config)
-            save_checkpoint(checkpoints_dir / "latest.pt", model, optimizer, step, config)
+            save_checkpoint(
+                checkpoints_dir / f"step_{step:07d}.pt",
+                model,
+                optimizer,
+                step,
+                config,
+                discriminator=discriminator,
+                discriminator_optimizer=discriminator_optimizer,
+            )
+            save_checkpoint(
+                checkpoints_dir / "latest.pt",
+                model,
+                optimizer,
+                step,
+                config,
+                discriminator=discriminator,
+                discriminator_optimizer=discriminator_optimizer,
+            )
 
         if eval_every > 0 and step % eval_every == 0:
             metrics = run_eval(step)
@@ -839,17 +1029,44 @@ def main() -> None:
             if improved:
                 best_metric = metric_value
                 best_metrics = metrics
-                save_checkpoint(checkpoints_dir / "best_eval_detail.pt", model, optimizer, step, config, metrics)
+                save_checkpoint(
+                    checkpoints_dir / "best_eval_detail.pt",
+                    model,
+                    optimizer,
+                    step,
+                    config,
+                    metrics,
+                    discriminator=discriminator,
+                    discriminator_optimizer=discriminator_optimizer,
+                )
             model.train()
 
     final_metrics = run_eval(step)
-    save_checkpoint(checkpoints_dir / "latest.pt", model, optimizer, step, config, final_metrics)
+    save_checkpoint(
+        checkpoints_dir / "latest.pt",
+        model,
+        optimizer,
+        step,
+        config,
+        final_metrics,
+        discriminator=discriminator,
+        discriminator_optimizer=discriminator_optimizer,
+    )
     final_metric_value = float(final_metrics[best_metric_name])
     final_improved = final_metric_value > best_metric if best_mode == "max" else final_metric_value < best_metric
     if final_improved:
         best_metric = final_metric_value
         best_metrics = final_metrics
-        save_checkpoint(checkpoints_dir / "best_eval_detail.pt", model, optimizer, step, config, final_metrics)
+        save_checkpoint(
+            checkpoints_dir / "best_eval_detail.pt",
+            model,
+            optimizer,
+            step,
+            config,
+            final_metrics,
+            discriminator=discriminator,
+            discriminator_optimizer=discriminator_optimizer,
+        )
 
     summary = {
         "config": str(args.config),

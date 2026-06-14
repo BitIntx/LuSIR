@@ -8,6 +8,28 @@ from torch import nn
 from torchvision.models import VGG16_Weights, vgg16
 
 
+def masked_feature_l1(
+    prediction: torch.Tensor,
+    target: torch.Tensor,
+    mask: torch.Tensor | None = None,
+    eps: float = 1e-8,
+) -> torch.Tensor:
+    """Channel-averaged feature L1, optionally weighted by a spatial mask."""
+
+    if prediction.shape != target.shape:
+        raise ValueError(f"feature shapes must match, got {prediction.shape} and {target.shape}")
+    difference = (prediction - target).abs().mean(dim=1, keepdim=True)
+    if mask is None:
+        return difference.mean()
+    if mask.ndim != 4 or mask.shape[0] != difference.shape[0] or mask.shape[1] != 1:
+        raise ValueError(f"mask must have shape [B, 1, H, W], got {tuple(mask.shape)}")
+    resized_mask = F.interpolate(mask.float(), size=difference.shape[-2:], mode="bilinear", align_corners=False)
+    resized_mask = resized_mask.clamp(0.0, 1.0)
+    numerator = (difference * resized_mask).flatten(1).sum(dim=1)
+    denominator = resized_mask.flatten(1).sum(dim=1).clamp_min(float(eps))
+    return (numerator / denominator).mean()
+
+
 class FrozenVGGFeatureLoss(nn.Module):
     """ImageNet VGG16 feature loss for optional perceptual supervision."""
 
@@ -41,7 +63,12 @@ class FrozenVGGFeatureLoss(nn.Module):
             image = F.interpolate(image, size=(self.resize, self.resize), mode="bilinear", align_corners=False)
         return (image - self.mean) / self.std
 
-    def forward(self, prediction: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        prediction: torch.Tensor,
+        target: torch.Tensor,
+        mask: torch.Tensor | None = None,
+    ) -> torch.Tensor:
         prediction_features = self._prepare(prediction)
         target_features = self._prepare(target)
         loss = prediction.new_zeros(())
@@ -53,5 +80,9 @@ class FrozenVGGFeatureLoss(nn.Module):
             if index in layer_weights:
                 prediction_normalized = F.normalize(prediction_features.float(), p=2, dim=1, eps=1e-8)
                 target_normalized = F.normalize(target_features.float(), p=2, dim=1, eps=1e-8)
-                loss = loss + layer_weights[index] * F.l1_loss(prediction_normalized, target_normalized)
+                loss = loss + layer_weights[index] * masked_feature_l1(
+                    prediction_normalized,
+                    target_normalized,
+                    mask=mask,
+                )
         return loss

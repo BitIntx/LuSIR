@@ -1556,3 +1556,37 @@ checkpoints/detail_branch_v2_masked_photo130k_lsdir_best38000.pt
 metrics/detail_branch_v2_masked_photo130k_lsdir_summary.json
 configs/hf/detail_branch_v2_masked_photo130k_lsdir.yaml
 ```
+
+### 2026-06-14 masked detail branch v3 patch probe 구현
+
+v2의 위치 선택은 유지하면서 missing texture 생성 objective만 바꾸는 짧은
+방향성 probe를 구현했다. 장기 학습은 아직 시작하지 않았다.
+
+- generator는 선택된 v2 step 38000과 같은 3.02M bounded/highpass-only
+  branch를 사용한다.
+- frozen learned mask로 VGG feature-map 위치를 가중한다.
+- discriminator는 frozen base SR와 real/fake의 high-frequency 성분을 함께
+  보는 작은 conditional PatchGAN이다.
+- adversarial loss는 500 micro-step warmup 뒤 `0.005` weight로 켠다.
+- 기존 v1/v2 config는 새 weight가 0이고 adversarial이 꺼져 있어 동작이
+  바뀌지 않는다.
+- checkpoint에는 optional discriminator와 discriminator optimizer 상태를
+  함께 저장하고 resume한다.
+- 평가에 `lowpass_drift_l1`, `masked_residual_l1`,
+  `outside_mask_residual_l1` guardrail을 추가했다.
+
+첫 L40S CUDA smoke의 v2 시작점 guardrail:
+
+```text
+eval/lowpass_drift_l1:          0.000198
+eval/outside_mask_residual_l1:  0.004333
+eval/sr_vs_base_psnr:          +0.18177 dB
+eval/sr_vs_base_ssim:          +0.00755
+```
+
+adversarial warmup을 smoke에서 0으로 override한 4-step 검증도 완료했다.
+`adv 0.68925`, `disc 0.69311`로 시작했고, 첫 generator/discriminator optimizer
+update 뒤 checkpoint에 양쪽 optimizer state가 모두 저장되는 것을 확인했다.
+
+구현 문서와 stop criterion은 `docs/DETAIL_BRANCH_V3_PATCH_KO.md`, probe
+config는 `configs/detail_branch_v3_masked_patch_gan_probe.yaml`에 있다.
