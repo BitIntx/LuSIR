@@ -1617,3 +1617,42 @@ anchor를 약간 낮추고 masked perceptual과 PatchGAN 압력을 올린다. �
 0.00x dB 개선이 아니라 visible texture correction 가능성을 확인하는 것이다.
 guardrail로 lowpass anchor, learned mask, bounded highpass residual은 유지한다.
 config는 `configs/detail_branch_v3b_stronger_patch_gan_probe.yaml`이다.
+
+### 2026-06-14 teacher highpass distillation probe 시작
+
+v3b는 stronger perceptual/PatchGAN 압력을 걸면 초반 `500~750` step에서는
+수치가 아주 조금 좋아졌지만, 이후 fidelity가 빠르게 무너졌다. 최종 step
+8000은 frozen base 대비 PSNR `-0.1824 dB`, SSIM `-0.00113`, wins `11/100`으로
+명확히 실패했다. best step 500도 v3보다 눈에 띄는 texture correction은 거의
+없었다.
+
+다음 실험은 SOTA teacher를 정답으로 통째로 모방하지 않고, teacher가 제안하는
+고주파 residual만 보조 신호로 쓰는 probe다.
+
+- teacher: `RealESRGAN_x4plus`
+- cache: `/home/ubuntu/scratch/sr-diffusion/teacher_cache/realesrgan_x4plus_photo_detail_mix_2048`
+- cache size: deterministic train subset first `2048`
+- config: `configs/detail_branch_v4_teacher_highpass_realesrgan_probe.yaml`
+- init: conservative v3 best step `1000`
+- adversarial: off
+- teacher loss: `teacher_residual_weight 0.25`, `teacher_highpass_weight 0.10`
+- guardrail: GT image/residual/highpass/laplacian loss, lowpass anchor,
+  learned detail mask, bounded highpass residual
+- filter: teacher highpass supervision is kept only where teacher highpass is
+  locally no worse than base highpass against GT, with margin `0.001`
+
+Real-ESRGAN cache 생성 명령:
+
+```bash
+source /home/ubuntu/venvs/cuda/bin/activate
+python -u tools/data/build_realesrgan_teacher_cache.py \
+  --config configs/detail_branch_v4_teacher_highpass_realesrgan_probe.yaml \
+  --output-dir /home/ubuntu/scratch/sr-diffusion/teacher_cache/realesrgan_x4plus_photo_detail_mix_2048 \
+  --limit 2048 \
+  --tile 256 \
+  --tile-pad 16
+```
+
+cache 생성은 L40S에서 `2048`장 기준 약 `286s`, `7.14 img/s`였다. 4-step smoke는
+teacher cache 로드와 loss 경로를 통과했고, 첫 step에서
+`teacher_res 0.00785`, `teacher_hp 0.00786`으로 non-zero signal을 확인했다.

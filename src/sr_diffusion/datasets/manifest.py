@@ -228,4 +228,5 @@ class ManifestImageDataset(Dataset[dict[str, Any]]):
             "domain_id": torch.tensor(self.domains[entry.domain], dtype=torch.long),
             "domain": entry.domain,
             "path": str(entry.path),
+            "index": torch.tensor(index, dtype=torch.long),
         }

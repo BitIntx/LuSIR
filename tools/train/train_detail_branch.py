@@ -26,6 +26,7 @@ from sr_diffusion.detail_adversarial import (
 )
 from sr_diffusion.detail_mask import DetailMaskPredictor
 from sr_diffusion.datasets import ManifestImageDataset
+from sr_diffusion.datasets.manifest import pil_to_tensor
 from sr_diffusion.losses import FrozenVGGFeatureLoss
 from sr_diffusion.models import AutoencoderKL, LRToLatentPredictor
 from sr_diffusion.utils import autocast_context, get_device, load_config, save_config, seed_everything, seed_worker
@@ -202,6 +203,12 @@ def make_eval_loader(config: dict[str, Any], seed: int, device: torch.device) ->
         pin_memory=device.type == "cuda",
         drop_last=False,
     )
+
+
+def maybe_limit_dataset(dataset: ManifestImageDataset, limit: int) -> ManifestImageDataset | Subset:
+    if limit > 0 and limit < len(dataset):
+        return Subset(dataset, list(range(limit)))
+    return dataset
 
 
 def load_autoencoder(config: dict[str, Any], device: torch.device) -> AutoencoderKL:
@@ -435,6 +442,67 @@ def wandb_log(run: Any | None, data: dict[str, Any], step: int) -> None:
         run.log(data, step=step)
 
 
+def masked_charbonnier(
+    prediction: torch.Tensor,
+    target: torch.Tensor,
+    weight: torch.Tensor | None,
+    eps: float,
+) -> torch.Tensor:
+    difference = torch.sqrt((prediction - target).float().square() + float(eps) ** 2)
+    if weight is None:
+        return difference.mean()
+    if weight.ndim != 4 or weight.shape[0] != difference.shape[0] or weight.shape[1] != 1:
+        raise ValueError(f"weight must have shape [B, 1, H, W], got {tuple(weight.shape)}")
+    if weight.shape[-2:] != difference.shape[-2:]:
+        weight = F.interpolate(weight.float(), size=difference.shape[-2:], mode="bilinear", align_corners=False)
+    weight = weight.float().clamp_min(0.0)
+    numerator = (difference.mean(dim=1, keepdim=True) * weight).flatten(1).sum(dim=1)
+    denominator = weight.flatten(1).sum(dim=1).clamp_min(1e-8)
+    return (numerator / denominator).mean()
+
+
+class TeacherImageCache:
+    def __init__(self, config: dict[str, Any]) -> None:
+        teacher_cfg = config.get("teacher", {})
+        self.enabled = bool(teacher_cfg.get("enabled", False))
+        self.cache_dir = Path(teacher_cfg.get("cache_dir", "")) if self.enabled else Path()
+        self.fallback = str(teacher_cfg.get("fallback", "error"))
+        if self.enabled and not self.cache_dir.exists():
+            raise FileNotFoundError(f"Teacher cache directory not found: {self.cache_dir}")
+
+    def load(self, batch: dict[str, Any], hr: torch.Tensor, device: torch.device) -> torch.Tensor | None:
+        if not self.enabled:
+            return None
+        if "index" not in batch:
+            raise KeyError("Teacher cache requires dataset batch['index']")
+        indices = batch["index"].tolist()
+        images: list[torch.Tensor] = []
+        missing: list[int] = []
+        for batch_idx, sample_index in enumerate(indices):
+            path = self.cache_dir / f"{int(sample_index):08d}.png"
+            if path.exists():
+                teacher = pil_to_tensor(Image.open(path).convert("RGB"))
+                if teacher.shape[-2:] != hr.shape[-2:]:
+                    teacher = F.interpolate(
+                        teacher.unsqueeze(0),
+                        size=hr.shape[-2:],
+                        mode="bicubic",
+                        align_corners=False,
+                    ).squeeze(0).clamp(0.0, 1.0)
+                images.append(teacher)
+                continue
+            missing.append(int(sample_index))
+            if self.fallback == "gt":
+                images.append(hr[batch_idx].detach().cpu())
+            elif self.fallback == "none":
+                return None
+            else:
+                raise FileNotFoundError(f"Missing teacher cache image: {path}")
+        if missing and self.fallback == "gt":
+            print(f"teacher_cache_missing={len(missing)} fallback=gt first={missing[0]}", flush=True)
+        return torch.stack(images, dim=0).to(device=device, dtype=hr.dtype, non_blocking=True)
+
+
 @torch.no_grad()
 def make_base_prediction(
     vae: AutoencoderKL,
@@ -662,6 +730,7 @@ def training_loss(
     discriminator: MaskedHighpassPatchDiscriminator | None = None,
     adversarial_cfg: dict[str, Any] | None = None,
     adversarial_active: bool = False,
+    teacher_sr: torch.Tensor | None = None,
 ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
     eps = float(loss_cfg.get("charbonnier_eps", 1e-3))
     highpass_kernel = int(loss_cfg.get("highpass_kernel", 15))
@@ -699,6 +768,41 @@ def training_loss(
             mask=detail_mask,
             mask_floor=float(adversarial_cfg.get("mask_floor", detail_mask_floor)),
         )
+    teacher_residual_loss = sr.new_zeros(())
+    teacher_highpass_loss = sr.new_zeros(())
+    teacher_weight_mean = sr.new_zeros(())
+    teacher_residual_weight = float(loss_cfg.get("teacher_residual_weight", 0.0))
+    teacher_highpass_weight = float(loss_cfg.get("teacher_highpass_weight", 0.0))
+    if teacher_sr is not None and (teacher_residual_weight > 0.0 or teacher_highpass_weight > 0.0):
+        teacher_sr = teacher_sr.detach().to(dtype=sr.dtype).clamp(0.0, 1.0)
+        teacher_mask = detail_mask.float() if detail_mask is not None else torch.ones_like(gate.float())
+        teacher_mask_floor = float(loss_cfg.get("teacher_mask_floor", 0.0))
+        if teacher_mask_floor > 0.0:
+            teacher_mask = teacher_mask_floor + (1.0 - teacher_mask_floor) * teacher_mask
+        if bool(loss_cfg.get("teacher_gt_filter", True)):
+            target_high = metric_highpass(hr, kernel_size=highpass_kernel)
+            base_high = metric_highpass(base_sr.detach(), kernel_size=highpass_kernel)
+            teacher_high = metric_highpass(teacher_sr, kernel_size=highpass_kernel)
+            base_error = (base_high - target_high).abs().mean(dim=1, keepdim=True)
+            teacher_error = (teacher_high - target_high).abs().mean(dim=1, keepdim=True)
+            teacher_error = lowpass(teacher_error, int(loss_cfg.get("teacher_filter_kernel", lowpass_kernel)))
+            base_error = lowpass(base_error, int(loss_cfg.get("teacher_filter_kernel", lowpass_kernel)))
+            ratio = float(loss_cfg.get("teacher_filter_ratio", 1.0))
+            margin = float(loss_cfg.get("teacher_filter_margin", 0.0))
+            confidence = (teacher_error <= base_error * ratio + margin).float()
+            teacher_mask = teacher_mask * confidence
+        teacher_weight_mean = teacher_mask.mean()
+        if teacher_residual_weight > 0.0:
+            teacher_residual = metric_highpass(teacher_sr - base_sr.detach(), kernel_size=highpass_kernel)
+            teacher_residual_loss = masked_charbonnier(residual, teacher_residual, teacher_mask, eps)
+        if teacher_highpass_weight > 0.0:
+            teacher_high = metric_highpass(teacher_sr, kernel_size=highpass_kernel)
+            teacher_highpass_loss = masked_charbonnier(
+                metric_highpass(sr, kernel_size=highpass_kernel),
+                teacher_high,
+                teacher_mask,
+                eps,
+            )
     loss = (
         float(loss_cfg.get("image_weight", 1.0)) * image_loss
         + float(loss_cfg.get("residual_target_weight", 0.5)) * residual_target_loss
@@ -709,6 +813,8 @@ def training_loss(
         + float(loss_cfg.get("residual_l1_weight", 0.001)) * residual_l1
         + masked_perceptual_weight * masked_perceptual_loss
         + adversarial_weight * adversarial_loss
+        + teacher_residual_weight * teacher_residual_loss
+        + teacher_highpass_weight * teacher_highpass_loss
     )
     return loss, {
         "image": image_loss,
@@ -720,6 +826,9 @@ def training_loss(
         "residual_l1": residual_l1,
         "masked_perceptual": masked_perceptual_loss,
         "adversarial": adversarial_loss,
+        "teacher_residual": teacher_residual_loss,
+        "teacher_highpass": teacher_highpass_loss,
+        "teacher_weight": teacher_weight_mean,
         "sr": sr,
     }
 
@@ -747,6 +856,7 @@ def main() -> None:
     condition_encoder = load_condition_encoder(config, device)
     detail_mask_predictor = load_detail_mask_predictor(config, device)
     detail_mask_floor = float(config.get("detail_mask", {}).get("floor", 0.0))
+    teacher_cache = TeacherImageCache(config)
     model = GatedHighFrequencyDetailBranch.from_config(config["model"]).to(device)
     loss_cfg = config.get("loss", {})
     perceptual_model = make_perceptual_model(loss_cfg, device)
@@ -780,7 +890,14 @@ def main() -> None:
         print(f"resumed={args.resume} step={start_step}", flush=True)
     run = init_wandb(config, output_dir, model)
 
-    train_dataset = make_dataset(config, split=str(config["data"].get("split", "train")), seed=seed, deterministic=False)
+    data_cfg = config["data"]
+    train_dataset = make_dataset(
+        config,
+        split=str(data_cfg.get("split", "train")),
+        seed=seed,
+        deterministic=bool(data_cfg.get("train_deterministic", False)),
+    )
+    train_dataset = maybe_limit_dataset(train_dataset, int(data_cfg.get("train_limit", 0)))
     train_loader = DataLoader(
         train_dataset,
         batch_size=int(config["train"].get("batch_size", 4)),
@@ -904,6 +1021,7 @@ def main() -> None:
         hr = batch["hr"].to(device, non_blocking=True)
         lr = batch["lr"].to(device, non_blocking=True)
         domain_id = batch["domain_id"].to(device, non_blocking=True)
+        teacher_sr = teacher_cache.load(batch, hr=hr, device=device)
         with torch.no_grad():
             condition, base_sr, bicubic = make_base_prediction(
                 vae=vae,
@@ -937,6 +1055,7 @@ def main() -> None:
                 discriminator=discriminator,
                 adversarial_cfg=adversarial_cfg,
                 adversarial_active=adversarial_active,
+                teacher_sr=teacher_sr,
             )
         (loss / grad_accum_steps).backward()
         discriminator_loss = loss.new_zeros(())
@@ -979,6 +1098,9 @@ def main() -> None:
                 "train/residual_l1": float(loss_parts["residual_l1"].detach().cpu()),
                 "train/masked_perceptual": float(loss_parts["masked_perceptual"].detach().cpu()),
                 "train/adversarial": float(loss_parts["adversarial"].detach().cpu()),
+                "train/teacher_residual": float(loss_parts["teacher_residual"].detach().cpu()),
+                "train/teacher_highpass": float(loss_parts["teacher_highpass"].detach().cpu()),
+                "train/teacher_weight": float(loss_parts["teacher_weight"].detach().cpu()),
                 "train/discriminator": float(discriminator_loss.detach().cpu()),
                 "train/adversarial_active": float(adversarial_active),
                 "train/lr": float(optimizer.param_groups[0]["lr"]),
@@ -993,6 +1115,8 @@ def main() -> None:
                 f"lap={train_metrics['train/laplacian']:.5f} "
                 f"low_anchor={train_metrics['train/lowpass_anchor']:.5f} "
                 f"perceptual={train_metrics['train/masked_perceptual']:.5f} "
+                f"teacher_res={train_metrics['train/teacher_residual']:.5f} "
+                f"teacher_hp={train_metrics['train/teacher_highpass']:.5f} "
                 f"adv={train_metrics['train/adversarial']:.5f} "
                 f"disc={train_metrics['train/discriminator']:.5f} "
                 f"gate={train_metrics['train/gate']:.5f} "

@@ -64,6 +64,14 @@ generative:
   `configs/detail_branch_v3b_stronger_patch_gan_probe.yaml`이다. masked VGG와
   PatchGAN weight를 올리고 image/residual anchor를 낮춘 visible-detail probe다.
   설계와 중단 기준은 `docs/DETAIL_BRANCH_V3_PATCH_KO.md`다.
+- v3b stronger-detail probe는 완료됐지만 장기적으로 실패했다. step 500은
+  v3보다 수치상 아주 조금 좋았으나 시각적 차이는 작았고, step 8000은 frozen
+  base 대비 PSNR `-0.18243 dB`, SSIM `-0.00113`, wins `11/100`까지 떨어졌다.
+- 다음 run은 `configs/detail_branch_v4_teacher_highpass_realesrgan_probe.yaml`다.
+  `RealESRGAN_x4plus` teacher cache first `2048` deterministic train samples를
+  사용하지만 teacher output 전체를 모방하지 않는다. GT 대비 teacher highpass가
+  locally no worse인 위치의 teacher residual/highpass만 약하게 더한다. cache는
+  `/home/ubuntu/scratch/sr-diffusion/teacher_cache/realesrgan_x4plus_photo_detail_mix_2048`에 있다.
 
 ### 최신 완료 detail v1d와 strict-bicubic 진단
 

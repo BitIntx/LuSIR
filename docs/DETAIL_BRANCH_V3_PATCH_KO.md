@@ -105,6 +105,34 @@ v3b의 성공 기준은 단순 PSNR `+0.00x dB`가 아니다. grid에서 실제 
 correction이 보여야 하며, 동시에 `lowpass_drift_l1`,
 `outside_mask_residual_l1`, PSNR/SSIM guardrail이 크게 악화되지 않아야 한다.
 
+## v3b 결과와 v4 전환
+
+v3b는 8k step까지 완료했지만 장기적으로 실패했다. best는 step 500 근처였고
+v3보다 수치상 아주 조금 높았으나, grid에서 visible texture correction은 거의
+없었다. 마지막 step 8000은 PSNR/SSIM과 wins가 크게 무너졌다.
+
+```text
+best step: 500
+best val100:
+  PSNR delta vs base:   +0.18647 dB
+  SSIM delta vs base:   +0.00770
+  lowpass_drift_l1:      0.000212
+  outside_mask_l1:       0.004600
+  wins:                  100/100
+final step: 8000
+final val100:
+  PSNR delta vs base:   -0.18243 dB
+  SSIM delta vs base:   -0.00113
+  lowpass_drift_l1:      0.000354
+  outside_mask_l1:       0.007939
+  wins:                  11/100
+```
+
+따라서 다음 실험은 stronger GAN continuation이 아니라 teacher-highpass
+distillation probe다. `RealESRGAN_x4plus` output을 전체 정답으로 쓰지 않고,
+GT와 비교해 locally no worse인 위치의 고주파 residual만 보조 signal로 사용한다.
+config는 `configs/detail_branch_v4_teacher_highpass_realesrgan_probe.yaml`이다.
+
 ## 실행
 
 장기 학습을 시작하기 전 smoke:

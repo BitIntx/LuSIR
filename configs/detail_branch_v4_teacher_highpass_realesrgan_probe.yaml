@@ -1,0 +1,127 @@
+project:
+  name: detail_branch_v4_teacher_highpass_realesrgan_probe
+  output_dir: /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v4_teacher_highpass_realesrgan_probe
+
+logging:
+  wandb:
+    enabled: true
+    project: LuSIR
+    entity: jwheo
+    name: detail_branch_v4_teacher_highpass_realesrgan_probe
+    mode: online
+    dir: /home/ubuntu/scratch/sr-diffusion/wandb
+    group: stage-detail
+    job_type: detail-branch
+    tags: [detail-branch, detail-mask, teacher-highpass, realesrgan, v4, probe, photo130k-lsdir]
+    watch: false
+
+seed: 1337
+
+initialization:
+  checkpoint: /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v3_masked_patch_gan_probe/checkpoints/best_eval_detail.pt
+  model_only: true
+  identity_init_new_blocks: false
+  note: initialize from conservative v3 and add filtered Real-ESRGAN highpass teacher supervision
+
+teacher:
+  enabled: true
+  cache_dir: /home/ubuntu/scratch/sr-diffusion/teacher_cache/realesrgan_x4plus_photo_detail_mix_2048
+  fallback: error
+  model_name: RealESRGAN_x4plus
+
+autoencoder:
+  config: configs/autoencoder_photo10k.yaml
+  checkpoint: checkpoints/stage1_autoencoder_best_eval_recon.pt
+
+condition_encoder:
+  config: configs/latent_pretrain_photo130k_lsdir_dual_multiscale_long.yaml
+  checkpoint: checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt
+  trainable: false
+
+detail_mask:
+  config: configs/detail_mask_predictor_v1_probe.yaml
+  checkpoint: checkpoints/detail_mask_predictor_v1_best3250.pt
+  trainable: false
+  floor: 0.05
+
+data:
+  manifest: /home/ubuntu/scratch/sr-diffusion/data/manifest_photo130k_lsdir.csv
+  split: train
+  train_deterministic: true
+  train_limit: 2048
+  hr_size: 512
+  scale: 4
+  degradation_preset: photo_detail_mix
+  domains:
+    photo: 0
+    anime: 1
+  hflip_prob: 0.0
+  texture_crop_retries: 4
+  texture_crop_downsample: 128
+  hr_color_jitter_prob: 0.0
+  hr_color_jitter: [0.97, 1.03]
+  num_workers: 4
+
+model:
+  image_channels: 3
+  latent_channels: 16
+  hidden_channels: 96
+  num_blocks: 18
+  norm_groups: 32
+  num_domains: 2
+  residual_scale: 0.24
+  gate_bias: -1.5
+  highpass_kernel: 15
+  use_condition_latent: true
+
+loss:
+  image_weight: 1.0
+  residual_target_weight: 0.85
+  highpass_weight: 1.25
+  laplacian_weight: 0.80
+  lowpass_anchor_weight: 1.25
+  gate_l1_weight: 0.0005
+  residual_l1_weight: 0.0005
+  masked_perceptual_weight: 0.05
+  masked_perceptual:
+    resize: 256
+    layer_indices: [3, 8, 15]
+    layer_weights: [1.0, 1.0, 1.0]
+  teacher_residual_weight: 0.25
+  teacher_highpass_weight: 0.10
+  teacher_gt_filter: true
+  teacher_filter_ratio: 1.0
+  teacher_filter_margin: 0.001
+  teacher_filter_kernel: 31
+  teacher_mask_floor: 0.0
+  highpass_kernel: 15
+  lowpass_kernel: 31
+  charbonnier_eps: 0.001
+
+adversarial:
+  enabled: false
+  start_step: 0
+  generator_weight: 0.0
+
+train:
+  device: auto
+  dtype: bf16
+  batch_size: 2
+  max_steps: 3000
+  lr: 0.00001
+  weight_decay: 0.0
+  grad_accum_steps: 4
+  log_every: 25
+  save_every: 500
+
+eval:
+  enabled: true
+  split: val
+  limit: 100
+  batch_size: 4
+  num_workers: 4
+  every: 250
+  run_at_start: true
+  best_metric: eval/detail_score
+  best_mode: max
+  sample_count: 8
