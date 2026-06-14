@@ -92,6 +92,12 @@ generative:
   `metrics/formal_x4_benchmark_stage2_detail_perceptual_v1_summary.json`,
   `metrics/formal_x4_benchmark_stage2_detail_perceptual_v1_metrics.csv`,
   `samples/stage2_detail_perceptual_v1_benchmark_delta_crop_sheet.jpg`.
+- 다음 구조 테스트로 `dual_multiscale_attention` Stage2 v2 probe를 추가했다.
+  config는 `configs/latent_pretrain_photo130k_lsdir_dual_attention_v2_probe.yaml`,
+  init은 dual step98000 partial load다. 새 shifted-window attention/NAF-style
+  FFN block은 zero-init residual branch라 시작 출력은 기존 dual과 거의 같고,
+  smoke 8 step은 통과했다. 목표는 같은 continuation이 아니라 Stage2/base
+  feature mixing 구조가 formal/visual 병목을 바꾸는지 확인하는 것이다.
 
 ### 최신 완료 detail v1d와 strict-bicubic 진단
 

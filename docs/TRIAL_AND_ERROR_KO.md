@@ -1843,3 +1843,56 @@ dataset별 latest12000의 dual 대비 Y 변화:
 - 결론: dual step98000을 public/default Stage2 기준으로 유지한다. latest12000은
   "SSIM/detail-biased optional research candidate"로 보존하되, 같은 objective의
   단순 continuation을 더 길게 돌리는 우선순위는 낮다.
+
+### 2026-06-14 Stage2 v2 shifted-window attention 구조 테스트 시작
+
+같은 Stage2 continuation과 detail branch 계열은 모두 미세 개선에 머물렀으므로,
+다음 테스트는 Stage2/base 구조 자체를 바꾼다. 새 구조는 기존
+dual-context step98000 checkpoint와 공존하도록 `LRToLatentPredictor`에
+`dual_multiscale_attention` architecture를 추가했다.
+
+설계:
+
+- 기존 full-resolution residual trunk, domain embedding, dual multiscale context,
+  output head 이름은 유지한다.
+- 새로 추가되는 블록은 shifted-window self-attention + gated depthwise FFN이다.
+- attention window는 `8x8`, head는 `8`, block 수는 `6`이다.
+- attention/FFN output projection은 zero-init한다. 따라서 dual checkpoint를
+  partial load하면 시작 출력은 기존 dual step98000과 거의 같고, 새 구조가
+  학습되면서 필요한 경우에만 개입한다.
+- 목표는 "더 긴 같은 objective"가 아니라, LR 128x128 feature 안에서 창문/격자
+  같은 반복 구조와 long-range consistency를 더 잘 섞는지 확인하는 것이다.
+
+구현/설정:
+
+```text
+model architecture: dual_multiscale_attention
+config: configs/latent_pretrain_photo130k_lsdir_dual_attention_v2_probe.yaml
+init: checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt
+partial init: matched_params 55.495M / 59.705M = 92.95%
+train target: photo_detail_mix
+loss: dual-context balanced loss 유지, best metric eval/decoded_psnr
+max steps: 20000 micro-steps
+```
+
+smoke:
+
+- model forward output shape: `(B, 16, 128, 128)`
+- 2-step CUDA bf16 forward/backward 통과
+- 8-step smoke로 첫 optimizer update와 checkpoint save 통과
+
+성공 기준:
+
+- 초기 500-2000 step에서 dual step98000 근처의 decoded PSNR을 유지해야 한다.
+- val100 proxy가 기존 dual-context `24.6197`을 넘거나, formal benchmark에서
+  latest12000보다 나은 PSNR/SSIM tradeoff를 보여야 한다.
+- W&B sample에서 이전 detail-perceptual처럼 "수치상 detail만 증가"가 아니라
+  창문/격자/잎/작은 반복 질감이 실제로 덜 뭉개져야 한다.
+
+중단 기준:
+
+- decoded PSNR이 초반부터 지속적으로 무너지거나, highpass만 커지고 fixed sample이
+  반복 패턴/링잉으로 변하면 중단한다.
+- step 4000-6000까지 기존 dual보다 유의미한 수치/시각 개선이 없으면 같은
+  구조를 길게 밀지 않고, 더 직접적인 SR backbone 또는 decoder-side 구조로
+  넘어간다.
