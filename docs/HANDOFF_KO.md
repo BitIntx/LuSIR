@@ -72,6 +72,11 @@ generative:
   사용하지만 teacher output 전체를 모방하지 않는다. GT 대비 teacher highpass가
   locally no worse인 위치의 teacher residual/highpass만 약하게 더한다. cache는
   `/home/ubuntu/scratch/sr-diffusion/teacher_cache/realesrgan_x4plus_photo_detail_mix_2048`에 있다.
+- v4 teacher-highpass probe도 완료됐다. best checkpoint는 step `0`으로,
+  즉 v3 시작점 그대로가 best였다. final step `3000`은 PSNR delta `+0.17735 dB`,
+  SSIM delta `+0.00638`, wins `100/100`이지만 step 0의 `+0.18418 dB`,
+  `+0.00718`보다 낮다. grid도 시작점과 거의 구분되지 않는다. teacher loss는
+  실제 non-zero로 들어갔으나 visible texture generation으로 이어지지 않았다.
 
 ### 최신 완료 detail v1d와 strict-bicubic 진단
 

@@ -1656,3 +1656,53 @@ python -u tools/data/build_realesrgan_teacher_cache.py \
 cache 생성은 L40S에서 `2048`장 기준 약 `286s`, `7.14 img/s`였다. 4-step smoke는
 teacher cache 로드와 loss 경로를 통과했고, 첫 step에서
 `teacher_res 0.00785`, `teacher_hp 0.00786`으로 non-zero signal을 확인했다.
+
+### 2026-06-14 teacher highpass distillation probe 완료
+
+v4 teacher-highpass probe는 `3000` step까지 완료했다.
+
+```text
+run: /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v4_teacher_highpass_realesrgan_probe
+wandb: https://wandb.ai/jwheo/LuSIR/runs/6bwy7v0s
+best checkpoint: checkpoints/best_eval_detail.pt
+best step: 0
+final step: 3000
+```
+
+best가 step 0이라는 점이 핵심이다. 즉 Real-ESRGAN teacher highpass supervision은
+현 설정에서 v3 시작점보다 개선을 만들지 못했다.
+
+```text
+step 0:
+  detail_score:          26.699334
+  PSNR delta vs base:   +0.18418 dB
+  mean PSNR delta:      +0.21046 dB
+  SSIM delta vs base:   +0.00718
+  highpass ratio delta: +0.01163
+  lowpass_drift_l1:      0.000189
+  outside_mask_l1:       0.004150
+  wins:                  100/100
+
+step 3000:
+  detail_score:          26.689592
+  PSNR delta vs base:   +0.17735 dB
+  mean PSNR delta:      +0.20145 dB
+  SSIM delta vs base:   +0.00638
+  highpass ratio delta: +0.00976
+  lowpass_drift_l1:      0.000203
+  outside_mask_l1:       0.004404
+  wins:                  100/100
+```
+
+grid를 눈으로 보면 step 500과 step 3000 모두 시작점과 거의 구분되지 않는다.
+teacher loss는 non-zero였고 fidelity guardrail도 무너지지 않았지만, texture
+generation 방향으로는 충분한 신호가 아니었다. 결론은 다음과 같다.
+
+- Real-ESRGAN teacher를 전체 정답으로 모방하지 않은 것은 안전했다.
+- 하지만 filtered highpass residual distillation만으로는 작은 bounded
+  image-space branch가 missing fine texture를 만들지 못했다.
+- v3b처럼 pressure를 강하게 올리면 fidelity가 무너지고, v4처럼 보수적으로
+  걸면 아무 일도 거의 일어나지 않는다.
+- 다음 개선은 같은 branch/loss의 추가 continuation보다 Stage2/base 경로,
+  explicit texture-aware training target, 또는 더 생성적인 구조 쪽을 다시
+  검토해야 한다.
