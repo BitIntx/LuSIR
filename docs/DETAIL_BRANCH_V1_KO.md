@@ -291,7 +291,7 @@ patch discriminator가 우선이다. full image GAN은 fake texture와 색 변�
 ## 평가 순서
 
 1. `tools/eval/build_fixed_review_set.py`로 `detail_v1` fixed set 생성.
-2. 현재 Colab default residual refiner v2를 `run_fixed_review_residual_refiner.py`로 평가.
+2. 당시 Colab default였던 residual refiner v2를 `run_fixed_review_residual_refiner.py`로 평가.
 3. `eval_fixed_review_outputs.py`로 PSNR/SSIM/detail metric/contact sheet/HTML 생성.
 4. detail branch v1은 같은 fixed set에서 residual refiner v2와 비교한다.
 5. 수치가 좋아도 HTML/contact sheet에서 texture가 fake처럼 보이면 실패로 기록한다.

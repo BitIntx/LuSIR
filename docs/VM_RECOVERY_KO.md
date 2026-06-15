@@ -161,11 +161,13 @@ Colab:
 https://colab.research.google.com/github/BitIntx/LuSIR/blob/main/notebooks/sr_diffusion_colab_demo.ipynb
 ```
 
-현재 Colab은 Gradio WebUI를 실행한다. 유저 업로드가 기본이고 correction strength,
-tile overlap, tile batch size, diffusion steps는 slider로 조정한다. 결과 화면은
-bicubic/Stage 2 condition/Input LR nearest 중 하나와 SR output을 before/after
-slider로 비교한다. residual refiner v2가 public 기본값이며, detail branch v1d와
-masked detail v2는 단일 이미지/tiled inference 연구 옵션으로 선택할 수 있다.
+현재 Colab은 Gradio WebUI를 실행한다. 유저 업로드가 기본이고 model, TTA
+inference, correction strength, tile overlap, tile batch size, diffusion steps를
+조정한다. 결과 화면은 bicubic/Stage 2 condition/Input LR nearest 중 하나와 SR
+output을 before/after slider로 비교한다. guarded-detail Stage2 v2 step10000이
+public 기본값이며 tile batch size 기본값은 T4 안정성을 위해 `1`이다. residual
+refiner v2, detail branch v1d, masked detail v2는 단일 이미지/tiled inference
+옵션으로 선택할 수 있다.
 
 ## 5. Scratch/data 복구
 
@@ -310,9 +312,9 @@ high-frequency residual만 생성하는 stochastic diffusion probe다. 시작 �
 PSNR SOTA를 직접 목표로 하지 않으며 LPIPS/DISTS, fixed visual review,
 high-frequency metric, lowpass drift, seed diversity로 판단한다.
 
-현재 public Colab 기본 경로는 여전히 residual refiner v2이며, v1d는 선택 가능한
-연구 비교 옵션이다. 같은 Stage2/detail objective의 단순 장기 continuation이나
-capacity 증가는 우선하지 않는다.
+현재 public Colab 기본 경로는 guarded-detail Stage2 v2 step10000이며, residual
+refiner v2와 v1d/masked v2는 선택 가능한 비교 옵션이다. 같은 Stage2/detail
+objective의 단순 장기 continuation이나 capacity 증가는 우선하지 않는다.
 
 ## 8. tmux / 모니터링
 

@@ -125,6 +125,7 @@ python scripts/download_hf_checkpoints.py --preset detail_branch_v1d
 Other useful presets include:
 
 ```text
+stage2_guarded_detail_v2
 residual_refiner_v2
 stage2_photo130k_lsdir_dual
 detail_branch_v1b
@@ -132,14 +133,18 @@ detail_branch_v2_masked
 photo100k_xl_stage4_edge
 ```
 
-The public Colab default remains the conservative deterministic residual
-refiner v2 path. Detail v1d and masked detail v2 are available as research
-options in the Colab WebUI with single-image and tiled inference.
+The public Colab default is now the T4-friendly guarded-detail Stage 2 v2
+checkpoint with tile batch size 1. Residual refiner v2 remains available as the
+conservative deterministic option. Detail v1d and masked detail v2 remain
+research options in the Colab WebUI with single-image and tiled inference.
 
 ## Runtime Paths
 
 ```text
 public deterministic default:
+  LR -> guarded-detail Stage 2 v2 step 10000 -> Stage 1 decoder -> SR
+
+conservative deterministic option:
   LR -> Stage 2 XL -> residual refiner v2 -> Stage 1 decoder -> SR
 
 selected detail research path:

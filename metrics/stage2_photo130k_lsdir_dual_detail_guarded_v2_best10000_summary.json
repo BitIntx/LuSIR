@@ -1,0 +1,32 @@
+{
+  "checkpoint": "checkpoints/stage2_photo130k_lsdir_dual_detail_guarded_v2_best10000.pt",
+  "config": "configs/latent_pretrain_photo130k_lsdir_dual_detail_guarded_v2.yaml",
+  "hf_config": "configs/hf/latent_pretrain_photo130k_lsdir_dual_detail_guarded_v2.yaml",
+  "run_name": "latent_pretrain_photo130k_lsdir_dual_detail_guarded_v2",
+  "wandb_run": "https://wandb.ai/jwheo/LuSIR/runs/fqhftgwf",
+  "source_checkpoint": "/home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_detail_guarded_v2/checkpoints/best_eval_mean_psnr_detail.pt",
+  "selected_step": 10000,
+  "final_step": 20000,
+  "selection": "best eval/mean_psnr_detail_score; final step 20000 plateaued and was not the best detail checkpoint",
+  "params": 119238352,
+  "model_weight_size_gb": 0.4442,
+  "training_checkpoint_size_gb": 1.4,
+  "val100": {
+    "decoded_psnr": 24.6296,
+    "decoded_mean_psnr": 26.505,
+    "highpass_energy_ratio": 0.8084,
+    "missing_energy": 0.01897,
+    "detail_score_rank": "best"
+  },
+  "measured_inference_memory_l40s_bf16_128lr": {
+    "tile_batch_1_reserved_gb": 1.03,
+    "tile_batch_4_reserved_gb": 3.28,
+    "tile_batch_8_reserved_gb": 6.25
+  },
+  "recommended_colab": {
+    "gpu": "T4 or better",
+    "tile_batch_size": 1,
+    "tta_default": "Off",
+    "tta_options": ["Horizontal flip x2", "Full x8 self-ensemble"]
+  }
+}

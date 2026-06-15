@@ -4,7 +4,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from tools.demo.colab_webui import build_command, make_compare_slider
+from tools.demo.colab_webui import average_tta_images, build_command, make_compare_slider
 
 
 def test_colab_webui_slider_html_contains_image_payloads(tmp_path: Path) -> None:
@@ -42,6 +42,28 @@ def test_colab_webui_residual_command_uses_strength_and_tiling(tmp_path: Path) -
     assert "0.750" in cmd
     assert "--tile-batch-size" in cmd
     assert "4" in cmd
+
+
+def test_colab_webui_stage2_command_uses_default_runner_and_tiling(tmp_path: Path) -> None:
+    cmd, result_file, uses_strength = build_command(
+        variant="stage2_guarded_detail_v2",
+        input_mode="Low-resolution image to upscale",
+        input_path=tmp_path / "input.png",
+        output_dir=tmp_path / "out",
+        residual_strength=1.0,
+        use_tiling=True,
+        tile_overlap=32,
+        tile_batch_size=1,
+        steps=32,
+        seed=123,
+    )
+
+    assert not uses_strength
+    assert result_file == "sr.png"
+    assert "tools/infer/infer_stage2.py" in cmd
+    assert "--steps" not in cmd
+    assert "--tile-batch-size" in cmd
+    assert "1" in cmd
 
 
 def test_colab_webui_diffusion_command_uses_steps(tmp_path: Path) -> None:
@@ -86,3 +108,12 @@ def test_colab_webui_detail_command_uses_strength_and_tiling(tmp_path: Path) -> 
     assert "0.900" in cmd
     assert "--tile-batch-size" in cmd
     assert "2" in cmd
+
+
+def test_colab_webui_tta_average_merges_rgb_images() -> None:
+    first = Image.new("RGB", (2, 2), (20, 40, 60))
+    second = Image.new("RGB", (2, 2), (40, 80, 120))
+
+    merged = average_tta_images([first, second])
+
+    assert merged.getpixel((0, 0)) == (30, 60, 90)

@@ -5,11 +5,13 @@ import base64
 import html
 import shutil
 import subprocess
+import sys
 import time
 import uuid
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import torch
 from PIL import Image
 
@@ -19,12 +21,19 @@ OUTPUT_ROOT = ROOT / "outputs" / "colab_webui"
 
 
 MODEL_OPTIONS = {
-    "Recommended quality - Residual Refiner v2": "residual_refiner_v2",
+    "Best T4 default - Stage 2 Guarded Detail v2": "stage2_guarded_detail_v2",
+    "Conservative quality - Residual Refiner v2": "residual_refiner_v2",
     "Latest masked detail research - Detail Branch v2": "detail_branch_v2_masked",
     "Previous detail research - Detail Branch v1d": "detail_branch_v1d",
     "Sharper diffusion comparison - XL Edge": "photo100k_xl_edge_b16",
     "Smaller diffusion comparison - Stage 4 v2": "photo100k_v2_stage4",
     "Mild diffusion comparison - Stage 4": "photo100k_stage4",
+}
+
+TTA_OPTIONS = {
+    "Off": ("identity",),
+    "Horizontal flip x2": ("identity", "hflip"),
+    "Full x8 self-ensemble": ("identity", "hflip", "vflip", "rot180", "rot90", "rot270", "transpose", "transverse"),
 }
 
 COMMON_FILES = [
@@ -34,6 +43,14 @@ COMMON_FILES = [
 ]
 
 VARIANTS: dict[str, dict[str, Any]] = {
+    "stage2_guarded_detail_v2": {
+        "runner": "stage2",
+        "config": "configs/hf/latent_pretrain_photo130k_lsdir_dual_detail_guarded_v2.yaml",
+        "files": [
+            "checkpoints/stage2_photo130k_lsdir_dual_detail_guarded_v2_best10000.pt",
+        ],
+        "note": "T4-friendly default: guarded-detail Stage 2 step 10000 -> Stage 1 decoder.",
+    },
     "residual_refiner_v2": {
         "runner": "residual_refiner",
         "config": "configs/hf/residual_refiner_stage2_xl_photo_detail_v2.yaml",
@@ -117,7 +134,7 @@ def ensure_model(variant: str, repo_id: str) -> None:
     files_to_download = [*COMMON_FILES, *selected["files"]]
     missing = [filename for filename in files_to_download if not (ROOT / filename).exists()]
     if missing:
-        cmd = ["python", "scripts/download_hf_checkpoints.py", "--repo-id", repo_id]
+        cmd = [sys.executable, "scripts/download_hf_checkpoints.py", "--repo-id", repo_id]
         for filename in files_to_download:
             cmd += ["--file", filename]
         subprocess.run(cmd, cwd=ROOT, check=True)
@@ -240,6 +257,61 @@ def collect_gallery(output_dir: Path, result_path: Path) -> list[tuple[str, str]
     return entries
 
 
+def apply_tta_transform(image: Image.Image, transform: str) -> Image.Image:
+    if transform == "identity":
+        return image.copy()
+    if transform == "hflip":
+        return image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+    if transform == "vflip":
+        return image.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+    if transform == "rot180":
+        return image.transpose(Image.Transpose.ROTATE_180)
+    if transform == "rot90":
+        return image.transpose(Image.Transpose.ROTATE_90)
+    if transform == "rot270":
+        return image.transpose(Image.Transpose.ROTATE_270)
+    if transform == "transpose":
+        return image.transpose(Image.Transpose.TRANSPOSE)
+    if transform == "transverse":
+        return image.transpose(Image.Transpose.TRANSVERSE)
+    raise ValueError(f"Unknown TTA transform: {transform}")
+
+
+def invert_tta_transform(image: Image.Image, transform: str) -> Image.Image:
+    if transform == "rot90":
+        return image.transpose(Image.Transpose.ROTATE_270)
+    if transform == "rot270":
+        return image.transpose(Image.Transpose.ROTATE_90)
+    return apply_tta_transform(image, transform)
+
+
+def average_tta_images(images: list[Image.Image]) -> Image.Image:
+    arrays = [np.asarray(image.convert("RGB"), dtype=np.float32) for image in images]
+    reference_shape = arrays[0].shape
+    if any(array.shape != reference_shape for array in arrays):
+        shapes = [array.shape for array in arrays]
+        raise ValueError(f"TTA outputs have mismatched shapes: {shapes}")
+    merged = np.clip(np.round(np.stack(arrays, axis=0).mean(axis=0)), 0, 255).astype(np.uint8)
+    return Image.fromarray(merged, mode="RGB")
+
+
+def copy_identity_outputs(identity_dir: Path, output_dir: Path) -> None:
+    for filename in [
+        "input_lr.png",
+        "bicubic.png",
+        "condition.png",
+        "base.png",
+        "detail.png",
+        "refined.png",
+        "sr.png",
+        "sr_00.png",
+        "gt_hr.png",
+    ]:
+        source = identity_dir / filename
+        if source.exists():
+            shutil.copyfile(source, output_dir / filename)
+
+
 def build_command(
     *,
     variant: str,
@@ -257,18 +329,20 @@ def build_command(
     runner = selected["runner"]
     uses_strength = runner in {"residual_refiner", "detail_branch"}
     runner_script = {
+        "stage2": "tools/infer/infer_stage2.py",
         "residual_refiner": "tools/infer/infer_residual_refiner.py",
         "detail_branch": "tools/infer/infer_detail_branch.py",
         "diffusion": "tools/infer/infer_diffusion.py",
     }[runner]
     result_file = {
+        "stage2": "sr.png",
         "residual_refiner": "refined.png",
         "detail_branch": "detail.png",
         "diffusion": "sr_00.png",
     }[runner]
     input_flag = "--input-lr" if input_mode == "Low-resolution image to upscale" else "--input-hr"
     cmd = [
-        "python",
+        sys.executable,
         "-u",
         runner_script,
         "--config",
@@ -284,7 +358,7 @@ def build_command(
         cmd += ["--residual-strength", f"{float(residual_strength):.3f}"]
     elif runner == "detail_branch":
         cmd += ["--detail-strength", f"{float(residual_strength):.3f}"]
-    else:
+    elif runner == "diffusion":
         cmd += ["--steps", str(int(steps)), "--progress-every", "4"]
     if input_flag == "--input-lr" and use_tiling:
         cmd += [
@@ -297,12 +371,63 @@ def build_command(
     return cmd, result_file, uses_strength
 
 
+def run_tta_sr(
+    *,
+    variant: str,
+    input_path: Path,
+    output_dir: Path,
+    tta_mode: str,
+    residual_strength: float,
+    use_tiling: bool,
+    tile_overlap: int,
+    tile_batch_size: int,
+    steps: int,
+    seed: int,
+) -> tuple[Path, bool]:
+    transforms = TTA_OPTIONS[tta_mode]
+    input_image = Image.open(input_path).convert("RGB")
+    restored_outputs: list[Image.Image] = []
+    uses_strength = False
+    identity_dir: Path | None = None
+    result_file = ""
+    for index, transform in enumerate(transforms):
+        tta_dir = output_dir / f"tta_{index:02d}_{transform}"
+        tta_dir.mkdir(parents=True, exist_ok=True)
+        tta_input = output_dir / f"tta_input_{index:02d}_{transform}.png"
+        apply_tta_transform(input_image, transform).save(tta_input)
+        cmd, result_file, uses_strength = build_command(
+            variant=variant,
+            input_mode="Low-resolution image to upscale",
+            input_path=tta_input,
+            output_dir=tta_dir,
+            residual_strength=residual_strength,
+            use_tiling=use_tiling,
+            tile_overlap=tile_overlap,
+            tile_batch_size=tile_batch_size,
+            steps=steps,
+            seed=seed,
+        )
+        run_command(cmd)
+        transformed_result = tta_dir / result_file
+        if not transformed_result.exists():
+            raise FileNotFoundError(f"Expected TTA output was not created: {transformed_result}")
+        restored_outputs.append(invert_tta_transform(Image.open(transformed_result).convert("RGB"), transform))
+        if transform == "identity":
+            identity_dir = tta_dir
+    if identity_dir is not None:
+        copy_identity_outputs(identity_dir, output_dir)
+    result_path = output_dir / "tta_sr_output.png"
+    average_tta_images(restored_outputs).save(result_path)
+    return result_path, uses_strength
+
+
 def run_sr(
     image: Image.Image | None,
     model_preset: str,
     input_mode: str,
     residual_strength: float,
     comparison_left: str,
+    tta_mode: str,
     use_tiling: bool,
     tile_overlap: int,
     tile_batch_size: int,
@@ -318,22 +443,38 @@ def run_sr(
     output_dir = OUTPUT_ROOT / f"{variant}_{timestamp}"
     input_path = save_input(image, output_dir)
     ensure_model(variant, REPO_ID)
-    cmd, result_file, uses_strength = build_command(
-        variant=variant,
-        input_mode=input_mode,
-        input_path=input_path,
-        output_dir=output_dir,
-        residual_strength=residual_strength,
-        use_tiling=use_tiling,
-        tile_overlap=tile_overlap,
-        tile_batch_size=tile_batch_size,
-        steps=steps,
-        seed=seed,
-    )
-    run_command(cmd)
-    result_path = output_dir / result_file
-    if not result_path.exists():
-        raise FileNotFoundError(f"Expected output was not created: {result_path}")
+    if tta_mode != "Off":
+        if input_mode != "Low-resolution image to upscale":
+            raise ValueError("TTA is available for low-resolution image uploads only.")
+        result_path, uses_strength = run_tta_sr(
+            variant=variant,
+            input_path=input_path,
+            output_dir=output_dir,
+            tta_mode=tta_mode,
+            residual_strength=residual_strength,
+            use_tiling=use_tiling,
+            tile_overlap=tile_overlap,
+            tile_batch_size=tile_batch_size,
+            steps=steps,
+            seed=seed,
+        )
+    else:
+        cmd, result_file, uses_strength = build_command(
+            variant=variant,
+            input_mode=input_mode,
+            input_path=input_path,
+            output_dir=output_dir,
+            residual_strength=residual_strength,
+            use_tiling=use_tiling,
+            tile_overlap=tile_overlap,
+            tile_batch_size=tile_batch_size,
+            steps=steps,
+            seed=seed,
+        )
+        run_command(cmd)
+        result_path = output_dir / result_file
+        if not result_path.exists():
+            raise FileNotFoundError(f"Expected output was not created: {result_path}")
     before_path: Path
     before_label: str
     if comparison_left == "Stage 2 condition" and (output_dir / "condition.png").exists():
@@ -351,9 +492,11 @@ def run_sr(
         f"GPU: {gpu_name}",
         f"model: {model_preset}",
         f"path: {selected['note']}",
-        f"steps: {'deterministic' if uses_strength else int(steps)}",
+        f"steps: {int(steps) if selected['runner'] == 'diffusion' else 'deterministic'}",
         f"correction strength: {float(residual_strength):.2f}" if uses_strength else "correction strength: n/a",
+        f"TTA: {tta_mode}",
         f"tiling: {bool(use_tiling)}",
+        f"tile batch size: {int(tile_batch_size)}",
         f"output: {output_dir}",
     ]
     return "\n".join(details), slider_html, collect_gallery(output_dir, result_path), str(output_dir / "sr_output.png")
@@ -370,10 +513,8 @@ def build_app(repo_id: str) -> Any:
 # LuSIR x4 WebUI
 Upload an image, run x4 SR, then use the slider to compare before and after.
 
-Default path: **LR -> Stage 2 XL condition encoder -> residual refiner v2 -> Stage 1 decoder**.
-This deterministic path is the public Colab default and does not run Stage 3/4 diffusion.
-Select **Latest detail research - Detail Branch v1d** to compare the selected
-dual-context Stage 2 + 3.02M-parameter detail branch checkpoint.
+Default path: **LR -> guarded-detail Stage 2 -> Stage 1 decoder**.
+It is deterministic, T4-friendly, and uses tile batch size 1 by default.
 """
         )
         with gr.Row():
@@ -381,7 +522,7 @@ dual-context Stage 2 + 3.02M-parameter detail branch checkpoint.
                 input_image = gr.Image(type="pil", label="Input image")
                 model_preset = gr.Dropdown(
                     choices=list(MODEL_OPTIONS),
-                    value="Recommended quality - Residual Refiner v2",
+                    value="Best T4 default - Stage 2 Guarded Detail v2",
                     label="Model",
                 )
                 input_mode = gr.Radio(
@@ -401,10 +542,15 @@ dual-context Stage 2 + 3.02M-parameter detail branch checkpoint.
                     value="Bicubic x4",
                     label="Slider left side",
                 )
+                tta_mode = gr.Dropdown(
+                    choices=list(TTA_OPTIONS),
+                    value="Off",
+                    label="TTA inference",
+                )
                 use_tiling = gr.Checkbox(value=True, label="Tile large LR images")
                 with gr.Row():
                     tile_overlap = gr.Slider(0, 96, value=32, step=8, label="Tile overlap")
-                    tile_batch_size = gr.Slider(1, 16, value=4, step=1, label="Tile batch size")
+                    tile_batch_size = gr.Slider(1, 16, value=1, step=1, label="Tile batch size")
                 steps = gr.Slider(8, 64, value=32, step=4, label="Diffusion steps (ignored by refiner)")
                 seed = gr.Number(value=123, precision=0, label="Seed")
                 run_button = gr.Button("Run x4 SR", variant="primary")
@@ -421,6 +567,7 @@ dual-context Stage 2 + 3.02M-parameter detail branch checkpoint.
                 input_mode,
                 residual_strength,
                 comparison_left,
+                tta_mode,
                 use_tiling,
                 tile_overlap,
                 tile_batch_size,

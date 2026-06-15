@@ -68,7 +68,7 @@ V2 config는 learned mask predictor step `3250`, floor `0.05`, branch step
 `38000`을 함께 로드한다. Run summary의 `detail_mask_step`과
 `detail_mask_floor`로 적용 여부를 확인한다.
 
-public Colab default residual refiner v2:
+conservative Colab option residual refiner v2:
 
 ```bash
 python tools/eval/run_sr_benchmark.py \
@@ -81,6 +81,12 @@ python tools/eval/run_sr_benchmark.py \
 Stage2/base checkpoint 단독 비교:
 
 ```bash
+python tools/eval/run_sr_benchmark.py \
+  --variant stage2_guarded_detail_v2 \
+  --manifest /home/ubuntu/scratch/sr-diffusion/benchmarks/x4_benchmark_manifest.csv \
+  --output-dir /home/ubuntu/scratch/sr-diffusion/benchmark_outputs/stage2_guarded_detail_v2 \
+  --tile-batch-size 1
+
 python tools/eval/run_sr_benchmark.py \
   --variant stage2_base \
   --config configs/latent_pretrain_photo130k_lsdir_dual_bicubic_fidelity_continue.yaml \

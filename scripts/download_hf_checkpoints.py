@@ -150,6 +150,15 @@ STAGE2_PHOTO130K_LSDIR_DUAL_FILES = [
     "samples/stage2_dual_lsdir_photo_v3_noise_mix_best98k_final100k_contact_sheet.png",
 ]
 
+STAGE2_GUARDED_DETAIL_V2_FILES = [
+    "checkpoints/stage1_autoencoder_best_eval_recon.pt",
+    "checkpoints/stage2_photo130k_lsdir_dual_detail_guarded_v2_best10000.pt",
+    "configs/autoencoder_photo10k.yaml",
+    "configs/latent_pretrain_photo130k_lsdir_dual_detail_guarded_v2.yaml",
+    "configs/hf/latent_pretrain_photo130k_lsdir_dual_detail_guarded_v2.yaml",
+    "metrics/stage2_photo130k_lsdir_dual_detail_guarded_v2_best10000_summary.json",
+]
+
 DETAIL_BRANCH_V1B_FILES = [
     *STAGE2_PHOTO130K_LSDIR_DUAL_FILES,
     "checkpoints/detail_branch_v1b_aug_photo130k_lsdir_best39500.pt",
@@ -216,6 +225,7 @@ PRESETS = {
     "stage2_multiscale_hqmix": STAGE2_MULTISCALE_HQMIX_FILES,
     "stage2_multiscale_perceptual": STAGE2_MULTISCALE_PERCEPTUAL_FILES,
     "stage2_photo130k_lsdir_dual": STAGE2_PHOTO130K_LSDIR_DUAL_FILES,
+    "stage2_guarded_detail_v2": STAGE2_GUARDED_DETAIL_V2_FILES,
     "detail_branch_v1b": DETAIL_BRANCH_V1B_FILES,
     "detail_branch_v1d": DETAIL_BRANCH_V1D_FILES,
     "detail_branch_v2_masked": DETAIL_BRANCH_V2_MASKED_FILES,
@@ -245,6 +255,7 @@ def parse_args() -> argparse.Namespace:
             "'stage2_multiscale_hqmix' includes the selected multiscale Stage 2 condition checkpoint; "
             "'stage2_multiscale_perceptual' includes the non-promoted VGG continuation step 8000 and comparisons; "
             "'stage2_photo130k_lsdir_dual' includes the completed dual-context LSDIR Stage 2 best98000 checkpoint; "
+            "'stage2_guarded_detail_v2' includes the T4-friendly guarded-detail Stage 2 best10000 checkpoint; "
             "'detail_branch_v1b' includes the earlier high-frequency detail branch best39500 checkpoint; "
             "'detail_branch_v1d' includes the selected 3.02M detail branch best99500 checkpoint and eval artifacts; "
             "'detail_branch_v2_masked' includes the learned-mask-gated research candidate best38000; "

@@ -40,8 +40,15 @@ prototype checkpoints:
 python scripts/download_hf_checkpoints.py
 ```
 
-For the current Colab/default deterministic path, download the residual refiner
-v2 artifacts:
+For the current Colab/default deterministic path, download the guarded-detail
+Stage 2 v2 artifacts:
+
+```bash
+python scripts/download_hf_checkpoints.py --preset stage2_guarded_detail_v2
+```
+
+For the conservative residual-refiner deterministic option, download the
+residual refiner v2 artifacts:
 
 ```bash
 python scripts/download_hf_checkpoints.py --preset residual_refiner_v2
@@ -115,7 +122,17 @@ python tools/infer/infer_detail_branch.py \
 Each preset creates the local `checkpoints/`, `configs/`, `metrics/`, and
 `samples/` files expected by its matching inference or review config.
 
-Run the residual refiner default path:
+Run the current T4-friendly default path:
+
+```bash
+python tools/infer/infer_stage2.py \
+  --config configs/hf/latent_pretrain_photo130k_lsdir_dual_detail_guarded_v2.yaml \
+  --input-lr input.png \
+  --output-dir outputs/stage2_guarded \
+  --tile --tile-overlap 32 --tile-batch-size 1
+```
+
+Run the conservative residual refiner path:
 
 ```bash
 python tools/infer/infer_residual_refiner.py \
@@ -192,6 +209,19 @@ For a dry run:
   --repo-id jwheo/LuSIR \
   --dry-run \
   --artifact configs/latent_pretrain_photo10k.yaml=configs/latent_pretrain_photo10k.yaml
+```
+
+Upload the current T4-friendly guarded-detail Stage 2 default:
+
+```bash
+/home/ubuntu/venvs/cuda132/bin/python scripts/upload_hf_artifact.py \
+  --repo-id jwheo/LuSIR \
+  --repo-type model \
+  --message "Upload guarded-detail Stage2 Colab default" \
+  --artifact checkpoints/stage2_photo130k_lsdir_dual_detail_guarded_v2_best10000.pt=checkpoints/stage2_photo130k_lsdir_dual_detail_guarded_v2_best10000.pt \
+  --artifact configs/latent_pretrain_photo130k_lsdir_dual_detail_guarded_v2.yaml=configs/latent_pretrain_photo130k_lsdir_dual_detail_guarded_v2.yaml \
+  --artifact configs/hf/latent_pretrain_photo130k_lsdir_dual_detail_guarded_v2.yaml=configs/hf/latent_pretrain_photo130k_lsdir_dual_detail_guarded_v2.yaml \
+  --artifact metrics/stage2_photo130k_lsdir_dual_detail_guarded_v2_best10000_summary.json=metrics/stage2_photo130k_lsdir_dual_detail_guarded_v2_best10000_summary.json
 ```
 
 Upload the current best sampled Stage 4 condition-start checkpoint and metrics:
@@ -426,8 +456,9 @@ strict-bicubic five-crop mean PSNR: 31.9513 dB
 ```
 
 The detail branch is available as a selectable Colab WebUI research option with
-single-image and tiled inference. The conservative residual refiner v2 remains
-the public Colab default.
+single-image and tiled inference. The guarded-detail Stage 2 v2 checkpoint is
+the current T4-friendly public Colab default; residual refiner v2 remains the
+conservative deterministic option.
 
 Make the Hub repository public after license files and the model card are in
 place:

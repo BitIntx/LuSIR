@@ -45,6 +45,11 @@ VARIANTS: dict[str, dict[str, Any]] = {
         "config": Path("configs/latent_pretrain_photo130k_lsdir_dual_multiscale_long.yaml"),
         "outputs": ("base",),
     },
+    "stage2_guarded_detail_v2": {
+        "kind": "stage2",
+        "config": Path("configs/hf/latent_pretrain_photo130k_lsdir_dual_detail_guarded_v2.yaml"),
+        "outputs": ("base",),
+    },
     "detail_v1d": {
         "kind": "detail",
         "config": Path("configs/hf/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml"),

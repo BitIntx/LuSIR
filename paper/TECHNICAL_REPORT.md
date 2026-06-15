@@ -35,6 +35,9 @@ The numbered stages describe training order, not a mandatory Stage 1 -> 2 -> 3
 
 ```text
 public Colab default:
+  LR -> guarded-detail Stage 2 v2 step 10000 -> Stage 1 decoder
+
+conservative deterministic option:
   LR -> Stage 2 XL condition encoder -> residual refiner v2 -> Stage 1 decoder
 
 current detail research candidate:
@@ -1104,17 +1107,19 @@ configs/hf/detail_branch_v2_masked_photo130k_lsdir.yaml
 
 ## Next Work
 
-The selected residual refiner remains the public Colab default, while detail
-branch v1d and masked detail branch v2 are selectable single-image/tiled Colab
-research options. The completed perceptual Stage 2 continuation is not promoted.
+The guarded-detail Stage 2 v2 step-10000 checkpoint is now the public Colab
+default because it is the best current T4-friendly deterministic path. Residual
+refiner v2 remains the conservative deterministic option, while detail branch
+v1d and masked detail branch v2 are selectable single-image/tiled Colab research
+options. The completed perceptual Stage 2 continuation is not promoted.
 Candidate next steps are:
 
 - preserve the deterministic base and move from full latent re-prediction to a
   residual/detail correction path that predicts `target_latent - baseline_latent`
   or decoded highpass/detail residual over the existing Stage 2 output;
-- audit Stage 1 decoder-side detail capacity, because Stage 2 improvements can
-  still decode into overly smooth images if the VAE decoder is the limiting
-  reconstruction component;
+- use the completed Stage 1 audit result as a guardrail: the decoder preserves
+  high-frequency detail when fed HR latents, so the next bottleneck to attack is
+  Stage 2 conditional-mean smoothing rather than decoder capacity;
 - select the generative path with LPIPS, DISTS, fixed visual review,
   high-frequency metrics, lowpass drift, and seed diversity instead of PSNR
   alone;

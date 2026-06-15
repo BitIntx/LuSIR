@@ -90,6 +90,9 @@ always executes Stage 1 -> 2 -> 3 -> 4. Current inference paths are:
 
 ```text
 Colab default / public deterministic:
+  LR -> guarded-detail Stage 2 step 10000 -> Stage 1 VAE decoder -> SR
+
+Conservative deterministic option:
   LR -> Stage 2 XL step 72000 -> residual refiner v2 step 39000
      -> Stage 1 VAE decoder -> SR
 
@@ -110,19 +113,21 @@ Stage 4 is a Stage 3-derived replacement checkpoint, not a module applied after
 Stage 3. The planned Stage 5 distillation would replace the slower Stage 3/4
 sampler with a faster one; it would not be appended after Stage 4.
 
-The Colab notebook defaults to the deterministic residual refiner v2 path.
-Users can explicitly select masked detail branch v2, detail branch v1d, or
-Stage 3/4 diffusion comparisons in the notebook, but those are not the
-recommended default. The latest VGG-feature-supervised continuation of
-multiscale Stage 2 step 46000 is complete but not promoted.
+The Colab notebook now defaults to the deterministic guarded-detail Stage 2
+step 10000 path with tile batch size 1, because it is the best current
+T4-friendly checkpoint and does not need the slower diffusion sampler. Users can
+explicitly select residual refiner v2, masked detail branch v2, detail branch
+v1d, or Stage 3/4 diffusion comparisons in the notebook. The latest
+VGG-feature-supervised continuation of multiscale Stage 2 step 46000 is
+complete but not promoted.
 The later dual-context LSDIR Stage 2 run is also complete: step 98000 is the
 cleaner-preset best checkpoint, while step 100000 is slightly safer on strong
 degradations.
 The high-frequency detail branch v1d run is complete. It expands the branch
 from 1.35M to 3.02M parameters, starts from v1c with identity-initialized added
 blocks, and selects step 99500 after exactly three epochs. It is the latest
-preserved public detail artifact, while the public Colab default remains the
-residual refiner v2 path.
+preserved public detail artifact, while the public Colab default is now the
+guarded-detail Stage 2 step 10000 path.
 
 The latest guarded-detail Stage 2 candidate
 `latent_pretrain_photo130k_lsdir_dual_detail_guarded_v2` was continued for
@@ -131,8 +136,9 @@ stable but plateaued; the final step 20000 was not the best detail checkpoint.
 The selected candidate is `best_eval_mean_psnr_detail.pt`, which corresponds to
 step 10000. On the val100 guardrail it reached `24.6296` decoded PSNR,
 `26.5050` mean PSNR, `0.8084` highpass energy ratio, `0.01897` missing energy,
-and the best composite detail score in that run. This checkpoint is a research
-candidate rather than the public Colab default.
+and the best composite detail score in that run. This checkpoint is the current
+T4-friendly Colab default, while residual refiner v2 remains available as a
+more conservative deterministic option.
 
 The formal full-image x4 benchmark is now implemented and complete for DIV2K
 validation, Set5, Set14, and Urban100. Detail v1d improves its frozen
@@ -269,9 +275,9 @@ The bootstrap lowers benchmark batch size automatically on lower-VRAM GPUs, so
 training config uses about 37.8GB at batch 8. The final result includes a
 single `LuSIR score` where the current single-L40S reference is 1000.
 
-## Current Candidate System Requirements
+## Current Default System Requirements
 
-For the guarded-detail Stage 2 candidate above, runtime is the deterministic
+For the guarded-detail Stage 2 default above, runtime is the deterministic
 path:
 
 ```text
@@ -1093,17 +1099,16 @@ Upload only selected checkpoints/configs/metrics, not raw datasets. See
 
 The public Hugging Face prototype can be downloaded and run from a fresh clone.
 The default inference config still points at the smaller 10k Stage 4
-condition-start checkpoint for faster setup. The Colab notebook now also lets
-you select the larger photo100k Stage 4 checkpoints, including the public XL
-edge-loss Stage 4 checkpoint for denoise/sharpening review. The newer gated
-residual diffusion checkpoint is documented as an experiment but not promoted.
-The decoded-detail residual refiner v2 is the current Colab default because it
-beats Stage 2 condition-only across the tested validation presets while keeping
-changes conservative. The notebook now launches a Gradio WebUI: users upload an
-image in the browser, adjust correction strength/tile settings with sliders, and
-compare bicubic or Stage 2 condition against SR with a before/after slider.
-The selected detail branch v1d is available as a deterministic research option
-with single-image and tiled inference; residual refiner v2 remains the default.
+condition-start checkpoint for faster setup. The Colab notebook now defaults to
+the deterministic guarded-detail Stage 2 step 10000 path with tile batch size 1,
+because it runs comfortably on T4 and is the best current lightweight default.
+The WebUI also exposes optional TTA inference (`Horizontal flip x2` and `Full
+x8 self-ensemble`) for slower review. Residual refiner v2 remains available as
+a conservative deterministic option, and the larger photo100k Stage 4
+checkpoints remain available for diffusion comparisons. The notebook launches a
+Gradio WebUI: users upload an image in the browser, adjust TTA/tile/model
+settings with controls, and compare bicubic or Stage 2 condition against SR
+with a before/after slider.
 The completed dual-context LSDIR Stage 2 research checkpoint can be downloaded
 with `python scripts/download_hf_checkpoints.py --preset stage2_photo130k_lsdir_dual`.
 The selected detail branch v1d research checkpoint can be downloaded with
@@ -1155,6 +1160,12 @@ Download the completed dual-context LSDIR Stage 2 artifact set:
 python scripts/download_hf_checkpoints.py --preset stage2_photo130k_lsdir_dual
 ```
 
+Download the current T4-friendly Colab default:
+
+```bash
+python scripts/download_hf_checkpoints.py --preset stage2_guarded_detail_v2
+```
+
 Download the selected detail branch v1d review artifact set:
 
 ```bash
@@ -1174,6 +1185,18 @@ Evaluate the residual refiner on a fixed validation preset:
 python tools/eval/eval_residual_refiner.py \
   --degradation-preset photo_v3_noise_mix \
   --output-dir outputs/eval_residual_refiner_photo_v3
+```
+
+Run the current deterministic Stage 2 default from an LR image:
+
+```bash
+python tools/infer/infer_stage2.py \
+  --config configs/hf/latent_pretrain_photo130k_lsdir_dual_detail_guarded_v2.yaml \
+  --input-lr /path/to/lr.png \
+  --output-dir outputs/stage2_guarded \
+  --tile \
+  --tile-overlap 32 \
+  --tile-batch-size 1
 ```
 
 Run deterministic residual-refiner inference from an LR image:

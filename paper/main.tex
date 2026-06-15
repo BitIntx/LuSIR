@@ -176,6 +176,9 @@ current runtime choices are:
 \begin{Shaded}
 \begin{Highlighting}[]
 \NormalTok{public Colab default:}
+\NormalTok{  LR {-}\textgreater{} guarded{-}detail Stage 2 v2 step 10000 {-}\textgreater{} Stage 1 decoder}
+
+\NormalTok{conservative deterministic option:}
 \NormalTok{  LR {-}\textgreater{} Stage 2 XL condition encoder {-}\textgreater{} residual refiner v2 {-}\textgreater{} Stage 1 decoder}
 
 \NormalTok{current detail research candidate:}
@@ -1580,8 +1583,10 @@ Hugging Face:
 \hypertarget{next-work}{%
 \section{Next Work}\label{next-work}}
 
-The selected residual refiner remains the public Colab default, while
-detail branch v1d and masked detail branch v2 are selectable
+The guarded-detail Stage 2 v2 step-10000 checkpoint is now the public
+Colab default because it is the best current T4-friendly deterministic
+path. Residual refiner v2 remains the conservative deterministic option,
+while detail branch v1d and masked detail branch v2 are selectable
 single-image/tiled Colab research options. The completed perceptual
 Stage 2 continuation is not promoted. Candidate next steps are:
 
@@ -1593,9 +1598,10 @@ Stage 2 continuation is not promoted. Candidate next steps are:
   \texttt{target\_latent\ -\ baseline\_latent} or decoded
   highpass/detail residual over the existing Stage 2 output;
 \item
-  audit Stage 1 decoder-side detail capacity, because Stage 2
-  improvements can still decode into overly smooth images if the VAE
-  decoder is the limiting reconstruction component;
+  use the completed Stage 1 audit result as a guardrail: the decoder
+  preserves high-frequency detail when fed HR latents, so the next
+  bottleneck to attack is Stage 2 conditional-mean smoothing rather than
+  decoder capacity;
 \item
   select the generative path with LPIPS, DISTS, fixed visual review,
   high-frequency metrics, lowpass drift, and seed diversity instead of

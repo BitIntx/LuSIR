@@ -31,7 +31,9 @@ generative:
   학습한 대체 diffusion checkpoint다.
 - Stage 5 few-step distillation도 구현되면 Stage 3/4 sampling을 더 짧은
   sampler로 대체하는 단계이지, 뒤에 추가되는 직렬 모듈이 아니다.
-- 현재 사용자용 public deterministic 기본값은 residual refiner v2이다.
+- 현재 사용자용 public deterministic 기본값은 T4-friendly guarded-detail Stage2
+  v2 step `10000`이다. residual refiner v2는 conservative deterministic 옵션으로
+  남겨둔다.
 - 기준 deterministic condition 후보는 multiscale Stage 2 step `46000`이고,
   최신 보존 연구 후보는 dual-context LSDIR Stage 2 step `98000`이다.
 - 최신 public detail artifact는 v1d step `99500`이다. 3.02M branch를
@@ -40,8 +42,9 @@ generative:
   같은 val100에서 frozen base 대비 PSNR `+0.18177 dB`, mean PSNR
   `+0.20432 dB`, SSIM `+0.00755`, wins `100/100`이다. v1d보다 수치는
   소폭 좋아졌지만 시각적으로 거의 구분되지 않아 public 기본값으로 승격하지 않았다.
-- public Colab 기본값은 아직 residual refiner v2다. detail branch v1d와 masked
-  v2는 단일 이미지/tiled inference 연구 옵션으로 선택 가능하다.
+- public Colab 기본값은 guarded-detail Stage2 v2 step `10000`이다. detail branch
+  v1d, masked v2, residual refiner v2는 단일 이미지/tiled inference 옵션으로
+  선택 가능하다.
 - 새 NVIDIA GPU VM 재현을 위한 최소 Docker 구성이 추가됐다. `Dockerfile`,
   `.dockerignore`, `scripts/docker_lusir.sh`, `docs/DOCKER_KO.md`를 사용한다.
   dataset/checkpoint/output은 image에 넣지 않고 호스트 scratch를 mount한다.
@@ -694,10 +697,11 @@ Stage 4 XL config: configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
 - fixed sample image logging: LR / GT / Pred.
 - sampled validation/eval tooling.
 - HF artifact upload/download scripts.
-- Colab demo: Gradio WebUI 기반. 유저 업로드가 기본이고, correction strength,
-  tile overlap, tile batch size, diffusion steps를 slider로 조정한다. 출력은
-  bicubic/Stage 2 condition/Input LR nearest 중 하나와 SR output을 before/after
-  slider로 비교한다. detail branch v1d도 연구 옵션으로 선택 가능하다.
+- Colab demo: Gradio WebUI 기반. 유저 업로드가 기본이고, model, TTA inference,
+  correction strength, tile overlap, tile batch size, diffusion steps를 조정한다.
+  기본 model은 guarded-detail Stage2 v2 step `10000`, tile batch size 기본값은
+  `1`이다. 출력은 bicubic/Stage 2 condition/Input LR nearest 중 하나와 SR
+  output을 before/after slider로 비교한다.
 - tiled inference:
   - `--tile`
   - 128x128 LR tiles
@@ -1103,9 +1107,9 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
    결합하는 two-head 구조를 우선 검토한다.
 4. clean-fidelity gap 개선은 별도 Stage2/base 구조 연구로 유지하고,
    생성형 detail 목표와 섞지 않는다.
-5. public Colab 기본 경로는 residual refiner v2를 유지한다. detail branch v1d는
-   단일 이미지/tiled inference와 WebUI 옵션으로 이미 노출했으며, 기본값 승격은
-   real-degradation 및 human review 이후에 판단한다.
+5. public Colab 기본 경로는 guarded-detail Stage2 v2 step10000으로 변경했다.
+   tile batch size 기본값은 T4 안정성을 위해 `1`이다. residual refiner v2,
+   detail branch v1d, masked v2는 WebUI 옵션으로 유지한다.
 6. `detail-need mask` GT target/proxy/진단 metric 구현과 photo-detail val100
    진단은 완료됐다. GT target 상위 20%는 missing-detail `0.4878`을 포착하고
    밀도는 `2.4389x`다. 최고 observable proxy는 highpass disagreement이며
@@ -1116,7 +1120,8 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
    wins `100/100`이지만 시각적으로 v1d와 거의 같고 step50000까지 plateau했다.
 8. masked v2 추론/benchmark 재현 경로와 HF preset은 추가됐다. formal
    clean-bicubic benchmark와 real-degradation 고정 visual set 결과를 확인한 뒤
-   연구 옵션 유지 여부만 결정한다. public 기본값은 바꾸지 않는다.
+   연구 옵션 유지 여부만 결정한다. public 기본값은 guarded-detail Stage2 v2로
+   이동했으며, masked v2는 아직 연구 옵션으로 유지한다.
 9. 다음 detail 실험은 같은 objective continuation이 아니라 frozen fidelity base와
    learned mask 위에 작은 bounded patch perceptual/adversarial head를 붙인다.
    lowpass drift, PSNR, strong-input artifact, blind visual review를 guardrail로 둔다.
@@ -1134,8 +1139,9 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
     128x128 LR tile 기준 `tile_batch=1` reserved `1.03GB`,
     `tile_batch=4` reserved `3.28GB`, `tile_batch=8` reserved `6.25GB`다.
     따라서 이 후보의 deterministic Stage2->Stage1 추론은 8GB GPU에서도
-    tile batch 1로 가능하고, 12-16GB GPU면 여유롭다. 장기 Stage2 학습은 여전히
-    L40S 48GB급을 권장한다.
+    tile batch 1로 가능하고, 12-16GB GPU면 여유롭다. 이 후보를 Colab 기본값으로
+    승격했고, WebUI에 TTA inference 옵션(`Horizontal flip x2`, `Full x8`)을
+    추가했다. 장기 Stage2 학습은 여전히 L40S 48GB급을 권장한다.
 
 ## 새 VM에서 Codex에게 줄 짧은 프롬프트
 
@@ -1143,7 +1149,9 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
 이 repo는 LuSIR, 즉 /home/.../sr-diffusion 의 x4 latent diffusion SR 프로젝트다.
 docs/HANDOFF_KO.md 와 docs/VM_RECOVERY_KO.md 를 먼저 읽고 이어서 작업해줘.
 Stage 번호는 학습 순서이며 추론 직렬 경로가 아니다. Colab 기본은
-LR -> Stage2 XL step72000 -> residual refiner v2 step39000 -> Stage1 decoder다.
+LR -> guarded-detail Stage2 v2 step10000 -> Stage1 decoder다. tile batch size
+기본값은 1이고, TTA inference 옵션이 있다. residual refiner v2는 conservative
+옵션으로 남아 있다.
 multiscale Stage2 step46000에서 시작한 VGG perceptual continuation은 12000
 step에서 완료됐고 시각적 detail 개선이 없어 승격하지 않았다. 이후 LSDIR
 고유 이미지 30000장과 zero-init 두 번째 context branch를 추가한 119.24M
@@ -1172,10 +1180,10 @@ patch-level perceptual/adversarial supervision을 결합하는 two-head 구조�
 우선 검토한다. 상세 결과는 docs/HIGH_FREQUENCY_RESIDUAL_DIFFUSION_KO.md와
 metrics/wavelet_residual_diffusion_v2_long_final_summary.json에 있다.
 detail branch v1d와 masked v2는 Colab WebUI에서 단일 이미지/tiled inference
-연구 옵션으로 선택 가능하지만, public 기본값은 residual refiner v2를 유지한다.
+연구 옵션으로 선택 가능하다. public 기본값은 guarded-detail Stage2 v2 step10000이다.
 masked v2는 step38000을 선택했고 ordinary val100에서 v1d보다 소폭 개선했지만
 고정 grid가 거의 같아 missing texture 문제를 해결한 것으로 보지 않는다.
 Colab demo는 notebooks/sr_diffusion_colab_demo.ipynb 에서 Gradio WebUI로 실행되며,
-업로드/slider 조정/before-after 비교 slider를 제공한다.
+업로드/model 선택/TTA/tile 설정/before-after 비교 slider를 제공한다.
 상업적 이용은 금지이고, raw dataset은 GitHub/HF에 올리지 않는다.
 ```
