@@ -96,18 +96,27 @@ generative:
   decoded PSNR `24.60-24.63`, detail ratio `0.315-0.343` 범위에서 정체했다.
   코드 점검 결과 v2는 이름과 달리 기존 dual-context의 `extra_context` branch가
   꺼진 상태였으므로 attention 자체의 최종 판단으로 쓰지 않는다.
-- 현재 active 구조 테스트는 Stage2 v3 true-dual shifted-window attention이다.
-  config는 `configs/latent_pretrain_photo130k_lsdir_dual_attention_v3_probe.yaml`,
+- Stage2 v3 true-dual shifted-window attention `8x8` probe도 step `6000`까지
+  확인했다. decoded PSNR은 `24.60-24.63`, detail ratio는 `0.315-0.343`
+  범위였고 step `6000`은 decoded PSNR `24.62`, detail ratio `0.329`,
+  psnr_detail_score `24.951`이었다. true-dual 구조 정정은 유효했지만
+  `8x8` attention은 baseline을 의미 있게 넘지 못해 중단했다.
+- 현재 active 구조 테스트는 Stage2 v3 true-dual shifted-window attention
+  `12x12` window probe다.
   init은 dual step98000 partial load다. v3는
   `trunk -> context -> extra_context -> attention -> output` 순서로 기존
   dual-context feature를 보존한 뒤 attention residual을 붙인다.
-  partial init은 `119.238M / 123.449M = 96.59%`, 새 attention params는
-  `4.210M`이다. optimizer는 default `5e-6`, attention `2e-5` param group과
+  active config는
+  `configs/latent_pretrain_photo130k_lsdir_dual_attention_v3_w12_probe.yaml`이며
+  partial init은 `119.238M / 124.247M = 95.97%`, 새 attention params는
+  `5.009M`이다. optimizer는 default `5e-6`, attention `2e-5` param group과
   `warmup_cosine(warmup_updates=50, min_lr_ratio=0.2)`를 사용한다.
-  active run은 tmux `stage2-attn-v3`, W&B
-  <https://wandb.ai/jwheo/LuSIR/runs/cx85a1ce>. step `500` eval은 decoded PSNR
-  `24.61`, detail ratio `0.316`으로 baseline 근처이며, step `1000-3000`
-  구간에서 돌파 여부를 판단한다.
+  active run은 tmux `stage2-attn-v3-w12`, W&B
+  <https://wandb.ai/jwheo/LuSIR/runs/xg0358xl>. 초기 속도는 약 `1.83`
+  micro-step/s, VRAM은 약 `31.5 / 46.1 GB`다. step `500` first eval은
+  decoded PSNR `24.61`, detail ratio `0.316`, psnr_detail_score `24.928`로
+  fidelity 붕괴 없이 baseline 근처에서 출발했다. step `1000-3000` 구간에서
+  window 확대 효과를 판단한다.
 
 ### 최신 완료 detail v1d와 strict-bicubic 진단
 

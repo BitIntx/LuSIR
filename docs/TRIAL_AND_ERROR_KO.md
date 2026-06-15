@@ -1956,6 +1956,58 @@ log: /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual
   dual-context step98000 baseline `24.6197 / 0.3123`과 거의 같은 출발점이므로
   새 attention branch가 초반부터 fidelity를 망가뜨리지는 않았다.
 
+중간 판정:
+
+- v3 `8x8` window는 step `6000`까지 확인하고 중단했다.
+- eval 추세는 decoded PSNR `24.60-24.63`, detail ratio `0.315-0.343` 범위였다.
+- best decoded PSNR은 step `2500`/`5500`의 `24.63`, best psnr_detail_score는
+  step `3000`의 `24.953`이다.
+- step `6000`은 decoded PSNR `24.62`, detail ratio `0.329`,
+  psnr_detail_score `24.951`이었다.
+- 결론: true-dual 구조로 바로잡은 것은 맞지만 `8x8` local attention은
+  dual-context baseline을 의미 있게 넘지 못했다. broader window가 필요한지
+  확인하기 위해 `12x12` window probe로 전환한다.
+
+### 2026-06-15 Stage2 v3 true-dual shifted-window attention w12 시작
+
+`8x8`이 baseline 주변에서 정체했으므로 attention window를 `12x12`로 키운
+중간 probe를 시작했다. `16x16`은 attention 비용이 약 4배 커지는 반면,
+`12x12`는 128 feature map을 132로 padding하고 window 수가 `11x11`이 되어
+attention 비용이 `8x8` 대비 대략 2.4배 커진다. 전체 모델 비용은 attention만이
+아니므로 실제 step 속도 하락은 더 작다.
+
+설정:
+
+```text
+config: configs/latent_pretrain_photo130k_lsdir_dual_attention_v3_w12_probe.yaml
+init: checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt
+partial init: matched_params 119.238M / 124.247M = 95.97%
+new attention params: 5.009M
+attention_window_size: 12
+batch / grad accum: 4 / 8
+max steps: 12000 micro-steps
+scheduler: warmup_cosine, warmup_updates=50, min_lr_ratio=0.2
+```
+
+active run:
+
+```text
+tmux: stage2-attn-v3-w12
+wandb: https://wandb.ai/jwheo/LuSIR/runs/xg0358xl
+log: /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_attention_v3_w12_probe/train_console.log
+```
+
+초기 확인:
+
+- trainer smoke 2 step 통과.
+- GPU: L40S util `100%`, VRAM 약 `31.5 / 46.1 GB`.
+- 초기 안정 속도: 약 `1.83` micro-step/s. `8x8`의 `1.97-1.98`보다 약간 느리지만
+  병목 없이 돈다.
+- step `500` first eval은 decoded PSNR `24.61`, detail ratio `0.316`,
+  psnr_detail_score `24.928`이다. `8x8`과 마찬가지로 fidelity 붕괴 없이
+  baseline 근처에서 출발했다. 실제 window 확대 효과는 step `1000-3000`
+  구간에서 본다.
+
 성공 기준:
 
 - 초기 500-2000 step에서 dual step98000 근처의 decoded PSNR을 유지해야 한다.
