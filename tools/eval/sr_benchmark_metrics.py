@@ -105,6 +105,7 @@ def benchmark_metrics(
     target: np.ndarray,
     border: int,
     *,
+    include_ssim: bool = True,
     include_rgb_ssim: bool = False,
 ) -> dict[str, float]:
     prediction = crop_border(prediction, border)
@@ -113,10 +114,13 @@ def benchmark_metrics(
     target_y = rgb_to_y(target)
     metrics = {
         "y_psnr": psnr(pred_y, target_y),
-        "y_ssim": ssim(pred_y, target_y),
         "rgb_psnr": psnr(prediction, target),
     }
+    if include_ssim:
+        metrics["y_ssim"] = ssim(pred_y, target_y)
     if include_rgb_ssim:
+        if not include_ssim:
+            raise ValueError("include_rgb_ssim requires include_ssim=True")
         metrics["rgb_ssim"] = ssim(prediction, target)
     return metrics
 

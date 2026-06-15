@@ -1,0 +1,224 @@
+{
+  "candidates": {
+    "bicubic": {
+      "by_dataset": {
+        "DIV2K": {
+          "count": 100,
+          "mean_rgb_psnr": 26.682888905924038,
+          "mean_y_psnr": 28.104447077829068
+        },
+        "Set14": {
+          "count": 14,
+          "mean_rgb_psnr": 24.466428790177485,
+          "mean_y_psnr": 26.092754727832787
+        },
+        "Set5": {
+          "count": 5,
+          "mean_rgb_psnr": 26.695956233017256,
+          "mean_y_psnr": 28.43175355184288
+        },
+        "Urban100": {
+          "count": 100,
+          "mean_rgb_psnr": 21.70767561927902,
+          "mean_y_psnr": 23.141237611962925
+        }
+      },
+      "count": 219,
+      "mean_rgb_psnr": 24.269708843597616,
+      "mean_y_psnr": 25.71701279875833
+    },
+    "detail_v2_masked": {
+      "by_dataset": {
+        "DIV2K": {
+          "count": 100,
+          "mean_rgb_psnr": 28.67677783304469,
+          "mean_y_psnr": 30.16360463166611
+        },
+        "Set14": {
+          "count": 14,
+          "mean_rgb_psnr": 26.617468839090698,
+          "mean_y_psnr": 28.42572631880612
+        },
+        "Set5": {
+          "count": 5,
+          "mean_rgb_psnr": 29.99230257224024,
+          "mean_y_psnr": 31.949452840270435
+        },
+        "Urban100": {
+          "count": 100,
+          "mean_rgb_psnr": 24.372324460099083,
+          "mean_y_psnr": 25.892227513799085
+        }
+      },
+      "count": 219,
+      "mean_rgb_psnr": 26.609663497364608,
+      "mean_rgb_psnr_delta_vs_bicubic": 2.3399546537669944,
+      "mean_y_psnr": 28.142879667630854,
+      "mean_y_psnr_delta_vs_bicubic": 2.425866868872532,
+      "wins_rgb_psnr_vs_bicubic": 219,
+      "wins_y_psnr_vs_bicubic": 219
+    },
+    "realesrgan": {
+      "by_dataset": {
+        "DIV2K": {
+          "count": 100,
+          "mean_rgb_psnr": 24.805532115038776,
+          "mean_y_psnr": 26.612506801262434
+        },
+        "Set14": {
+          "count": 14,
+          "mean_rgb_psnr": 23.404741901119298,
+          "mean_y_psnr": 25.421623232590147
+        },
+        "Set5": {
+          "count": 5,
+          "mean_rgb_psnr": 24.34050285293331,
+          "mean_y_psnr": 26.615988843119766
+        },
+        "Urban100": {
+          "count": 100,
+          "mean_rgb_psnr": 21.056740925089834,
+          "mean_y_psnr": 22.6708807768498
+        }
+      },
+      "count": 219,
+      "mean_rgb_psnr": 22.993589976681267,
+      "mean_rgb_psnr_delta_vs_bicubic": -1.2761188669163448,
+      "mean_y_psnr": 24.73662752184056,
+      "mean_y_psnr_delta_vs_bicubic": -0.9803852769177576,
+      "wins_rgb_psnr_vs_bicubic": 37,
+      "wins_y_psnr_vs_bicubic": 53
+    },
+    "refiner_v2": {
+      "by_dataset": {
+        "DIV2K": {
+          "count": 100,
+          "mean_rgb_psnr": 27.274576987315417,
+          "mean_y_psnr": 28.78568137170573
+        },
+        "Set14": {
+          "count": 14,
+          "mean_rgb_psnr": 25.56268618746645,
+          "mean_y_psnr": 27.37035532201723
+        },
+        "Set5": {
+          "count": 5,
+          "mean_rgb_psnr": 25.98668257562813,
+          "mean_y_psnr": 28.189611716427613
+        },
+        "Urban100": {
+          "count": 100,
+          "mean_rgb_psnr": 23.42439606804979,
+          "mean_y_psnr": 24.917615193631505
+        }
+      },
+      "count": 219,
+      "mean_rgb_psnr": 25.377663584653842,
+      "mean_rgb_psnr_delta_vs_bicubic": 1.1079547410562318,
+      "mean_y_psnr": 26.915354747142025,
+      "mean_y_psnr_delta_vs_bicubic": 1.1983419483836983,
+      "wins_rgb_psnr_vs_bicubic": 204,
+      "wins_y_psnr_vs_bicubic": 206
+    },
+    "stage2_guarded_hflip": {
+      "by_dataset": {
+        "DIV2K": {
+          "count": 100,
+          "mean_rgb_psnr": 28.520575180544842,
+          "mean_y_psnr": 30.002072442761673
+        },
+        "Set14": {
+          "count": 14,
+          "mean_rgb_psnr": 26.47022340003136,
+          "mean_y_psnr": 28.28304519962763
+        },
+        "Set5": {
+          "count": 5,
+          "mean_rgb_psnr": 29.903905354915015,
+          "mean_y_psnr": 31.847788733582867
+        },
+        "Urban100": {
+          "count": 100,
+          "mean_rgb_psnr": 24.055473981101777,
+          "mean_y_psnr": 25.561635572024485
+        }
+      },
+      "count": 219,
+      "mean_rgb_psnr": 26.38222634949624,
+      "mean_rgb_psnr_delta_vs_bicubic": 2.1125175058986247,
+      "mean_y_psnr": 27.90672318694665,
+      "mean_y_psnr_delta_vs_bicubic": 2.1897103881883293,
+      "wins_rgb_psnr_vs_bicubic": 219,
+      "wins_y_psnr_vs_bicubic": 219
+    },
+    "stage2_guarded_off": {
+      "by_dataset": {
+        "DIV2K": {
+          "count": 100,
+          "mean_rgb_psnr": 28.46287927375956,
+          "mean_y_psnr": 29.948261293939805
+        },
+        "Set14": {
+          "count": 14,
+          "mean_rgb_psnr": 26.434443380652574,
+          "mean_y_psnr": 28.248197479281583
+        },
+        "Set5": {
+          "count": 5,
+          "mean_rgb_psnr": 29.74477088001877,
+          "mean_y_psnr": 31.698004828201938
+        },
+        "Urban100": {
+          "count": 100,
+          "mean_rgb_psnr": 24.0037136274511,
+          "mean_y_psnr": 25.51219923985685
+        }
+      },
+      "count": 219,
+      "mean_rgb_psnr": 26.3263258075356,
+      "mean_rgb_psnr_delta_vs_bicubic": 2.056616963937988,
+      "mean_y_psnr": 27.853930786441175,
+      "mean_y_psnr_delta_vs_bicubic": 2.136917987682854,
+      "wins_rgb_psnr_vs_bicubic": 219,
+      "wins_y_psnr_vs_bicubic": 219
+    },
+    "stage2_guarded_x8": {
+      "by_dataset": {
+        "DIV2K": {
+          "count": 100,
+          "mean_rgb_psnr": 28.578056927858924,
+          "mean_y_psnr": 30.052148974968812
+        },
+        "Set14": {
+          "count": 14,
+          "mean_rgb_psnr": 26.514850920850787,
+          "mean_y_psnr": 28.324351825533967
+        },
+        "Set5": {
+          "count": 5,
+          "mean_rgb_psnr": 29.974417182882302,
+          "mean_y_psnr": 31.909465413483076
+        },
+        "Urban100": {
+          "count": 100,
+          "mean_rgb_psnr": 24.093472054521634,
+          "mean_y_psnr": 25.596485997866363
+        }
+      },
+      "count": 219,
+      "mean_rgb_psnr": 26.43028720111589,
+      "mean_rgb_psnr_delta_vs_bicubic": 2.1605783575182747,
+      "mean_y_psnr": 27.949551369444787,
+      "mean_y_psnr_delta_vs_bicubic": 2.2325385706864656,
+      "wins_rgb_psnr_vs_bicubic": 219,
+      "wins_y_psnr_vs_bicubic": 219
+    }
+  },
+  "crop_border": 4,
+  "include_rgb_ssim": false,
+  "include_ssim": false,
+  "manifest": "/home/ubuntu/scratch/sr-diffusion/benchmarks/x4_benchmark_manifest.csv",
+  "num_images": 219,
+  "protocol": "official x4 LR pairs; MATLAB BT.601 Y; scale-pixel shave; MATLAB-style SSIM when enabled",
+  "workers": 4
+}

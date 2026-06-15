@@ -88,6 +88,13 @@ python tools/eval/run_sr_benchmark.py \
   --tile-batch-size 1
 
 python tools/eval/run_sr_benchmark.py \
+  --variant stage2_guarded_detail_v2 \
+  --manifest /home/ubuntu/scratch/sr-diffusion/benchmarks/x4_benchmark_manifest.csv \
+  --output-dir /home/ubuntu/scratch/sr-diffusion/benchmark_outputs/stage2_guarded_detail_v2_tta_x8 \
+  --tile-batch-size 1 \
+  --tta x8
+
+python tools/eval/run_sr_benchmark.py \
   --variant stage2_base \
   --config configs/latent_pretrain_photo130k_lsdir_dual_bicubic_fidelity_continue.yaml \
   --checkpoint /path/to/stage2_checkpoint.pt \
@@ -111,6 +118,8 @@ python tools/eval/eval_sr_benchmark.py \
 
 Evaluator는 MATLAB-compatible bicubic baseline도 같은 manifest LR에서 생성한다.
 출력은 `metrics.csv`, `summary.json`, `contact_sheet.jpg`다.
+후보가 많아서 빠른 PSNR sweep만 필요할 때는 `--skip-ssim`을 추가한다. 이 경우
+`summary.json`에 `include_ssim: false`가 기록된다.
 
 ## Real-ESRGAN Baselines
 
@@ -185,6 +194,49 @@ metrics/formal_x4_benchmark_div2k_swinir_summary.json
 metrics/formal_x4_benchmark_div2k_swinir_metrics.csv
 metrics/formal_x4_benchmark_detail_v2_masked_summary.json
 metrics/formal_x4_benchmark_detail_v2_masked_metrics.csv
+```
+
+## 2026-06-15 Guarded Stage2 TTA Sweep
+
+Colab default인 guarded-detail Stage2 v2 step10000에 대해 같은 219개 full image에서
+`off`, horizontal flip x2, full x8 self-ensemble을 비교했다. 이 sweep은 빠른
+전체 후보 비교를 위해 `--skip-ssim`으로 계산했으므로 Y/RGB PSNR만 기록한다.
+
+| Candidate | Mean Y PSNR | Delta vs bicubic | Mean RGB PSNR | Wins vs bicubic |
+| --- | ---: | ---: | ---: | ---: |
+| Bicubic | `25.7170` | `+0.0000` | `24.2697` | - |
+| RealESRGAN x4plus | `24.7366` | `-0.9804` | `22.9936` | `53/219` |
+| LuSIR residual refiner v2 | `26.9154` | `+1.1983` | `25.3777` | `206/219` |
+| LuSIR guarded Stage2 off | `27.8539` | `+2.1369` | `26.3263` | `219/219` |
+| LuSIR guarded Stage2 hflip x2 | `27.9067` | `+2.1897` | `26.3822` | `219/219` |
+| LuSIR guarded Stage2 x8 | `27.9496` | `+2.2325` | `26.4303` | `219/219` |
+| LuSIR masked detail v2 | **`28.1429`** | **`+2.4259`** | **`26.6097`** | `219/219` |
+
+Dataset별 Y PSNR:
+
+| Candidate | DIV2K | Set5 | Set14 | Urban100 |
+| --- | ---: | ---: | ---: | ---: |
+| Guarded off | `29.9483` | `31.6980` | `28.2482` | `25.5122` |
+| Guarded hflip x2 | `30.0021` | `31.8478` | `28.2830` | `25.5616` |
+| Guarded x8 | `30.0521` | `31.9095` | `28.3244` | `25.5965` |
+| Masked detail v2 | **`30.1636`** | **`31.9495`** | **`28.4257`** | **`25.8922`** |
+
+판정:
+
+- TTA는 deterministic Stage2 output을 안정화해 PSNR을 올린다. x8은 off 대비
+  평균 Y PSNR `+0.0957 dB`, hflip x2 대비 `+0.0428 dB`다.
+- 하지만 contact sheet에서 visible detail 차이는 작고, x8은 219장 평균
+  `3.84s/image`로 off의 `0.47s/image`보다 약 8배 느리다. 사용자 기본값은
+  여전히 `Off`가 합리적이며, x8은 느린 비교/리뷰 옵션으로 유지한다.
+- masked detail v2가 PSNR상으로는 guarded Stage2 x8보다 `+0.1933 dB` 높다.
+  다음 연구는 TTA 확대보다 detail branch/generator가 실제 texture를 만들도록
+  supervision을 바꾸는 쪽이 우선이다.
+
+Machine-readable results:
+
+```text
+metrics/formal_x4_benchmark_stage2_guarded_tta_compare_summary.json
+metrics/formal_x4_benchmark_stage2_guarded_tta_compare_metrics.csv
 ```
 
 SwinIR output은 외부 official repository에서 생성한 뒤 같은 evaluator에

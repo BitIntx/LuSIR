@@ -186,6 +186,16 @@ so their clean-bicubic fidelity scores do not establish a general visual
 quality ranking. Likewise, beating these checkpoints under this protocol does
 not establish classical-SR SOTA. A classical fidelity baseline, perceptual
 metrics, real-degradation evaluation, and blind human review remain necessary.
+
+The guarded-detail Stage 2 v2 step-10000 Colab default was also evaluated with
+test-time augmentation on the same 219-image benchmark using a fast PSNR-only
+sweep. Off, horizontal flip x2, and full x8 self-ensemble reach `27.8539`,
+`27.9067`, and `27.9496 dB` mean Y PSNR. Full x8 is therefore a real but small
+`+0.0957 dB` correction over off. The visual contact sheet shows only subtle
+differences and the x8 path costs roughly eight times more inference, so TTA
+is retained as an optional review setting rather than a new default. Masked
+detail v2 remains higher at `28.1429 dB` in the same PSNR-only comparison.
+
 The reproducible protocol and commands are in `docs/SR_BENCHMARK.md`; full
 machine-readable results are in:
 
@@ -198,6 +208,8 @@ metrics/formal_x4_benchmark_detail_v2_masked_summary.json
 metrics/formal_x4_benchmark_detail_v2_masked_metrics.csv
 metrics/formal_x4_benchmark_stage2_detail_perceptual_v1_summary.json
 metrics/formal_x4_benchmark_stage2_detail_perceptual_v1_metrics.csv
+metrics/formal_x4_benchmark_stage2_guarded_tta_compare_summary.json
+metrics/formal_x4_benchmark_stage2_guarded_tta_compare_metrics.csv
 ```
 
 ## Stage 2 Clean-Fidelity Continuation and Learning-Rate Probes
@@ -1126,6 +1138,9 @@ Candidate next steps are:
 - keep Stage 2/base architecture research separate from the generative detail
   objective, but do not continue the shifted-window attention/window-scaling
   branch without a new supervision signal;
+- do not spend the next iteration on larger TTA: full x8 improves guarded
+  Stage 2 by only `+0.0957 dB` mean Y PSNR while preserving the same visibly
+  conservative texture character;
 - because v1d remains visually conservative and noise-MSE residual diffusion
   collapses toward zero, prioritize patch-level perceptual or adversarial
   supervision instead of increasing branch capacity again;

@@ -2179,3 +2179,27 @@ reconstruct한 결과와, Stage2 dual-context best98000의 decoded base를 비�
   - `tile_batch=8`: allocated `4.21GB`, reserved `6.25GB`
 - 추론은 8GB GPU에서도 tile batch 1이면 가능하고, 12-16GB GPU면 여유롭다.
   장기 Stage2 학습은 기존처럼 48GB GPU class가 현실적이다.
+
+### 2026-06-15 guarded Stage2 TTA formal sweep
+
+Colab 기본값인 guarded-detail Stage2 v2 step10000에 `--tta off`, `hflip`,
+`x8`을 추가하고, 같은 219장 full-image benchmark에서 빠른 PSNR-only 평가를
+돌렸다. evaluator에는 많은 후보를 빠르게 훑기 위한 `--skip-ssim` 옵션도
+추가했다. 기본 SSIM 포함 동작은 유지된다.
+
+| candidate | mean Y PSNR | delta vs bicubic | mean RGB PSNR |
+| --- | ---: | ---: | ---: |
+| guarded off | `27.8539` | `+2.1369` | `26.3263` |
+| guarded hflip x2 | `27.9067` | `+2.1897` | `26.3822` |
+| guarded x8 | `27.9496` | `+2.2325` | `26.4303` |
+| masked detail v2 | `28.1429` | `+2.4259` | `26.6097` |
+
+판정:
+
+- x8은 off 대비 평균 Y PSNR `+0.0957 dB`로 실제 수치 이득은 있다.
+- 하지만 contact sheet에서 시각 차이는 작고, 평균 runtime은 off `0.47s/image`,
+  hflip `0.97s/image`, x8 `3.84s/image`로 거의 TTA 배수만큼 증가한다.
+- TTA는 안정화 옵션이지 missing texture 돌파구가 아니다. 기본값은 `Off` 유지,
+  Colab에서는 느린 리뷰 옵션으로만 노출한다.
+- 다음 연구 우선순위는 TTA 확대가 아니라 masked/detail branch 또는 별도
+  generator가 실제 texture를 만들도록 supervision을 바꾸는 것이다.

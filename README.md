@@ -154,6 +154,13 @@ on all four datasets, but only modestly: Y PSNR changes by `+0.0034`,
 The overall gain is `+0.0114 dB` Y PSNR and `+0.00118` Y SSIM. This confirms a
 reproducible correction gain, not a visible fine-texture breakthrough.
 
+The public guarded-detail Stage 2 v2 step10000 Colab default was also swept
+with TTA on the same 219-image protocol using a fast PSNR-only evaluation. Off,
+horizontal flip x2, and full x8 self-ensemble reach `27.8539`, `27.9067`, and
+`27.9496 dB` mean Y PSNR, respectively. Full x8 therefore adds `+0.0957 dB`
+over off, but visible differences are small and runtime is roughly 8x. It
+remains an optional review mode, not the default.
+
 The official SwinIR classical x4 baseline reaches `31.0838 dB` Y PSNR and
 `0.85228` Y SSIM on the same DIV2K validation evaluator, ahead of detail v1d
 by `0.9235 dB` and `0.01807`. This makes the next clean-fidelity priority

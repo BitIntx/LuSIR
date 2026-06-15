@@ -1142,6 +1142,12 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
     tile batch 1로 가능하고, 12-16GB GPU면 여유롭다. 이 후보를 Colab 기본값으로
     승격했고, WebUI에 TTA inference 옵션(`Horizontal flip x2`, `Full x8`)을
     추가했다. 장기 Stage2 학습은 여전히 L40S 48GB급을 권장한다.
+12. guarded-detail Stage2 v2 step10000의 formal 219-image TTA sweep도 완료했다.
+    빠른 PSNR-only 평가(`--skip-ssim`) 기준 off/hflip/x8 mean Y PSNR은
+    `27.8539`/`27.9067`/`27.9496 dB`다. x8은 off 대비 `+0.0957 dB`지만
+    visible 차이는 작고 runtime은 약 8배다. 기본값은 `Off` 유지, x8은 느린
+    리뷰 옵션으로만 본다. masked detail v2는 같은 sweep에서 `28.1429 dB`로
+    더 높다. 다음은 TTA 확대가 아니라 detail supervision/structure 변경이다.
 
 ## 새 VM에서 Codex에게 줄 짧은 프롬프트
 

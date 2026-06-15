@@ -67,6 +67,12 @@ VARIANTS: dict[str, dict[str, Any]] = {
     },
 }
 
+TTA_OPTIONS = {
+    "off": ("identity",),
+    "hflip": ("identity", "hflip"),
+    "x8": ("identity", "hflip", "vflip", "rot180", "rot90", "rot270", "transpose", "transverse"),
+}
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run a deterministic LuSIR path on standard full-image SR benchmarks.")
@@ -83,6 +89,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tile-overlap", type=int, default=32)
     parser.add_argument("--tile-batch-size", type=int, default=4)
     parser.add_argument("--strength", type=float, default=1.0)
+    parser.add_argument("--tta", choices=sorted(TTA_OPTIONS), default="off")
     parser.add_argument("--skip-existing", action=argparse.BooleanOptionalAction, default=True)
     return parser.parse_args()
 
@@ -109,6 +116,46 @@ def normalize_image(x: torch.Tensor) -> torch.Tensor:
 
 def denormalize(x: torch.Tensor) -> torch.Tensor:
     return ((x + 1.0) * 0.5).clamp(0.0, 1.0)
+
+
+def apply_tta_transform(image: Image.Image, transform: str) -> Image.Image:
+    if transform == "identity":
+        return image.copy()
+    if transform == "hflip":
+        return image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+    if transform == "vflip":
+        return image.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+    if transform == "rot180":
+        return image.transpose(Image.Transpose.ROTATE_180)
+    if transform == "rot90":
+        return image.transpose(Image.Transpose.ROTATE_90)
+    if transform == "rot270":
+        return image.transpose(Image.Transpose.ROTATE_270)
+    if transform == "transpose":
+        return image.transpose(Image.Transpose.TRANSPOSE)
+    if transform == "transverse":
+        return image.transpose(Image.Transpose.TRANSVERSE)
+    raise ValueError(f"Unknown TTA transform: {transform}")
+
+
+def invert_tta_transform(image: Image.Image, transform: str) -> Image.Image:
+    if transform == "rot90":
+        return image.transpose(Image.Transpose.ROTATE_270)
+    if transform == "rot270":
+        return image.transpose(Image.Transpose.ROTATE_90)
+    return apply_tta_transform(image, transform)
+
+
+def average_tta_images(images: list[Image.Image]) -> Image.Image:
+    if not images:
+        raise ValueError("TTA requires at least one image")
+    arrays = [np.asarray(image.convert("RGB"), dtype=np.float32) for image in images]
+    reference_shape = arrays[0].shape
+    if any(array.shape != reference_shape for array in arrays):
+        shapes = [array.shape for array in arrays]
+        raise ValueError(f"TTA outputs have mismatched shapes: {shapes}")
+    merged = np.clip(np.round(np.stack(arrays, axis=0).mean(axis=0)), 0, 255).astype(np.uint8)
+    return Image.fromarray(merged, mode="RGB")
 
 
 def resolve_stage2_checkpoint(config: dict[str, Any], requested: Path | None) -> Path:
@@ -242,6 +289,146 @@ def tiled_stage2(
     return float_array_to_pil(image)
 
 
+def run_variant_once(
+    *,
+    kind: str,
+    vae: torch.nn.Module,
+    condition_encoder: torch.nn.Module,
+    model: torch.nn.Module | None,
+    detail_mask_predictor: torch.nn.Module | None,
+    detail_mask_floor: float,
+    lr_image: Image.Image,
+    domain_id: int,
+    scale: int,
+    tile_lr_size: int,
+    overlap_lr: int,
+    tile_batch_size: int,
+    dtype_name: str,
+    device: torch.device,
+    strength: float,
+) -> tuple[Image.Image, ...]:
+    if kind == "stage2":
+        return (
+            tiled_stage2(
+                vae,
+                condition_encoder,
+                lr_image,
+                domain_id,
+                scale=scale,
+                tile_lr_size=tile_lr_size,
+                overlap_lr=overlap_lr,
+                tile_batch_size=tile_batch_size,
+                dtype_name=dtype_name,
+                device=device,
+            ),
+        )
+    if kind == "detail":
+        if model is None:
+            raise ValueError("Detail branch model is not loaded")
+        return tiled_detail(
+            vae,
+            condition_encoder,
+            model,
+            lr_image,
+            domain_id,
+            scale=scale,
+            tile_lr_size=tile_lr_size,
+            overlap_lr=overlap_lr,
+            tile_batch_size=tile_batch_size,
+            dtype_name=dtype_name,
+            device=device,
+            detail_strength=strength,
+            detail_mask_predictor=detail_mask_predictor,
+            detail_mask_floor=detail_mask_floor,
+        )
+    if model is None:
+        raise ValueError("Residual refiner model is not loaded")
+    return tiled_refine(
+        vae,
+        condition_encoder,
+        model,
+        lr_image,
+        domain_id,
+        scale=scale,
+        tile_lr_size=tile_lr_size,
+        overlap_lr=overlap_lr,
+        tile_batch_size=tile_batch_size,
+        dtype_name=dtype_name,
+        device=device,
+        residual_strength=strength,
+    )
+
+
+def run_variant_with_tta(
+    *,
+    kind: str,
+    output_names: tuple[str, ...],
+    tta_mode: str,
+    vae: torch.nn.Module,
+    condition_encoder: torch.nn.Module,
+    model: torch.nn.Module | None,
+    detail_mask_predictor: torch.nn.Module | None,
+    detail_mask_floor: float,
+    lr_image: Image.Image,
+    domain_id: int,
+    scale: int,
+    tile_lr_size: int,
+    overlap_lr: int,
+    tile_batch_size: int,
+    dtype_name: str,
+    device: torch.device,
+    strength: float,
+) -> tuple[Image.Image, ...]:
+    transforms = TTA_OPTIONS[tta_mode]
+    if transforms == ("identity",):
+        return run_variant_once(
+            kind=kind,
+            vae=vae,
+            condition_encoder=condition_encoder,
+            model=model,
+            detail_mask_predictor=detail_mask_predictor,
+            detail_mask_floor=detail_mask_floor,
+            lr_image=lr_image,
+            domain_id=domain_id,
+            scale=scale,
+            tile_lr_size=tile_lr_size,
+            overlap_lr=overlap_lr,
+            tile_batch_size=tile_batch_size,
+            dtype_name=dtype_name,
+            device=device,
+            strength=strength,
+        )
+
+    restored_by_output: list[list[Image.Image]] = [[] for _ in output_names]
+    for transform in transforms:
+        transformed_lr = apply_tta_transform(lr_image, transform)
+        transformed_outputs = run_variant_once(
+            kind=kind,
+            vae=vae,
+            condition_encoder=condition_encoder,
+            model=model,
+            detail_mask_predictor=detail_mask_predictor,
+            detail_mask_floor=detail_mask_floor,
+            lr_image=transformed_lr,
+            domain_id=domain_id,
+            scale=scale,
+            tile_lr_size=tile_lr_size,
+            overlap_lr=overlap_lr,
+            tile_batch_size=tile_batch_size,
+            dtype_name=dtype_name,
+            device=device,
+            strength=strength,
+        )
+        if len(transformed_outputs) != len(output_names):
+            raise ValueError(
+                f"Variant returned {len(transformed_outputs)} outputs; expected {len(output_names)} for {output_names}"
+            )
+        for index, image in enumerate(transformed_outputs):
+            restored_by_output[index].append(invert_tta_transform(image, transform))
+
+    return tuple(average_tta_images(images) for images in restored_by_output)
+
+
 def main() -> None:
     args = parse_args()
     seed_everything(args.seed)
@@ -286,55 +473,25 @@ def main() -> None:
             continue
         lr_image = Image.open(resolve_manifest_path(args.manifest, row["lr_path"])).convert("RGB")
         started = time.perf_counter()
-        if kind == "stage2":
-            results = (
-                tiled_stage2(
-                    vae,
-                    condition_encoder,
-                    lr_image,
-                    domain_id,
-                    scale=scale,
-                    tile_lr_size=tile_lr_size,
-                    overlap_lr=int(args.tile_overlap),
-                    tile_batch_size=int(args.tile_batch_size),
-                    dtype_name=dtype_name,
-                    device=device,
-                ),
-            )
-        elif kind == "detail":
-            assert model is not None
-            results = tiled_detail(
-                vae,
-                condition_encoder,
-                model,
-                lr_image,
-                domain_id,
-                scale=scale,
-                tile_lr_size=tile_lr_size,
-                overlap_lr=int(args.tile_overlap),
-                tile_batch_size=int(args.tile_batch_size),
-                dtype_name=dtype_name,
-                device=device,
-                detail_strength=float(args.strength),
-                detail_mask_predictor=detail_mask_predictor,
-                detail_mask_floor=detail_mask_floor,
-            )
-        else:
-            assert model is not None
-            results = tiled_refine(
-                vae,
-                condition_encoder,
-                model,
-                lr_image,
-                domain_id,
-                scale=scale,
-                tile_lr_size=tile_lr_size,
-                overlap_lr=int(args.tile_overlap),
-                tile_batch_size=int(args.tile_batch_size),
-                dtype_name=dtype_name,
-                device=device,
-                residual_strength=float(args.strength),
-            )
+        results = run_variant_with_tta(
+            kind=kind,
+            output_names=output_names,
+            tta_mode=str(args.tta),
+            vae=vae,
+            condition_encoder=condition_encoder,
+            model=model,
+            detail_mask_predictor=detail_mask_predictor,
+            detail_mask_floor=detail_mask_floor,
+            lr_image=lr_image,
+            domain_id=domain_id,
+            scale=scale,
+            tile_lr_size=tile_lr_size,
+            overlap_lr=int(args.tile_overlap),
+            tile_batch_size=int(args.tile_batch_size),
+            dtype_name=dtype_name,
+            device=device,
+            strength=float(args.strength),
+        )
         elapsed = time.perf_counter() - started
         timings.append(elapsed)
         sample_dir.mkdir(parents=True, exist_ok=True)
@@ -362,6 +519,8 @@ def main() -> None:
         "tile_overlap": int(args.tile_overlap),
         "tile_batch_size": int(args.tile_batch_size),
         "strength": float(args.strength),
+        "tta": str(args.tta),
+        "tta_transforms": list(TTA_OPTIONS[str(args.tta)]),
         "mean_seconds": sum(timings) / len(timings) if timings else None,
         "candidate_patterns": {
             name: str(args.output_dir / "{dataset}" / "{id}" / f"{name}.png") for name in variant["outputs"]

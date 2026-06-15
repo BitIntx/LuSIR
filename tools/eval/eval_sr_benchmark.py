@@ -28,6 +28,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--crop-border", type=int, default=4)
     parser.add_argument("--sheet-count", type=int, default=12)
+    parser.add_argument("--skip-ssim", action="store_true")
     parser.add_argument("--include-rgb-ssim", action="store_true")
     parser.add_argument("--workers", type=int, default=4)
     return parser.parse_args()
@@ -66,6 +67,7 @@ def evaluate_row(
     candidates: list[tuple[str, str]],
     include_bicubic: bool,
     crop_border_value: int,
+    include_ssim: bool,
     include_rgb_ssim: bool,
 ) -> list[dict[str, Any]]:
     target = load_rgb(resolve_path(manifest, row["hr_path"]))
@@ -97,6 +99,7 @@ def evaluate_row(
                     prediction,
                     target,
                     crop_border_value,
+                    include_ssim=include_ssim,
                     include_rgb_ssim=include_rgb_ssim,
                 ),
             }
@@ -196,6 +199,7 @@ def main() -> None:
             candidates,
             bool(args.include_bicubic),
             int(args.crop_border),
+            not bool(args.skip_ssim),
             bool(args.include_rgb_ssim),
         )
         for row in rows
@@ -217,9 +221,10 @@ def main() -> None:
         {
             "manifest": str(args.manifest),
             "crop_border": int(args.crop_border),
+            "include_ssim": not bool(args.skip_ssim),
             "include_rgb_ssim": bool(args.include_rgb_ssim),
             "workers": int(args.workers),
-            "protocol": "official x4 LR pairs; MATLAB BT.601 Y; scale-pixel shave; MATLAB-style SSIM",
+            "protocol": "official x4 LR pairs; MATLAB BT.601 Y; scale-pixel shave; MATLAB-style SSIM when enabled",
         }
     )
     (args.output_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
