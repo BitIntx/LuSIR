@@ -178,6 +178,16 @@ the conditional-mean smoothing problem. The next Stage 2 direction is therefore
 not wider attention windows, but a residual/detail correction path on top of a
 frozen or preserved fidelity base.
 
+A Stage 1 decoder capacity audit was added after the v5 PatchGAN collapse.
+On `photo_detail_mix` val100, HR autoencoding through Stage 1 reaches mean
+PSNR `41.8121`, highpass ratio `0.9965`, and laplacian ratio `0.9553`, while
+the same decoder fed by Stage 2 dual-context best98000 reaches mean PSNR
+`26.4889`, highpass ratio `0.7886`, and laplacian ratio `0.3191`. This points
+to Stage 2 conditional-mean smoothing as the active bottleneck, not Stage 1
+decoder capacity. Stage 2 eval now logs mean per-image PSNR, SSIM, highpass
+ratio, and missing/excess detail energy; the guarded follow-up config is
+`configs/latent_pretrain_photo130k_lsdir_dual_detail_guarded_v2.yaml`.
+
 For the next texture-generator gate, the learned detail mask was stress-tested
 with injected synthetic noise. The original v1 predictor opened the top-10%
 gate on noise patches (`0.4531` coverage), which is useful evidence for

@@ -24,6 +24,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from sr_diffusion.datasets import ManifestImageDataset
+from sr_diffusion.detail_mask import detail_need_components, top_fraction_mask
 from sr_diffusion.losses import FrozenVGGFeatureLoss
 from sr_diffusion.losses.reconstruction import (
     charbonnier_loss,
@@ -140,6 +141,22 @@ def psnr_from_mse(mse: float, peak: float = 2.0) -> float:
     return 20.0 * float(np.log10(peak)) - 10.0 * float(np.log10(max(mse, 1e-12)))
 
 
+def psnr_per_image(prediction: torch.Tensor, target: torch.Tensor, peak: float = 2.0) -> torch.Tensor:
+    mse = (prediction.float() - target.float()).square().flatten(1).mean(dim=1)
+    return 20.0 * math.log10(float(peak)) - 10.0 * torch.log10(mse.clamp_min(1e-12))
+
+
+def metric_highpass(x: torch.Tensor, kernel_size: int = 15) -> torch.Tensor:
+    kernel_size = int(kernel_size)
+    if kernel_size <= 1:
+        return x.float()
+    if kernel_size % 2 == 0:
+        raise ValueError(f"metric highpass kernel must be odd, got {kernel_size}")
+    padding = kernel_size // 2
+    padded = F.pad(x.float(), (padding, padding, padding, padding), mode="reflect")
+    return x.float() - F.avg_pool2d(padded, kernel_size=kernel_size, stride=1)
+
+
 def laplacian_response(x: torch.Tensor) -> torch.Tensor:
     kernel = x.new_tensor(
         [
@@ -153,6 +170,33 @@ def laplacian_response(x: torch.Tensor) -> torch.Tensor:
     weight = kernel.view(1, 1, 3, 3).repeat(channels, 1, 1, 1)
     padded = F.pad(x.float(), (1, 1, 1, 1), mode="reflect")
     return F.conv2d(padded, weight, groups=channels)
+
+
+def ssim_per_image(prediction: torch.Tensor, target: torch.Tensor, kernel_size: int = 11) -> torch.Tensor:
+    prediction = prediction.float()
+    target = target.float()
+    padding = kernel_size // 2
+
+    def local_mean(x: torch.Tensor) -> torch.Tensor:
+        padded = F.pad(x, (padding, padding, padding, padding), mode="reflect")
+        return F.avg_pool2d(padded, kernel_size=kernel_size, stride=1)
+
+    mu_prediction = local_mean(prediction)
+    mu_target = local_mean(target)
+    prediction_variance = local_mean(prediction * prediction) - mu_prediction.pow(2)
+    target_variance = local_mean(target * target) - mu_target.pow(2)
+    covariance = local_mean(prediction * target) - mu_prediction * mu_target
+    c1 = 0.01**2
+    c2 = 0.03**2
+    numerator = (2.0 * mu_prediction * mu_target + c1) * (2.0 * covariance + c2)
+    denominator = (mu_prediction.pow(2) + mu_target.pow(2) + c1) * (
+        prediction_variance + target_variance + c2
+    )
+    return (numerator / denominator.clamp_min(1e-12)).flatten(1).mean(dim=1)
+
+
+def selected_capture(energy: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    return (energy.float() * mask.float()).flatten(1).sum(dim=1) / energy.float().flatten(1).sum(dim=1).clamp_min(1e-12)
 
 
 def compute_stage2_loss(
@@ -538,14 +582,28 @@ def evaluate(
         "latent_loss": 0.0,
         "latent_mse": 0.0,
         "decoded_mse": 0.0,
+        "decoded_mean_psnr": 0.0,
+        "decoded_ssim": 0.0,
         "decoded_edge": 0.0,
         "decoded_highpass": 0.0,
+        "decoded_highpass_energy_ratio": 0.0,
+        "decoded_highpass_l1": 0.0,
+        "decoded_missing_energy": 0.0,
+        "decoded_excess_energy": 0.0,
+        "decoded_top_missing_capture": 0.0,
+        "decoded_top_excess_capture": 0.0,
         "perceptual": 0.0,
         "laplacian_energy_ratio": 0.0,
         "oracle_decoded_mse": 0.0,
+        "oracle_decoded_mean_psnr": 0.0,
         "oracle_laplacian_energy_ratio": 0.0,
     }
     count = 0
+    detail_eval_config = loss_config.get("detail_eval", {})
+    detail_highpass_kernel = int(detail_eval_config.get("highpass_kernel", 15))
+    detail_patch_kernel = int(detail_eval_config.get("patch_kernel", 9))
+    detail_score_quantile = float(detail_eval_config.get("score_quantile", 0.95))
+    detail_top_fraction = float(detail_eval_config.get("top_fraction", 0.10))
     with torch.no_grad():
         for batch in dataloader:
             hr = batch["hr"].to(device, non_blocking=True)
@@ -572,21 +630,49 @@ def evaluate(
                 decoded_mse = F.mse_loss(decoded, target)
                 oracle_decoded = vae.decode(target_latent)
                 oracle_decoded_mse = F.mse_loss(oracle_decoded, target)
+            decoded_01 = denormalize(decoded).float()
+            oracle_decoded_01 = denormalize(oracle_decoded).float()
+            target_01 = hr.float()
             target_laplacian = laplacian_response(target)
             decoded_laplacian = laplacian_response(decoded)
             oracle_laplacian = laplacian_response(oracle_decoded)
             target_energy = target_laplacian.abs().flatten(1).mean(dim=1).clamp_min(1e-12)
             decoded_energy_ratio = decoded_laplacian.abs().flatten(1).mean(dim=1) / target_energy
             oracle_energy_ratio = oracle_laplacian.abs().flatten(1).mean(dim=1) / target_energy
+            target_highpass = metric_highpass(target_01, detail_highpass_kernel)
+            decoded_highpass = metric_highpass(decoded_01, detail_highpass_kernel)
+            target_highpass_energy = target_highpass.abs().flatten(1).mean(dim=1).clamp_min(1e-12)
+            decoded_highpass_ratio = decoded_highpass.abs().flatten(1).mean(dim=1) / target_highpass_energy
+            decoded_detail = detail_need_components(
+                decoded_01,
+                target_01,
+                highpass_kernel=detail_highpass_kernel,
+                patch_kernel=detail_patch_kernel,
+                score_quantile=detail_score_quantile,
+            )
+            decoded_detail_mask = top_fraction_mask(decoded_detail["score"], detail_top_fraction)
             totals["loss"] += float(loss.detach().cpu()) * batch_size
             totals["latent_loss"] += float(components["latent"].detach().cpu()) * batch_size
             totals["latent_mse"] += float(latent_mse.detach().cpu()) * batch_size
             totals["decoded_mse"] += float(decoded_mse.detach().cpu()) * batch_size
+            totals["decoded_mean_psnr"] += float(psnr_per_image(decoded, target).sum().cpu())
+            totals["decoded_ssim"] += float(ssim_per_image(decoded_01, target_01).sum().cpu())
             totals["decoded_edge"] += float(sobel_edge_loss(decoded, target).detach().cpu()) * batch_size
             totals["decoded_highpass"] += float(laplacian_loss(decoded, target).detach().cpu()) * batch_size
+            totals["decoded_highpass_energy_ratio"] += float(decoded_highpass_ratio.sum().cpu())
+            totals["decoded_highpass_l1"] += float((decoded_highpass - target_highpass).abs().flatten(1).mean(dim=1).sum().cpu())
+            totals["decoded_missing_energy"] += float(decoded_detail["missing"].flatten(1).mean(dim=1).sum().cpu())
+            totals["decoded_excess_energy"] += float(decoded_detail["excess"].flatten(1).mean(dim=1).sum().cpu())
+            totals["decoded_top_missing_capture"] += float(
+                selected_capture(decoded_detail["missing"], decoded_detail_mask).sum().cpu()
+            )
+            totals["decoded_top_excess_capture"] += float(
+                selected_capture(decoded_detail["excess"], decoded_detail_mask).sum().cpu()
+            )
             totals["perceptual"] += float(components["perceptual"].detach().cpu()) * batch_size
             totals["laplacian_energy_ratio"] += float(decoded_energy_ratio.sum().cpu())
             totals["oracle_decoded_mse"] += float(oracle_decoded_mse.detach().cpu()) * batch_size
+            totals["oracle_decoded_mean_psnr"] += float(psnr_per_image(oracle_decoded, target).sum().cpu())
             totals["oracle_laplacian_energy_ratio"] += float(oracle_energy_ratio.sum().cpu())
             count += batch_size
     if was_training:
@@ -599,17 +685,29 @@ def evaluate(
         "eval/latent_mse": totals["latent_mse"] / count,
         "eval/decoded_mse": decoded_mse,
         "eval/decoded_psnr": psnr_from_mse(decoded_mse),
+        "eval/decoded_mean_psnr": totals["decoded_mean_psnr"] / count,
+        "eval/decoded_ssim": totals["decoded_ssim"] / count,
         "eval/decoded_edge": totals["decoded_edge"] / count,
         "eval/decoded_highpass": totals["decoded_highpass"] / count,
+        "eval/highpass_energy_ratio": totals["decoded_highpass_energy_ratio"] / count,
+        "eval/highpass_l1": totals["decoded_highpass_l1"] / count,
+        "eval/missing_energy": totals["decoded_missing_energy"] / count,
+        "eval/excess_energy": totals["decoded_excess_energy"] / count,
+        f"eval/top{detail_top_fraction:.2f}_missing_capture": totals["decoded_top_missing_capture"] / count,
+        f"eval/top{detail_top_fraction:.2f}_excess_capture": totals["decoded_top_excess_capture"] / count,
         "eval/perceptual": totals["perceptual"] / count,
         "eval/laplacian_energy_ratio": totals["laplacian_energy_ratio"] / count,
         "eval/oracle_decoded_psnr": psnr_from_mse(totals["oracle_decoded_mse"] / count),
+        "eval/oracle_decoded_mean_psnr": totals["oracle_decoded_mean_psnr"] / count,
         "eval/oracle_laplacian_energy_ratio": totals["oracle_laplacian_energy_ratio"] / count,
         "eval/num_images": float(count),
     }
     detail_score_weight = float(loss_config.get("detail_score_weight", 0.0))
     metrics["eval/psnr_detail_score"] = metrics["eval/decoded_psnr"] + detail_score_weight * metrics[
         "eval/laplacian_energy_ratio"
+    ]
+    metrics["eval/mean_psnr_detail_score"] = metrics["eval/decoded_mean_psnr"] + detail_score_weight * metrics[
+        "eval/highpass_energy_ratio"
     ]
     return metrics
 
@@ -884,7 +982,10 @@ def main() -> None:
                     print(
                         f"eval step={step} latent_loss={metrics['eval/latent_loss']:.5f} "
                         f"decoded_psnr={metrics['eval/decoded_psnr']:.2f} "
+                        f"mean_psnr={metrics['eval/decoded_mean_psnr']:.2f} "
                         f"detail_ratio={metrics['eval/laplacian_energy_ratio']:.3f} "
+                        f"highpass_ratio={metrics['eval/highpass_energy_ratio']:.3f} "
+                        f"missing={metrics['eval/missing_energy']:.5f} "
                         f"perceptual={metrics['eval/perceptual']:.5f} "
                         f"psnr_detail_score={metrics['eval/psnr_detail_score']:.3f}"
                     )

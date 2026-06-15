@@ -5,7 +5,8 @@ Stage 2 clean-fidelity learning-rate probes are complete, the Stage 2
 detail-perceptual continuation and shifted-window attention probes have been
 formally reviewed but not promoted, and several deterministic/generative
 visible-detail probes were evaluated without producing a clear texture
-breakthrough.
+breakthrough. A Stage 1 decoder capacity audit now points the active
+visible-detail bottleneck back to Stage 2 conditional-latent smoothing.
 
 `paper/TECHNICAL_REPORT.md` is the canonical report source.
 `paper/sr_diffusion_report.pdf` and `paper/main.tex` are generated from it with
@@ -312,6 +313,43 @@ primary bottleneck. The model still learns a conservative deterministic latent
 estimate under the current supervision. Future Stage 2 work should target a
 residual/detail correction path on top of a preserved fidelity base, or
 decoder-side detail capacity, rather than continuing window-size scaling.
+
+## Stage 1 Decoder Capacity Audit
+
+After the masked v5 PatchGAN detail-branch probe collapsed fidelity inside the
+selected detail mask, the next diagnostic separated Stage 1 decoder capacity
+from Stage 2 conditional-latent smoothing. A new tool,
+`tools/analysis/audit_stage1_decoder_detail_capacity.py`, evaluates HR
+autoencoding through Stage 1 and compares it with the Stage 2 decoded base on
+the same `photo_detail_mix` val100 set.
+
+| Path | Mean PSNR | SSIM | Highpass ratio | Laplacian ratio | Missing energy |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Stage 1 VAE recon | `41.8121` | `0.99187` | `0.9965` | `0.9553` | `0.00174` |
+| Stage 2 dual-context base | `26.4889` | `0.80013` | `0.7886` | `0.3191` | `0.01968` |
+
+The result weakens the hypothesis that the current Stage 1 decoder is the main
+visible-detail bottleneck. When given the HR latent, it preserves nearly all
+highpass energy and most Laplacian energy. The same decoder fed by Stage 2
+dual-context best98000 loses far more high-frequency structure. The active
+bottleneck is therefore Stage 2 conditional-mean smoothing, not decoder
+capacity.
+
+This audit also explains a recurring metric mismatch. The legacy Stage 2
+training eval reports `eval/decoded_psnr` from global MSE, whereas the audit
+reports mean per-image PSNR. For the same dual-context checkpoint on the same
+val100 set these are `24.6197` and `26.4889`, respectively. The Stage 2 trainer
+now logs both views, plus `eval/decoded_ssim`, `eval/highpass_energy_ratio`,
+`eval/missing_energy`, `eval/excess_energy`, and
+`eval/mean_psnr_detail_score`.
+
+The guarded follow-up configuration is
+`configs/latent_pretrain_photo130k_lsdir_dual_detail_guarded_v2.yaml`. It starts
+from dual-context best98000, keeps the architecture unchanged, avoids VGG/GAN
+pressure, and slightly strengthens decoded highpass supervision. Its selection
+metric, `decoded_mean_psnr + 2 * highpass_energy_ratio`, is only a shortlist
+metric; visual grids, formal benchmark scores, and artifact review remain the
+promotion criteria.
 
 The first separate generative probe is
 `configs/diffusion_photo130k_lsdir_highfreq_residual_v1_b8.yaml`. It freezes the

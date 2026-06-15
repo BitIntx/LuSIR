@@ -2085,3 +2085,57 @@ log: /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual
   latent를 보존한 채 `target_latent - baseline_latent` 또는 decoded highpass를
   직접 보정하는 residual/detail correction branch나 decoder-side detail capacity를
   검토한다.
+
+### 2026-06-15 Stage1 decoder detail capacity audit
+
+v5 PatchGAN이 mask 내부에서 fidelity를 무너뜨린 뒤, 문제 위치를 다시
+분리했다. 가설은 두 가지였다.
+
+1. Stage1 VAE decoder 자체가 HR latent의 고주파를 복원하지 못한다.
+2. Stage2 condition latent가 decoder에 충분한 detail 정보를 주지 못한다.
+
+새 분석 도구:
+
+```text
+tools/analysis/audit_stage1_decoder_detail_capacity.py
+output: /home/ubuntu/scratch/sr-diffusion/runs/audit_stage1_decoder_detail_capacity_val100
+grid:   stage1_decoder_detail_capacity_grid.png
+summary: summary.json
+```
+
+동일한 `photo_detail_mix` val100에서 HR을 Stage1 autoencoder에 직접 넣어
+reconstruct한 결과와, Stage2 dual-context best98000의 decoded base를 비교했다.
+여기서 PSNR은 mean per-image PSNR이고, highpass/laplacian ratio는 HR 대비
+평균 절대 에너지 비율이다.
+
+| path | mean PSNR | SSIM | highpass ratio | laplacian ratio | missing energy |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Stage1 VAE recon(HR -> latent -> HR) | `41.8121` | `0.99187` | `0.9965` | `0.9553` | `0.00174` |
+| Stage2 base(LR -> latent -> decoder) | `26.4889` | `0.80013` | `0.7886` | `0.3191` | `0.01968` |
+
+판정:
+
+- Stage1 decoder는 완전하지 않지만, 현재 visible-detail 병목의 주범으로 보기는
+  어렵다. HR latent가 주어지면 highpass는 거의 보존되고 laplacian도 `0.955`
+  수준이다.
+- Stage2 base는 같은 decoder를 통과하는데 highpass ratio가 `0.789`, laplacian
+  ratio가 `0.319`로 크게 낮다. 따라서 현 시점의 가장 약한 부분은 Stage2
+  LR-to-latent predictor의 conditional-mean smoothing이다.
+- 기존 train eval의 `decoded_psnr`는 global MSE에서 계산한 PSNR이고, 이번 audit은
+  mean per-image PSNR이다. 둘은 같은 checkpoint에서도 각각 `24.6197`과
+  `26.4889`처럼 다르게 보일 수 있다. 앞으로 둘을 구분해서 기록한다.
+
+후속 구현:
+
+- `tools/train/train_latent_pretrain.py` eval에 다음 지표를 추가했다.
+  `eval/decoded_mean_psnr`, `eval/decoded_ssim`, `eval/highpass_energy_ratio`,
+  `eval/highpass_l1`, `eval/missing_energy`, `eval/excess_energy`,
+  `eval/top0.10_missing_capture`, `eval/top0.10_excess_capture`,
+  `eval/mean_psnr_detail_score`.
+- 새 probe config:
+  `configs/latent_pretrain_photo130k_lsdir_dual_detail_guarded_v2.yaml`
+- 이 probe는 Stage2 dual-context best98000에서 이어 받되 구조는 그대로 두고,
+  VGG/GAN 없이 decoded/highpass supervision만 약간 강화한다.
+- best metric은 `eval/mean_psnr_detail_score = mean_psnr + 2 * highpass_ratio`다.
+  이 metric도 승격 기준이 아니라 shortlist 기준이다. 실제 승격은 fixed visual
+  grid, formal benchmark, strong-input artifact review를 같이 봐야 한다.

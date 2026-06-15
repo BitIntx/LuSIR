@@ -1062,6 +1062,16 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
   정상 완료됐지만 시각적 detail 목표에는 실패했다. dual-multiscale LSDIR
   run은 완료됐고, clean/mild 수치 개선은 있으나 perceptual detail 돌파로
   보기는 어렵다.
+- 2026-06-15 Stage1 decoder capacity audit 결과, Stage1 VAE recon은
+  `photo_detail_mix` val100에서 mean PSNR `41.8121`, highpass ratio `0.9965`,
+  laplacian ratio `0.9553`이다. 같은 val100에서 Stage2 dual-context best98000
+  decoded base는 mean PSNR `26.4889`, highpass ratio `0.7886`, laplacian ratio
+  `0.3191`이다. 현재 가장 약한 부분은 Stage1 decoder보다 Stage2 LR-to-latent
+  predictor의 conditional-mean smoothing으로 판단한다.
+- Stage2 trainer eval에는 `decoded_mean_psnr`, `decoded_ssim`,
+  `highpass_energy_ratio`, `missing_energy`, `excess_energy`,
+  `mean_psnr_detail_score`를 추가했다. 기존 `decoded_psnr`는 global MSE 기반,
+  `decoded_mean_psnr`는 mean per-image PSNR이므로 숫자가 다르게 나온다.
 - high-frequency detail branch v1b는 완료됐다. 이 branch는 Stage 2 dual-context
   best98000과 Stage 1 decoder를 frozen으로 두고, decoded base SR 위에
   image-space high-frequency residual만 더한다.
@@ -1110,6 +1120,12 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
 9. 다음 detail 실험은 같은 objective continuation이 아니라 frozen fidelity base와
    learned mask 위에 작은 bounded patch perceptual/adversarial head를 붙인다.
    lowpass drift, PSNR, strong-input artifact, blind visual review를 guardrail로 둔다.
+10. Stage1 audit 이후 Stage2 guarded-detail v2 probe를 추가했다:
+    `configs/latent_pretrain_photo130k_lsdir_dual_detail_guarded_v2.yaml`.
+    이 config는 dual-context best98000에서 이어 받고 VGG/GAN 없이 decoded/highpass
+    supervision만 보수적으로 강화한다. best metric은
+    `eval/mean_psnr_detail_score = decoded_mean_psnr + 2 * highpass_energy_ratio`이며
+    승격 기준이 아니라 shortlist 기준이다.
 
 ## 새 VM에서 Codex에게 줄 짧은 프롬프트
 
