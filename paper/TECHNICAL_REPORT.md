@@ -692,6 +692,18 @@ The decoded-detail residual refiner v2 ran on one L40S at about `0.89`
 micro-step/s with `42.0 / 46.1 GiB` allocated and sustained `99-100%` GPU
 utilization.
 
+The guarded-detail Stage 2 v2 continuation from dual-context LSDIR step 98000
+was stopped after 20000 micro-steps because the run had plateaued. Its selected
+checkpoint is the step-10000 `best_eval_mean_psnr_detail.pt`, not the final
+step. This candidate is much lighter at inference time because it only runs
+the Stage 2 encoder and Stage 1 decoder: the Stage 2 model has `119.24M`
+parameters, the training checkpoint is about `1.4GB`, and the model weights
+inside it are about `0.44GB`. On one L40S with bf16 and 128x128 LR tiles,
+measured CUDA reserved memory was `1.03GB` at tile batch 1, `3.28GB` at tile
+batch 4, and `6.25GB` at tile batch 8. Practical inference can therefore run
+on an 8GB GPU with tile batch 1, while 12-16GB GPUs are comfortable for local
+review. Long Stage 2 training still targets a 48GB GPU class machine.
+
 ## Visual Review and External Positioning
 
 A fixed-sample visual review now compares LR, bicubic, Stage 2 condition,

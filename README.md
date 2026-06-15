@@ -124,6 +124,16 @@ blocks, and selects step 99500 after exactly three epochs. It is the latest
 preserved public detail artifact, while the public Colab default remains the
 residual refiner v2 path.
 
+The latest guarded-detail Stage 2 candidate
+`latent_pretrain_photo130k_lsdir_dual_detail_guarded_v2` was continued for
+20,000 micro-steps from the dual-context LSDIR step 98000 checkpoint. It stayed
+stable but plateaued; the final step 20000 was not the best detail checkpoint.
+The selected candidate is `best_eval_mean_psnr_detail.pt`, which corresponds to
+step 10000. On the val100 guardrail it reached `24.6296` decoded PSNR,
+`26.5050` mean PSNR, `0.8084` highpass energy ratio, `0.01897` missing energy,
+and the best composite detail score in that run. This checkpoint is a research
+candidate rather than the public Colab default.
+
 The formal full-image x4 benchmark is now implemented and complete for DIV2K
 validation, Set5, Set14, and Urban100. Detail v1d improves its frozen
 dual-context base on every dataset under MATLAB-compatible Y-channel PSNR/SSIM
@@ -258,6 +268,47 @@ The bootstrap lowers benchmark batch size automatically on lower-VRAM GPUs, so
 24GB-class cards can still be tested even though the current long-run L40S
 training config uses about 37.8GB at batch 8. The final result includes a
 single `LuSIR score` where the current single-L40S reference is 1000.
+
+## Current Candidate System Requirements
+
+For the guarded-detail Stage 2 candidate above, runtime is the deterministic
+path:
+
+```text
+LR -> Stage 2 guarded-detail v2 step 10000 -> Stage 1 VAE decoder -> SR
+```
+
+Software requirements are Python `>=3.12`, PyTorch/torchvision, Pillow, NumPy,
+PyYAML, Hugging Face Hub, and W&B for experiment logging. The measured
+development environment is PyTorch `2.12.0+cu132`, CUDA runtime `13.2`, and
+cuDNN `92000`; the code uses standard PyTorch ops and no custom CUDA kernels.
+
+Checkpoint/storage requirements for this candidate:
+
+- Stage 1 decoder checkpoint: about `242MB`.
+- Stage 2 guarded-detail v2 training checkpoint: about `1.4GB`.
+- The Stage 2 model weights inside that checkpoint are about `0.44GB`; the rest
+  is optimizer state, so a model-only artifact should be exported before public
+  promotion.
+- A practical fresh environment should reserve at least `15-20GB` free disk for
+  repo, venv/wheels, checkpoints, and outputs.
+
+Measured CUDA memory on one L40S using bf16 and 128x128 LR tiles:
+
+```text
+tile_batch=1: max allocated 0.76GB, max reserved 1.03GB
+tile_batch=4: max allocated 2.24GB, max reserved 3.28GB
+tile_batch=8: max allocated 4.21GB, max reserved 6.25GB
+```
+
+Practical inference tiers:
+
+- Minimum GPU: `8GB` VRAM with `tile_batch_size=1`.
+- Comfortable GPU: `12-16GB` VRAM with `tile_batch_size=4`.
+- Faster local review: `24GB+` VRAM with larger tile batches.
+- Long Stage 2 training still wants a `48GB` GPU class machine; the current
+  long-run config used about `37.8/46.1GB` VRAM on one L40S with batch 8 and
+  grad accumulation 4.
 
 For a reproducible NVIDIA GPU environment on a new VM, LuSIR also includes a
 minimal Docker image and wrapper. It keeps datasets, checkpoints, outputs, and

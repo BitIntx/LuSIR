@@ -1126,6 +1126,16 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
     supervision만 보수적으로 강화한다. best metric은
     `eval/mean_psnr_detail_score = decoded_mean_psnr + 2 * highpass_energy_ratio`이며
     승격 기준이 아니라 shortlist 기준이다.
+11. Stage2 guarded-detail v2는 20000 micro-step까지 완료됐고 붕괴 없이 plateau했다.
+    최종 step20000은 detail 기준 최고가 아니므로 같은 objective continuation은
+    중단한다. 선택 후보는 `best_eval_mean_psnr_detail.pt` = step10000이다.
+    val100 guardrail: decoded PSNR `24.6296`, mean PSNR `26.5050`,
+    highpass ratio `0.8084`, missing energy `0.01897`. L40S bf16 추론 실측은
+    128x128 LR tile 기준 `tile_batch=1` reserved `1.03GB`,
+    `tile_batch=4` reserved `3.28GB`, `tile_batch=8` reserved `6.25GB`다.
+    따라서 이 후보의 deterministic Stage2->Stage1 추론은 8GB GPU에서도
+    tile batch 1로 가능하고, 12-16GB GPU면 여유롭다. 장기 Stage2 학습은 여전히
+    L40S 48GB급을 권장한다.
 
 ## 새 VM에서 Codex에게 줄 짧은 프롬프트
 

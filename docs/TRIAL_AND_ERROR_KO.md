@@ -2139,3 +2139,43 @@ reconstruct한 결과와, Stage2 dual-context best98000의 decoded base를 비�
 - best metric은 `eval/mean_psnr_detail_score = mean_psnr + 2 * highpass_ratio`다.
   이 metric도 승격 기준이 아니라 shortlist 기준이다. 실제 승격은 fixed visual
   grid, formal benchmark, strong-input artifact review를 같이 봐야 한다.
+
+### 2026-06-15 Stage2 guarded-detail v2 stop decision and runtime requirement
+
+`configs/latent_pretrain_photo130k_lsdir_dual_detail_guarded_v2.yaml`를
+20000 micro-step까지 완료했다. run은 붕괴하지 않았지만 `10000-15000` 이후
+사실상 plateau했고, final step20000은 detail 기준 최고가 아니었다.
+
+주요 후보:
+
+| checkpoint | decoded PSNR | mean PSNR | SSIM | highpass ratio | missing energy | detail score |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| step10000 / `best_eval_mean_psnr_detail.pt` | `24.6296` | `26.5050` | - | `0.8084` | `0.01897` | best |
+| step13500 | `24.6289` | `26.5186` | - | `0.7977` | `0.01926` | lower |
+| step15000 | `24.6336` | `26.5170` | `0.80228` | `0.8015` | `0.01913` | lower |
+| step20000 | `24.6330` | `26.5158` | `0.80193` | `0.7978` | `0.01926` | lower |
+
+판정:
+
+- 같은 objective로 더 이어서 학습하는 것은 중단한다.
+- 수치상 후보는 detail score의 step10000, decoded/global PSNR의 step15000이다.
+  현재 best symlink는 step10000이다.
+- 이 run은 Stage2 conditional-mean smoothing을 약하게만 밀어낸다. 구조적
+  돌파라고 보기는 어렵고, 다음은 residual/detail correction이나 별도 detail
+  generator 쪽으로 분리해서 봐야 한다.
+
+실측 system requirement:
+
+- checkpoint: `best_eval_mean_psnr_detail.pt`는 step `10000`.
+- Stage2 model parameter 수: `119.238M`.
+- training checkpoint 크기: 약 `1.4GB`.
+- 순수 model weight 크기: 약 `0.44GB`; 나머지는 optimizer state다.
+- deterministic inference path:
+  `LR -> Stage2 guarded-detail v2 step10000 -> Stage1 decoder -> SR`.
+- L40S, PyTorch `2.12.0+cu132`, CUDA runtime `13.2`, cuDNN `92000`, bf16에서
+  128x128 LR tile forward 실측:
+  - `tile_batch=1`: allocated `0.76GB`, reserved `1.03GB`
+  - `tile_batch=4`: allocated `2.24GB`, reserved `3.28GB`
+  - `tile_batch=8`: allocated `4.21GB`, reserved `6.25GB`
+- 추론은 8GB GPU에서도 tile batch 1이면 가능하고, 12-16GB GPU면 여유롭다.
+  장기 Stage2 학습은 기존처럼 48GB GPU class가 현실적이다.
