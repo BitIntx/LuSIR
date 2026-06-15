@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import math
 import os
 import sys
 import time
@@ -378,6 +379,149 @@ def load_model_weights(path: Path, model: torch.nn.Module, device: torch.device,
     return int(checkpoint.get("step", 0))
 
 
+def matches_any_pattern(name: str, patterns: list[str]) -> bool:
+    return any(pattern and pattern in name for pattern in patterns)
+
+
+def build_optimizer(
+    model: torch.nn.Module,
+    train_config: dict[str, Any],
+    rank: int,
+) -> torch.optim.Optimizer:
+    base_lr = float(train_config.get("lr", 2e-4))
+    base_weight_decay = float(train_config.get("weight_decay", 0.0))
+    parameter_groups = train_config.get("parameter_groups") or train_config.get("param_groups") or []
+    named_parameters = [(name, parameter) for name, parameter in model.named_parameters() if parameter.requires_grad]
+
+    if not parameter_groups:
+        optimizer = torch.optim.AdamW(model.parameters(), lr=base_lr, weight_decay=base_weight_decay)
+        for group in optimizer.param_groups:
+            group.setdefault("name", "default")
+            group.setdefault("base_lr", group["lr"])
+        return optimizer
+
+    assigned: set[int] = set()
+    optimizer_groups: list[dict[str, Any]] = []
+    for index, group_config in enumerate(parameter_groups):
+        group_name = str(group_config.get("name", f"group_{index}"))
+        patterns = [str(pattern) for pattern in group_config.get("patterns", [])]
+        if not patterns:
+            raise ValueError(f"parameter_groups[{index}] must define at least one pattern")
+        group_parameters = []
+        for name, parameter in named_parameters:
+            parameter_id = id(parameter)
+            if parameter_id in assigned:
+                continue
+            if matches_any_pattern(name, patterns):
+                group_parameters.append(parameter)
+                assigned.add(parameter_id)
+        if not group_parameters:
+            print_main(f"optimizer_group={group_name} matched no parameters patterns={patterns}", rank)
+            continue
+        lr = float(group_config.get("lr", base_lr))
+        weight_decay = float(group_config.get("weight_decay", base_weight_decay))
+        optimizer_groups.append(
+            {
+                "params": group_parameters,
+                "lr": lr,
+                "base_lr": lr,
+                "weight_decay": weight_decay,
+                "name": group_name,
+            }
+        )
+
+    default_parameters = [parameter for _, parameter in named_parameters if id(parameter) not in assigned]
+    if default_parameters:
+        optimizer_groups.append(
+            {
+                "params": default_parameters,
+                "lr": base_lr,
+                "base_lr": base_lr,
+                "weight_decay": base_weight_decay,
+                "name": "default",
+            }
+        )
+    if not optimizer_groups:
+        raise ValueError("No trainable optimizer parameter groups were created")
+
+    optimizer = torch.optim.AdamW(optimizer_groups)
+    for group in optimizer.param_groups:
+        group.setdefault("base_lr", group["lr"])
+    return optimizer
+
+
+def format_optimizer_groups(optimizer: torch.optim.Optimizer) -> str:
+    parts = []
+    for index, group in enumerate(optimizer.param_groups):
+        name = str(group.get("name", f"group_{index}"))
+        parameters = [parameter for parameter in group["params"] if parameter.requires_grad]
+        parameter_count = sum(parameter.numel() for parameter in parameters)
+        parts.append(
+            f"{name}: tensors={len(parameters)} params={parameter_count:,} "
+            f"lr={float(group['lr']):.8g} wd={float(group.get('weight_decay', 0.0)):.8g}"
+        )
+    return "; ".join(parts)
+
+
+def scheduler_enabled(scheduler_config: dict[str, Any]) -> bool:
+    scheduler_type = str(scheduler_config.get("type", "none")).lower()
+    return bool(scheduler_config) and bool(scheduler_config.get("enabled", True)) and scheduler_type not in {
+        "",
+        "none",
+        "constant",
+    }
+
+
+def apply_lr_schedule(
+    optimizer: torch.optim.Optimizer,
+    scheduler_config: dict[str, Any],
+    update_step: int,
+    total_updates: int,
+) -> float:
+    scheduler_type = str(scheduler_config.get("type", "none")).lower()
+    warmup_updates = max(0, int(scheduler_config.get("warmup_updates", 0)))
+    min_lr_ratio = float(scheduler_config.get("min_lr_ratio", 0.0))
+    update_step = max(1, int(update_step))
+    total_updates = max(1, int(total_updates))
+
+    if warmup_updates > 0 and update_step <= warmup_updates:
+        factor = update_step / warmup_updates
+    elif scheduler_type == "warmup_cosine":
+        decay_updates = max(1, total_updates - warmup_updates)
+        progress = min(1.0, max(0.0, (update_step - warmup_updates) / decay_updates))
+        cosine = 0.5 * (1.0 + math.cos(math.pi * progress))
+        factor = min_lr_ratio + (1.0 - min_lr_ratio) * cosine
+    elif scheduler_type == "constant_with_warmup":
+        factor = 1.0
+    else:
+        raise ValueError(f"Unsupported train.scheduler.type: {scheduler_type}")
+
+    for group in optimizer.param_groups:
+        base_lr = float(group.get("base_lr", group["lr"]))
+        group["lr"] = base_lr * factor
+    return factor
+
+
+def optimizer_lr_metrics(optimizer: torch.optim.Optimizer) -> dict[str, float]:
+    metrics: dict[str, float] = {}
+    for index, group in enumerate(optimizer.param_groups):
+        name = str(group.get("name", f"group_{index}")).replace("/", "_")
+        metrics[f"train/lr/{name}"] = float(group["lr"])
+    default_group = next((group for group in optimizer.param_groups if group.get("name") == "default"), None)
+    if default_group is not None:
+        metrics["train/lr"] = float(default_group["lr"])
+    elif optimizer.param_groups:
+        metrics["train/lr"] = float(optimizer.param_groups[0]["lr"])
+    return metrics
+
+
+def format_optimizer_lrs(optimizer: torch.optim.Optimizer) -> str:
+    return ",".join(
+        f"{str(group.get('name', f'group_{index}'))}:{float(group['lr']):.3g}"
+        for index, group in enumerate(optimizer.param_groups)
+    )
+
+
 def evaluate(
     model: LRToLatentPredictor,
     vae: AutoencoderKL,
@@ -570,11 +714,8 @@ def main() -> None:
     vae = load_autoencoder(config, device=device)
     perceptual_model = make_perceptual_model(loss_config, device=device)
     model = LRToLatentPredictor.from_config(config["model"]).to(device)
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=float(train_cfg.get("lr", 2e-4)),
-        weight_decay=float(train_cfg.get("weight_decay", 0.0)),
-    )
+    optimizer = build_optimizer(model, train_cfg, rank=rank)
+    print_main(f"optimizer_groups={format_optimizer_groups(optimizer)}", rank)
 
     start_step = 0
     if args.resume:
@@ -594,6 +735,7 @@ def main() -> None:
     if args.override_lr is not None:
         for group in optimizer.param_groups:
             group["lr"] = float(args.override_lr)
+            group["base_lr"] = float(args.override_lr)
         print_main(f"override_lr={float(args.override_lr):.8g}", rank)
 
     max_steps = int(train_cfg.get("max_steps", 1000) if args.limit_steps is None else args.limit_steps)
@@ -601,6 +743,20 @@ def main() -> None:
     save_every = int(train_cfg.get("save_every", 1000))
     sample_every = int(train_cfg.get("sample_every", 500))
     grad_accum_steps = int(train_cfg.get("grad_accum_steps", 1))
+    scheduler_config = train_cfg.get("scheduler", {}) or {}
+    total_optimizer_updates = max(1, math.ceil(max_steps / max(1, grad_accum_steps)))
+    optimizer_updates = max(0, start_step // max(1, grad_accum_steps))
+    if scheduler_enabled(scheduler_config):
+        lr_factor = apply_lr_schedule(optimizer, scheduler_config, optimizer_updates + 1, total_optimizer_updates)
+        print_main(
+            "scheduler="
+            f"type={scheduler_config.get('type')} "
+            f"warmup_updates={scheduler_config.get('warmup_updates', 0)} "
+            f"min_lr_ratio={scheduler_config.get('min_lr_ratio', 0.0)} "
+            f"total_updates={total_optimizer_updates} "
+            f"initial_factor={lr_factor:.6f}",
+            rank,
+        )
 
     run = init_wandb(config, output_dir, unwrap_model(model)) if is_main_process(rank) else None
     wandb_log(
@@ -661,7 +817,10 @@ def main() -> None:
 
                 scaled_loss.backward()
             if step % grad_accum_steps == 0:
+                if scheduler_enabled(scheduler_config):
+                    apply_lr_schedule(optimizer, scheduler_config, optimizer_updates + 1, total_optimizer_updates)
                 optimizer.step()
+                optimizer_updates += 1
                 optimizer.zero_grad(set_to_none=True)
 
             if is_main_process(rank) and (step % log_every == 0 or step == 1):
@@ -679,22 +838,25 @@ def main() -> None:
                     f"highpass_mag={float(loss_components['highpass_magnitude'].detach().cpu()):.5f} "
                     f"perceptual={float(loss_components['perceptual'].detach().cpu()):.5f} "
                     f"latent_mse={float(latent_mse.detach().cpu()):.5f} "
+                    f"lr={format_optimizer_lrs(optimizer)} "
                     f"steps_per_sec={interval_steps / elapsed:.2f}"
                 )
+                log_metrics = {
+                    "train/loss": float(loss.detach().cpu()),
+                    "train/latent_loss": float(loss_components["latent"].detach().cpu()),
+                    "train/decoded": float(loss_components["decoded"].detach().cpu()),
+                    "train/edge": float(loss_components["edge"].detach().cpu()),
+                    "train/highpass": float(loss_components["highpass"].detach().cpu()),
+                    "train/highpass_magnitude": float(loss_components["highpass_magnitude"].detach().cpu()),
+                    "train/perceptual": float(loss_components["perceptual"].detach().cpu()),
+                    "train/latent_mse": float(latent_mse.detach().cpu()),
+                    "train/optimizer_updates": optimizer_updates,
+                    "system/steps_per_sec": interval_steps / elapsed,
+                }
+                log_metrics.update(optimizer_lr_metrics(optimizer))
                 wandb_log(
                     run,
-                    {
-                        "train/loss": float(loss.detach().cpu()),
-                        "train/latent_loss": float(loss_components["latent"].detach().cpu()),
-                        "train/decoded": float(loss_components["decoded"].detach().cpu()),
-                        "train/edge": float(loss_components["edge"].detach().cpu()),
-                        "train/highpass": float(loss_components["highpass"].detach().cpu()),
-                        "train/highpass_magnitude": float(loss_components["highpass_magnitude"].detach().cpu()),
-                        "train/perceptual": float(loss_components["perceptual"].detach().cpu()),
-                        "train/latent_mse": float(latent_mse.detach().cpu()),
-                        "train/lr": optimizer.param_groups[0]["lr"],
-                        "system/steps_per_sec": interval_steps / elapsed,
-                    },
+                    log_metrics,
                     step=step,
                 )
 

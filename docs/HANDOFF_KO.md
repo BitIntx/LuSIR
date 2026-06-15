@@ -92,16 +92,22 @@ generative:
   `metrics/formal_x4_benchmark_stage2_detail_perceptual_v1_summary.json`,
   `metrics/formal_x4_benchmark_stage2_detail_perceptual_v1_metrics.csv`,
   `samples/stage2_detail_perceptual_v1_benchmark_delta_crop_sheet.jpg`.
-- 다음 구조 테스트로 `dual_multiscale_attention` Stage2 v2 probe를 추가했다.
-  config는 `configs/latent_pretrain_photo130k_lsdir_dual_attention_v2_probe.yaml`,
-  init은 dual step98000 partial load다. 새 shifted-window attention/NAF-style
-  FFN block은 zero-init residual branch라 시작 출력은 기존 dual과 거의 같고,
-  smoke 8 step은 통과했다. 목표는 같은 continuation이 아니라 Stage2/base
-  feature mixing 구조가 formal/visual 병목을 바꾸는지 확인하는 것이다.
-  active run은 tmux `stage2-attn-v2`, W&B
-  <https://wandb.ai/jwheo/LuSIR/runs/68fwnfry>. step 500 eval은 decoded PSNR
-  `24.61`, detail ratio `0.316`으로 기존 dual baseline `24.6197 / 0.3123`
-  근처라 초반 fidelity 붕괴는 없다.
+- Stage2 `dual_multiscale_attention` v2 probe는 step `8000`까지 봤지만
+  decoded PSNR `24.60-24.63`, detail ratio `0.315-0.343` 범위에서 정체했다.
+  코드 점검 결과 v2는 이름과 달리 기존 dual-context의 `extra_context` branch가
+  꺼진 상태였으므로 attention 자체의 최종 판단으로 쓰지 않는다.
+- 현재 active 구조 테스트는 Stage2 v3 true-dual shifted-window attention이다.
+  config는 `configs/latent_pretrain_photo130k_lsdir_dual_attention_v3_probe.yaml`,
+  init은 dual step98000 partial load다. v3는
+  `trunk -> context -> extra_context -> attention -> output` 순서로 기존
+  dual-context feature를 보존한 뒤 attention residual을 붙인다.
+  partial init은 `119.238M / 123.449M = 96.59%`, 새 attention params는
+  `4.210M`이다. optimizer는 default `5e-6`, attention `2e-5` param group과
+  `warmup_cosine(warmup_updates=50, min_lr_ratio=0.2)`를 사용한다.
+  active run은 tmux `stage2-attn-v3`, W&B
+  <https://wandb.ai/jwheo/LuSIR/runs/cx85a1ce>. step `500` eval은 decoded PSNR
+  `24.61`, detail ratio `0.316`으로 baseline 근처이며, step `1000-3000`
+  구간에서 돌파 여부를 판단한다.
 
 ### 최신 완료 detail v1d와 strict-bicubic 진단
 

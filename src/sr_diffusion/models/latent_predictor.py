@@ -250,7 +250,7 @@ class LRToLatentPredictor(nn.Module):
                 context_blocks=extra_context_blocks,
                 norm_groups=norm_groups,
             )
-            if architecture == "dual_multiscale_context"
+            if architecture in {"dual_multiscale_context", "dual_multiscale_attention"}
             else None
         )
         self.extra_context_scale = float(extra_context_scale)
@@ -288,10 +288,10 @@ class LRToLatentPredictor(nn.Module):
             domain_bias = self.domain_embedding(domain_id).unsqueeze(-1).unsqueeze(-1)
             x = x + domain_bias
         x = self.blocks(x)
-        if self.attention is not None:
-            x = self.attention(x)
         if self.context is not None:
             x = x + self.context_scale * self.context(x)
         if self.extra_context is not None:
             x = x + self.extra_context_scale * self.extra_context(x)
+        if self.attention is not None:
+            x = self.attention(x)
         return self.output(x)

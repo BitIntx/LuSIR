@@ -1893,6 +1893,65 @@ log: /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual
 
 - 안정 속도는 약 `2.1` micro-step/s.
 - VRAM은 약 `27.3 / 46.1 GB`, GPU util은 `98-100%`로 병목 없이 돈다.
+
+중간 판정:
+
+- v2는 step `8000`까지 확인했지만 decoded PSNR은 `24.60-24.63`,
+  detail ratio는 `0.315-0.343` 범위에서 흔들렸다.
+- best decoded PSNR은 step `2500`의 `24.63`, best psnr_detail_score는
+  step `6000`의 `24.950`이었다. 그러나 기존 dual baseline
+  `24.6197 / 0.3123` 대비 의미 있는 돌파는 아니다.
+- 구현을 다시 점검한 결과 v2의 `dual_multiscale_attention`은 이름과 달리
+  기존 dual-context의 `extra_context` branch를 켜지 않았다. 실제 비교는
+  "dual context + attention"이 아니라 "single context + attention"에 가까웠다.
+  따라서 v2는 attention 자체의 실패로 보지 않고, 실험 조건 오류가 있는
+  구조 probe로 보존한다.
+
+### 2026-06-14 Stage2 v3 true-dual shifted-window attention 시작
+
+v2 점검 결과를 반영해 Stage2 attention probe를 v3로 수정했다.
+
+수정:
+
+- `dual_multiscale_attention`에서도 `extra_context`를 켠다.
+- forward 순서를 `trunk -> context -> extra_context -> attention -> output`으로
+  바꿨다. 즉 기존 dual-context feature를 먼저 만든 뒤, shifted-window attention이
+  residual 보정처럼 개입한다.
+- trainer에 config 기반 optimizer parameter group을 추가했다. v3는 기존
+  trunk/context/output은 `5e-6`, 새 attention/FFN branch는 `2e-5`로 분리한다.
+- trainer에 `warmup_cosine` scheduler를 추가했다. scheduler step은 micro-step이
+  아니라 optimizer update 기준이다.
+- W&B에는 `train/lr/default`, `train/lr/attention`, `train/optimizer_updates`를
+  함께 로깅한다.
+
+설정:
+
+```text
+config: configs/latent_pretrain_photo130k_lsdir_dual_attention_v3_probe.yaml
+init: checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt
+partial init: matched_params 119.238M / 123.449M = 96.59%
+new attention params: 4.210M
+batch / grad accum: 4 / 8
+max steps: 20000 micro-steps
+scheduler: warmup_cosine, warmup_updates=50, min_lr_ratio=0.2
+```
+
+active run:
+
+```text
+tmux: stage2-attn-v3
+wandb: https://wandb.ai/jwheo/LuSIR/runs/cx85a1ce
+log: /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_attention_v3_probe/train_console.log
+```
+
+초기 확인:
+
+- smoke: full v3 forward/backward/optimizer step 통과.
+- GPU: L40S util `99-100%`, VRAM 약 `28.5 / 46.1 GB`.
+- 안정 속도: 약 `1.97-1.98` micro-step/s.
+- step `500` eval은 decoded PSNR `24.61`, detail ratio `0.316`,
+  psnr_detail_score `24.928`로 시작점은 기존 dual baseline 근처다. zero-init
+  attention + warmup 구조라 step `1000-3000` 구간에서 돌파 여부를 본다.
 - step 500 eval은 decoded PSNR `24.61`, detail ratio `0.316`이다. 기존
   dual-context step98000 baseline `24.6197 / 0.3123`과 거의 같은 출발점이므로
   새 attention branch가 초반부터 fidelity를 망가뜨리지는 않았다.
