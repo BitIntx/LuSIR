@@ -97,6 +97,12 @@ generative:
   SSIM delta `+0.00638`, wins `100/100`이지만 step 0의 `+0.18418 dB`,
   `+0.00718`보다 낮다. grid도 시작점과 거의 구분되지 않는다. teacher loss는
   실제 non-zero로 들어갔으나 visible texture generation으로 이어지지 않았다.
+- 다음 probe는 `configs/detail_branch_v5_noise_gate_top10_patch_gan_probe.yaml`다.
+  v2 noise-negative mask best1500을 `top_fraction 0.10`, `top_mode binary`,
+  `floor 0.0`으로 적용하고, selected deterministic v2 branch step38000에서
+  다시 시작한다. 목적은 v1 soft mask가 아니라 노이즈에 닫힌 top10 gate에서만
+  masked VGG/PatchGAN texture pressure를 주는 것이다. 설계와 중단 기준은
+  `docs/DETAIL_BRANCH_V5_NOISE_GATE_KO.md`에 있다.
 - Stage2/base 경로 실험
   `configs/latent_pretrain_photo130k_lsdir_dual_detail_perceptual_v1.yaml`도
   완료됐다. best detail-score는 step `6000`, decoded PSNR `24.5921`,

@@ -188,6 +188,10 @@ reducing injected-noise top-10 coverage to `0.0000`. See
 [`docs/DETAIL_NEED_MASK_KO.md`](docs/DETAIL_NEED_MASK_KO.md). The preserved
 artifact set is available with
 `python scripts/download_hf_checkpoints.py --preset detail_mask_predictor_v2_noise_negative`.
+The next detail-generator probe is
+`configs/detail_branch_v5_noise_gate_top10_patch_gan_probe.yaml`, which uses
+that v2 gate as a hard top-10% binary mask with zero floor before applying
+masked perceptual and PatchGAN pressure.
 
 Two separate generative-detail experiments have now been evaluated. The first
 latent residual probe added high-frequency energy without GT-aligned detail.
