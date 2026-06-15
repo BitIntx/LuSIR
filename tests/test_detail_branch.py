@@ -6,6 +6,7 @@ from torch import nn
 from sr_diffusion.detail_adversarial import MaskedHighpassPatchDiscriminator
 from tools.train.train_detail_branch import (
     GatedHighFrequencyDetailBranch,
+    apply_detail_mask_policy,
     init_model_from_checkpoint,
     load_checkpoint,
     save_checkpoint,
@@ -72,6 +73,30 @@ def test_detail_branch_external_mask_scales_gate_and_residual() -> None:
     assert torch.allclose(masked_outputs[1], full_outputs[1] * 0.25, atol=1e-6)
     assert torch.allclose(masked_outputs[2], full_outputs[2] * 0.25, atol=1e-6)
     assert torch.allclose(masked_outputs[0], (base + full_outputs[1] * 0.25).clamp(0.0, 1.0), atol=1e-6)
+
+
+def test_detail_mask_policy_keeps_soft_mask_by_default() -> None:
+    detail_mask = torch.tensor([[[[0.1, 0.4], [0.8, 0.2]]]])
+
+    masked = apply_detail_mask_policy(detail_mask, {})
+
+    assert torch.allclose(masked, detail_mask)
+
+
+def test_detail_mask_policy_supports_binary_top_fraction() -> None:
+    detail_mask = torch.tensor([[[[0.1, 0.4], [0.8, 0.2]]]])
+
+    masked = apply_detail_mask_policy(detail_mask, {"top_fraction": 0.5})
+
+    assert torch.allclose(masked, torch.tensor([[[[0.0, 1.0], [1.0, 0.0]]]]))
+
+
+def test_detail_mask_policy_supports_soft_top_fraction() -> None:
+    detail_mask = torch.tensor([[[[0.1, 0.4], [0.8, 0.2]]]])
+
+    masked = apply_detail_mask_policy(detail_mask, {"top_fraction": 0.5, "top_mode": "soft"})
+
+    assert torch.allclose(masked, torch.tensor([[[[0.0, 0.4], [0.8, 0.0]]]]))
 
 
 def test_detail_branch_model_init_preserves_old_path_with_condition_latent(tmp_path) -> None:

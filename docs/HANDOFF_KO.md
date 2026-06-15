@@ -48,6 +48,12 @@ generative:
 - learned detail-mask predictor v1은 photo-detail val100에서 observable proxy
   baseline을 통과했다. best step `3250`은 correlation `0.7456`, top20 missing
   capture `0.3861`, excess capture `0.4304`, selection score `0.7013`이다.
+- texture-generator용 gate review를 추가로 했다. 같은 v1 predictor에서 selection
+  fraction을 비교한 결과 top 5%는 너무 좁고 top 20%는 excess/edge가 많이 열려,
+  다음 texture branch의 1차 gate 후보는 `top_fraction: 0.10`,
+  `top_mode: binary`, `floor: 0.0`이다. train/infer detail branch 경로에
+  선택적 `detail_mask.top_fraction` policy를 추가했으며, 기존 config는 이 값을
+  정의하지 않으므로 soft mask 동작이 그대로 유지된다.
 - 이 predictor를 frozen soft gate로 쓰는 masked detail branch v2 장기 run은
   완료됐다. step 38000 이후 step 50000까지 best를 갱신하지 못하고 고정 grid도
   거의 같아 조기 중단했다. 위치 선택은 성공했지만 같은 deterministic objective는

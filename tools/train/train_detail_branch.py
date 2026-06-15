@@ -24,7 +24,7 @@ from sr_diffusion.detail_adversarial import (
     discriminator_logistic_loss,
     generator_logistic_loss,
 )
-from sr_diffusion.detail_mask import DetailMaskPredictor
+from sr_diffusion.detail_mask import DetailMaskPredictor, top_fraction_mask
 from sr_diffusion.datasets import ManifestImageDataset
 from sr_diffusion.datasets.manifest import pil_to_tensor
 from sr_diffusion.losses import FrozenVGGFeatureLoss
@@ -254,6 +254,33 @@ def load_detail_mask_predictor(config: dict[str, Any], device: torch.device) -> 
         parameter.requires_grad_(False)
     print(f"loaded_detail_mask={checkpoint_path} step={checkpoint.get('step', 'unknown')}", flush=True)
     return predictor
+
+
+def apply_detail_mask_policy(detail_mask: torch.Tensor | None, mask_cfg: dict[str, Any]) -> torch.Tensor | None:
+    if detail_mask is None:
+        return None
+    mask = detail_mask.float().clamp(0.0, 1.0)
+    gamma = float(mask_cfg.get("gamma", 1.0))
+    if gamma != 1.0:
+        if gamma <= 0.0:
+            raise ValueError(f"detail_mask.gamma must be positive, got {gamma}")
+        mask = mask.pow(gamma)
+
+    top_fraction = mask_cfg.get("top_fraction")
+    if top_fraction is not None:
+        fraction = float(top_fraction)
+        if not 0.0 < fraction <= 1.0:
+            raise ValueError(f"detail_mask.top_fraction must be in (0, 1], got {fraction}")
+        selected = top_fraction_mask(mask, fraction).to(dtype=mask.dtype)
+        top_mode = str(mask_cfg.get("top_mode", "binary"))
+        if top_mode == "binary":
+            mask = selected
+        elif top_mode == "soft":
+            mask = mask * selected
+        else:
+            raise ValueError(f"detail_mask.top_mode must be 'binary' or 'soft', got {top_mode!r}")
+
+    return mask.to(dtype=detail_mask.dtype)
 
 
 def save_checkpoint(
@@ -533,6 +560,7 @@ def evaluate(
     sample_count: int = 0,
     detail_mask_predictor: DetailMaskPredictor | None = None,
     detail_mask_floor: float = 0.0,
+    detail_mask_cfg: dict[str, Any] | None = None,
     lowpass_kernel: int = 31,
 ) -> dict[str, float]:
     was_training = model.training
@@ -584,6 +612,7 @@ def evaluate(
                 if detail_mask_predictor is not None
                 else None
             )
+            detail_mask = apply_detail_mask_policy(detail_mask, detail_mask_cfg or {})
             sr, residual, gate, _ = model(
                 base_sr,
                 bicubic,
@@ -855,7 +884,8 @@ def main() -> None:
     vae = load_autoencoder(config, device)
     condition_encoder = load_condition_encoder(config, device)
     detail_mask_predictor = load_detail_mask_predictor(config, device)
-    detail_mask_floor = float(config.get("detail_mask", {}).get("floor", 0.0))
+    detail_mask_cfg = config.get("detail_mask", {})
+    detail_mask_floor = float(detail_mask_cfg.get("floor", 0.0))
     teacher_cache = TeacherImageCache(config)
     model = GatedHighFrequencyDetailBranch.from_config(config["model"]).to(device)
     loss_cfg = config.get("loss", {})
@@ -939,6 +969,7 @@ def main() -> None:
             sample_count=sample_count,
             detail_mask_predictor=detail_mask_predictor,
             detail_mask_floor=detail_mask_floor,
+            detail_mask_cfg=detail_mask_cfg,
             lowpass_kernel=int(loss_cfg.get("lowpass_kernel", 31)),
         )
         print(
@@ -1037,6 +1068,7 @@ def main() -> None:
                     detail_mask = detail_mask_predictor(base_sr, bicubic, condition, domain_id)
             else:
                 detail_mask = None
+            detail_mask = apply_detail_mask_policy(detail_mask, detail_mask_cfg)
         adversarial_active = discriminator is not None and step >= adversarial_start_step
         if discriminator is not None and adversarial_active:
             set_requires_grad(discriminator, False)

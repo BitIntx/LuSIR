@@ -29,7 +29,7 @@ from tools.infer.infer_diffusion import (
     tile_positions,
 )
 from tools.infer.infer_residual_refiner import make_grid
-from tools.train.train_detail_branch import GatedHighFrequencyDetailBranch
+from tools.train.train_detail_branch import GatedHighFrequencyDetailBranch, apply_detail_mask_policy
 from tools.train.train_residual_refiner import denormalize, normalize_image
 
 
@@ -123,6 +123,7 @@ def detail_batch(
     detail_strength: float,
     detail_mask_predictor: DetailMaskPredictor | None = None,
     detail_mask_floor: float = 0.0,
+    detail_mask_cfg: dict[str, Any] | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     device = lr.device
     with autocast_context(device, dtype_name):
@@ -132,6 +133,7 @@ def detail_batch(
         detail_mask = (
             detail_mask_predictor(base, bicubic, condition, domain_id) if detail_mask_predictor is not None else None
         )
+        detail_mask = apply_detail_mask_policy(detail_mask, detail_mask_cfg or {})
         _, residual, _, _ = detail_branch(
             base,
             bicubic,
@@ -160,6 +162,7 @@ def tiled_detail(
     detail_strength: float,
     detail_mask_predictor: DetailMaskPredictor | None = None,
     detail_mask_floor: float = 0.0,
+    detail_mask_cfg: dict[str, Any] | None = None,
 ) -> tuple[Image.Image, Image.Image]:
     if tile_batch_size <= 0:
         raise ValueError(f"tile_batch_size must be positive: {tile_batch_size}")
@@ -201,6 +204,7 @@ def tiled_detail(
             detail_strength=detail_strength,
             detail_mask_predictor=detail_mask_predictor,
             detail_mask_floor=detail_mask_floor,
+            detail_mask_cfg=detail_mask_cfg,
         )
         for base_tile, detail_tile, (x, y) in zip(decoded_base, decoded_detail, batch_coords, strict=True):
             mask = tile_blend_mask(
@@ -274,7 +278,8 @@ def main() -> None:
     condition_encoder = load_condition_encoder(config, device, dtype_name)
     detail_branch, checkpoint_step = load_detail_branch(config, checkpoint_path, device)
     detail_mask_predictor, detail_mask_step = load_detail_mask_predictor(config, device)
-    detail_mask_floor = float(config.get("detail_mask", {}).get("floor", 0.0))
+    detail_mask_cfg = config.get("detail_mask", {})
+    detail_mask_floor = float(detail_mask_cfg.get("floor", 0.0))
     print(
         f"checkpoint={checkpoint_path} step={checkpoint_step} device={device} detail_strength={args.detail_strength:.2f} "
         f"detail_mask_step={detail_mask_step if detail_mask_predictor is not None else 'disabled'} "
@@ -302,6 +307,7 @@ def main() -> None:
             detail_strength=float(args.detail_strength),
             detail_mask_predictor=detail_mask_predictor,
             detail_mask_floor=detail_mask_floor,
+            detail_mask_cfg=detail_mask_cfg,
         )
         save_outputs(args.output_dir, lr_image, base_image, detail_image)
         print(f"saved {args.output_dir}", flush=True)
@@ -320,6 +326,7 @@ def main() -> None:
         detail_strength=float(args.detail_strength),
         detail_mask_predictor=detail_mask_predictor,
         detail_mask_floor=detail_mask_floor,
+        detail_mask_cfg=detail_mask_cfg,
     )
     save_outputs(
         args.output_dir,

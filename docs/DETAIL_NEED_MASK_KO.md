@@ -155,6 +155,39 @@ photo-detail val100:
 metrics/detail_mask_predictor_v1_val100_summary.json
 ```
 
+## 2026-06-15 Texture gate fraction review
+
+그럴듯한 texture를 만드는 다음 branch는 기존 v2처럼 soft mask 전체를 쓰기보다,
+predictor가 가장 확신하는 일부 영역만 열어야 한다. 같은 v1 predictor
+best3250을 고정하고 selection fraction만 바꿔 val100을 다시 평가했다.
+
+실행:
+
+```text
+/home/ubuntu/scratch/sr-diffusion/runs/detail_mask_predictor_v1_texture_gate_fraction_review
+```
+
+| selected fraction | missing capture | missing concentration | excess capture | selection score |
+| --- | ---: | ---: | ---: | ---: |
+| top 5% | `0.1232` | `2.4635x` | `0.1370` | `0.7317` |
+| top 10% | `0.2213` | `2.2134x` | `0.2496` | `0.7173` |
+| top 15% | `0.3077` | `2.0515x` | `0.3458` | `0.7075` |
+| top 20% | `0.3861` | `1.9304x` | `0.4304` | `0.7013` |
+| top 30% | `0.5211` | `1.7371x` | `0.5718` | `0.6948` |
+
+눈으로 보면 top 5%는 너무 좁아 좋은 texture 후보를 놓치는 경우가 있고,
+top 20%는 missing capture는 높지만 큰 edge와 excess 영역까지 많이 열린다.
+다음 texture-generator probe의 1차 gate는 `top_fraction: 0.10`,
+`top_mode: binary`, `floor: 0.0`을 기본 후보로 둔다. 기존 v2 public/research
+config는 `top_fraction`을 정의하지 않으므로 soft mask 동작이 그대로 유지된다.
+
+관련 코드:
+
+```text
+tools/train/train_detail_branch.py::apply_detail_mask_policy
+tools/infer/infer_detail_branch.py
+```
+
 ## Masked detail branch v2 장기 run 완료
 
 `configs/detail_branch_v2_masked_long_20ep.yaml`은 v1d best99500과 predictor
