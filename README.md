@@ -178,6 +178,15 @@ the conditional-mean smoothing problem. The next Stage 2 direction is therefore
 not wider attention windows, but a residual/detail correction path on top of a
 frozen or preserved fidelity base.
 
+For the next texture-generator gate, the learned detail mask was stress-tested
+with injected synthetic noise. The original v1 predictor opened the top-10%
+gate on noise patches (`0.4531` coverage), which is useful evidence for
+denoise/correction but unsafe for texture synthesis. A v2 noise-negative
+predictor starts from v1 and adds noisy/excess negative augmentation; its best
+step 1500 preserves clean top-10 selection score (`0.7219` vs `0.7173`) while
+reducing injected-noise top-10 coverage to `0.0000`. See
+[`docs/DETAIL_NEED_MASK_KO.md`](docs/DETAIL_NEED_MASK_KO.md).
+
 Two separate generative-detail experiments have now been evaluated. The first
 latent residual probe added high-frequency energy without GT-aligned detail.
 The signed-Haar residual diffusion replacement preserved low-frequency

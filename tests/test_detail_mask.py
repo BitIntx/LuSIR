@@ -10,6 +10,10 @@ from sr_diffusion.detail_mask import (
     observable_detail_proxies,
     top_fraction_mask,
 )
+from tools.train.train_detail_mask_predictor import (
+    apply_noise_negative_augmentation,
+    low_score_patch_mask,
+)
 
 
 def test_detail_mask_predictor_output_is_bounded_and_full_resolution() -> None:
@@ -45,6 +49,46 @@ def test_top_fraction_mask_has_requested_coverage() -> None:
     mask = top_fraction_mask(score, 0.2)
     assert mask.sum() == 20
     assert mask.flatten()[80:].sum() == 20
+
+
+def test_low_score_patch_mask_selects_lowest_region() -> None:
+    score = torch.ones(1, 1, 16, 16)
+    score[:, :, 8:12, 8:12] = 0.0
+
+    mask = low_score_patch_mask(score, patch_size=4, stride=4)
+
+    assert mask.sum() == 16
+    assert mask[:, :, 8:12, 8:12].sum() == 16
+
+
+def test_low_score_patch_mask_considers_image_edges() -> None:
+    score = torch.ones(1, 1, 17, 17)
+    score[:, :, 13:17, 13:17] = 0.0
+
+    mask = low_score_patch_mask(score, patch_size=4, stride=6)
+
+    assert mask.sum() == 16
+    assert mask[:, :, 13:17, 13:17].sum() == 16
+
+
+def test_noise_negative_augmentation_changes_only_selected_patch() -> None:
+    torch.manual_seed(0)
+    base = torch.full((1, 3, 16, 16), 0.5)
+    target = torch.ones(1, 1, 16, 16)
+    target[:, :, :4, :4] = 0.0
+
+    augmented = apply_noise_negative_augmentation(
+        base,
+        target,
+        {"enabled": True, "probability": 1.0, "patch_size": 4, "stride": 4, "sigma": 0.1},
+    )
+
+    assert augmented is not None
+    noisy_base, noise_mask = augmented
+    assert noise_mask.sum() == 16
+    assert noise_mask[:, :, :4, :4].sum() == 16
+    assert (noisy_base[:, :, :4, :4] - base[:, :, :4, :4]).abs().sum() > 0
+    assert torch.allclose(noisy_base[:, :, 4:, 4:], base[:, :, 4:, 4:])
 
 
 def test_highpass_does_not_create_false_image_border() -> None:

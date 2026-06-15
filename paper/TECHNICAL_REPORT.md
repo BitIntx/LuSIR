@@ -908,6 +908,24 @@ The predictor establishes that missing-detail localization is learnable from
 inference-time observations. However, gating the same deterministic
 L1/highpass-oriented branch does not visibly synthesize the missing fine
 texture. Location selection and texture generation remain separate problems.
+The first top-fraction texture-gate review also showed why the mask objective
+needs explicit negative examples. With a top-10% binary gate, v1 selected useful
+texture-rich regions on clean inputs, but when synthetic Gaussian noise was
+injected into a low-texture patch, `45.31%` of that patch fell inside the
+top-10% gate and the predictor mean inside the noisy patch rose to `0.6430`.
+The GT-supervised missing-detail target stayed low there, so this was not
+desired texture discovery; it was the predictor opening on artifact-like
+high-frequency content.
+
+A noise-negative v2 mask probe therefore initializes from v1 step 3250 and
+adds low-target patch noise augmentation plus explicit in-patch prediction and
+excess penalties. Its selected step 1500 preserves clean top-10 selection
+quality (`0.7219` score versus `0.7173` for v1, with excess capture improving
+from `0.2496` to `0.2375`) while reducing the same injected-noise top-10
+coverage from `0.4531` to `0.0000` and noisy-patch predictor mean from
+`0.6430` to `0.0018`. This makes v2 the preferred gate for any subsequent
+texture-generation branch.
+
 The next detail experiment should retain the frozen fidelity base and learned
 mask, but train a small bounded head with mask-weighted patch perceptual or
 adversarial supervision and explicit lowpass/fidelity guardrails.

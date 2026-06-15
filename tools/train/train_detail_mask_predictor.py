@@ -140,6 +140,12 @@ def load_checkpoint(path: Path, model: nn.Module, optimizer: torch.optim.Optimiz
     return int(checkpoint.get("step", 0))
 
 
+def init_model_from_checkpoint(path: Path, model: nn.Module, device: torch.device) -> dict[str, Any]:
+    checkpoint = torch.load(path, map_location=device)
+    model.load_state_dict(checkpoint["model"])
+    return {"checkpoint": str(path), "checkpoint_step": int(checkpoint.get("step", 0))}
+
+
 def mask_target(base: torch.Tensor, hr: torch.Tensor, model: DetailMaskPredictor) -> dict[str, torch.Tensor]:
     return detail_need_components(
         base,
@@ -148,6 +154,57 @@ def mask_target(base: torch.Tensor, hr: torch.Tensor, model: DetailMaskPredictor
         patch_kernel=model.patch_kernel,
         score_quantile=model.score_quantile,
     )
+
+
+def low_score_patch_mask(score: torch.Tensor, patch_size: int, stride: int) -> torch.Tensor:
+    if score.ndim != 4 or score.shape[1] != 1:
+        raise ValueError(f"score must have shape [B, 1, H, W], got {tuple(score.shape)}")
+    _, _, height, width = score.shape
+    patch_size = max(1, min(int(patch_size), height, width))
+    stride = max(1, int(stride))
+    y_positions = list(range(0, height - patch_size + 1, stride))
+    x_positions = list(range(0, width - patch_size + 1, stride))
+    if y_positions[-1] != height - patch_size:
+        y_positions.append(height - patch_size)
+    if x_positions[-1] != width - patch_size:
+        x_positions.append(width - patch_size)
+    candidates: list[tuple[int, int]] = []
+    patch_scores: list[torch.Tensor] = []
+    score_float = score.float()
+    for y in y_positions:
+        for x in x_positions:
+            candidates.append((y, x))
+            patch_scores.append(score_float[:, :, y : y + patch_size, x : x + patch_size].mean(dim=(1, 2, 3)))
+    best_index = torch.stack(patch_scores, dim=1).argmin(dim=1)
+    mask = torch.zeros_like(score.float())
+    for item_idx, index in enumerate(best_index.tolist()):
+        y, x = candidates[index]
+        mask[item_idx : item_idx + 1, :, y : y + patch_size, x : x + patch_size] = 1.0
+    return mask
+
+
+def apply_noise_negative_augmentation(
+    base: torch.Tensor,
+    clean_target: torch.Tensor,
+    cfg: dict[str, Any],
+) -> tuple[torch.Tensor, torch.Tensor] | None:
+    if not bool(cfg.get("enabled", False)):
+        return None
+    probability = float(cfg.get("probability", 1.0))
+    if probability <= 0.0:
+        return None
+    patch_size = int(cfg.get("patch_size", 96))
+    stride = int(cfg.get("stride", max(1, patch_size // 2)))
+    sigma = float(cfg.get("sigma", 0.08))
+    mask = low_score_patch_mask(clean_target, patch_size=patch_size, stride=stride).to(device=base.device, dtype=base.dtype)
+    if probability < 1.0:
+        active = (torch.rand(base.shape[0], 1, 1, 1, device=base.device) < probability).to(dtype=base.dtype)
+        mask = mask * active
+    if float(mask.sum().detach().cpu()) <= 0.0:
+        return None
+    noise = torch.randn_like(base.float()) * sigma
+    noisy_base = (base.float() + noise * mask.float()).clamp(0.0, 1.0).to(dtype=base.dtype)
+    return noisy_base, mask.float()
 
 
 def training_loss(
@@ -177,6 +234,34 @@ def training_loss(
         + float(loss_cfg.get("excess_weight", 0.15)) * excess_penalty
         + float(loss_cfg.get("mean_weight", 0.1)) * mean_loss
     )
+    noise_negative_loss = prediction.new_zeros(())
+    noise_region_prediction = prediction.new_zeros(())
+    noise_target_mean = prediction.new_zeros(())
+    noise_excess_mean = prediction.new_zeros(())
+    noise_cfg = loss_cfg.get("noise_negative", {})
+    augmented = apply_noise_negative_augmentation(base, target, noise_cfg)
+    if augmented is not None:
+        noisy_base, noise_mask = augmented
+        with torch.no_grad():
+            noisy_components = mask_target(noisy_base, hr, model)
+            noisy_target = noisy_components["score"]
+            noisy_excess = normalize_score(
+                lowpass(noisy_components["excess"], model.patch_kernel),
+                quantile=model.score_quantile,
+            )
+        noisy_prediction = model(noisy_base, bicubic, condition, domain_id)
+        negative_regression = F.smooth_l1_loss(noisy_prediction.float(), noisy_target, reduction="none")
+        negative_regression = (negative_regression * noise_mask).sum() / noise_mask.sum().clamp_min(1.0)
+        noise_region_prediction = (noisy_prediction.float() * noise_mask).sum() / noise_mask.sum().clamp_min(1.0)
+        negative_excess = (noisy_prediction.float() * noisy_excess).mean()
+        noise_target_mean = (noisy_target * noise_mask).sum() / noise_mask.sum().clamp_min(1.0)
+        noise_excess_mean = (noisy_excess * noise_mask).sum() / noise_mask.sum().clamp_min(1.0)
+        noise_negative_loss = (
+            float(noise_cfg.get("regression_weight", 0.25)) * negative_regression
+            + float(noise_cfg.get("region_weight", 0.5)) * noise_region_prediction
+            + float(noise_cfg.get("excess_weight", 0.25)) * negative_excess
+        )
+        loss = loss + noise_negative_loss
     return loss, {
         "regression": regression,
         "correlation": correlation,
@@ -184,6 +269,10 @@ def training_loss(
         "mean_loss": mean_loss,
         "prediction_mean": prediction.float().mean(),
         "target_mean": target.mean(),
+        "noise_negative": noise_negative_loss,
+        "noise_region_prediction": noise_region_prediction,
+        "noise_target_mean": noise_target_mean,
+        "noise_excess_mean": noise_excess_mean,
     }
 
 
@@ -305,6 +394,10 @@ def main() -> None:
         lr=float(config["train"].get("lr", 1e-4)),
         weight_decay=float(config["train"].get("weight_decay", 1e-4)),
     )
+    init_cfg = config.get("initialization", {})
+    if init_cfg.get("checkpoint"):
+        init_stats = init_model_from_checkpoint(Path(init_cfg["checkpoint"]), model, device)
+        print(f"model_init={json.dumps(init_stats, sort_keys=True)}", flush=True)
     start_step = load_checkpoint(args.resume, model, optimizer, device) if args.resume else 0
     run = init_wandb(config, output_dir, model)
     train_dataset = make_dataset(config, split=str(config["data"].get("split", "train")), seed=seed, deterministic=False)
@@ -402,6 +495,8 @@ def main() -> None:
             print(
                 f"step={step} loss={train_metrics['train/loss']:.5f} corr={train_metrics['train/correlation']:.4f} "
                 f"pred={train_metrics['train/prediction_mean']:.4f} target={train_metrics['train/target_mean']:.4f} "
+                f"noise_neg={train_metrics['train/noise_negative']:.5f} "
+                f"noise_pred={train_metrics['train/noise_region_prediction']:.4f} "
                 f"updates={optimizer_updates} steps_per_s={train_metrics['system/steps_per_s']:.3f}",
                 flush=True,
             )

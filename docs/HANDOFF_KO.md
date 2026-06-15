@@ -56,8 +56,17 @@ generative:
   정의하지 않으므로 soft mask 동작이 그대로 유지된다.
 - 같은 top10 gate에 synthetic noise patch를 주입해 비교한 결과, GT-supervised
   missing-detail target은 노이즈 patch를 낮게 보지만 learned predictor는 노이즈
-  영역을 많이 열었다(`noisy_top_noise_region_mean 0.4531`). 다음 texture branch는
-  noisy/excess negative augmentation이나 excess-detail penalty가 필요하다.
+  영역을 많이 열었다(`noisy_top_noise_region_mean 0.4531`). 이 반응은
+  denoise/correction에는 쓸 수 있어도 texture generator gate로는 위험하다.
+- 이 문제를 줄이기 위해 `configs/detail_mask_predictor_v2_noise_negative_probe.yaml`
+  를 추가했고, v1 best3250에서 시작해 낮은 target-score patch에 Gaussian noise를
+  주입하는 negative augmentation을 학습했다. W&B는
+  <https://wandb.ai/jwheo/LuSIR/runs/g0ac6uvt>이다. best step `1500`은 clean top10
+  selection score `0.7219`로 v1 `0.7173`보다 약간 높고, excess capture는
+  `0.2496 -> 0.2375`로 낮다. 같은 noise response review에서 injected noise
+  patch top10 coverage는 `0.4531 -> 0.0000`, predictor mean은 `0.6430 -> 0.0018`
+  로 떨어졌다. 다음 texture branch gate는 v1이 아니라 이 v2 noise-negative
+  predictor를 우선 사용한다.
 - 이 predictor를 frozen soft gate로 쓰는 masked detail branch v2 장기 run은
   완료됐다. step 38000 이후 step 50000까지 best를 갱신하지 못하고 고정 grid도
   거의 같아 조기 중단했다. 위치 선택은 성공했지만 같은 deterministic objective는

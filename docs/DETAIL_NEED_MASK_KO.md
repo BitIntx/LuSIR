@@ -235,6 +235,57 @@ python tools/analysis/review_detail_mask_noise_response.py \
 /home/ubuntu/scratch/sr-diffusion/runs/detail_mask_noise_response_review_top10_sigma010/detail_mask_noise_response_grid.png
 ```
 
+## 2026-06-15 Noise-negative predictor v2
+
+위 진단에서 v1 predictor가 노이즈 patch를 여는 것은 denoise/correction
+모듈에는 쓸 수 있는 신호일 수 있지만, `그럴듯한 texture를 추가할 위치`를
+정하는 gate로는 위험하다. 다음 texture branch는 artifact/noise를 detail 후보로
+열면 안 되므로, v1 predictor에서 시작해 낮은 target-score patch에 Gaussian
+noise를 주입하고 그 영역의 prediction/excess를 직접 억제하는 v2 probe를
+학습했다.
+
+구현:
+
+- config: `configs/detail_mask_predictor_v2_noise_negative_probe.yaml`
+- init: `checkpoints/detail_mask_predictor_v1_best3250.pt`
+- W&B: <https://wandb.ai/jwheo/LuSIR/runs/g0ac6uvt>
+- train: `2000` micro steps, `grad_accum_steps 4`, lr `5e-5`
+- best: step `1500`, `best_eval_mask.pt`
+
+photo-detail val100, top10 selection:
+
+| predictor | correlation | missing capture | excess capture | selection score |
+| --- | ---: | ---: | ---: | ---: |
+| v1 best3250 | `0.7456` | `0.2213` | `0.2496` | `0.7173` |
+| v2 noise-negative best1500 | `0.7386` | `0.2208` | `0.2375` | `0.7219` |
+
+v2는 clean top10 missing capture를 거의 유지하면서 excess capture를 낮췄다.
+selection score도 `+0.0046` 올라, 노이즈 negative가 clean texture 선택을
+망가뜨리지는 않았다.
+
+같은 synthetic noise response review:
+
+| metric | v1 best3250 | v2 best1500 |
+| --- | ---: | ---: |
+| noisy top10 coverage inside injected noise patch | `0.4531` | `0.0000` |
+| noisy predictor mean inside noise patch | `0.6430` | `0.0018` |
+| noisy predictor mean outside noise patch | `0.4115` | `0.2765` |
+| clean/noisy top10 mask IoU | `0.7285` | `0.6027` |
+
+해석:
+
+- v2는 주입 노이즈 patch를 top10 gate에서 사실상 완전히 닫았다.
+- clean texture 선택 성능은 v1과 비슷하거나 약간 좋아졌다.
+- grid에서도 노이즈 patch는 어둡게 닫히고, 실제 texture 후보는 바깥에 남는다.
+- 따라서 다음 texture-generator probe의 gate 후보는 v1이 아니라 v2
+  noise-negative predictor다.
+
+보존 grid:
+
+```text
+/home/ubuntu/scratch/sr-diffusion/runs/detail_mask_noise_response_review_v2_top10_sigma010/detail_mask_noise_response_grid.png
+```
+
 ## Masked detail branch v2 장기 run 완료
 
 `configs/detail_branch_v2_masked_long_20ep.yaml`은 v1d best99500과 predictor

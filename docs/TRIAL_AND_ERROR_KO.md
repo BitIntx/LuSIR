@@ -53,6 +53,29 @@ val100은 다음과 같다.
 - 동일 objective continuation은 종료한다. 다음은 learned detail mask와
   patch-level perceptual/adversarial supervision을 우선 검토한다.
 
+## 2026-06-15 detail-mask v1 noise response와 v2 negative 보정
+
+learned detail-mask v1은 clean photo-detail val100에서 hand-crafted proxy를
+확실히 넘었지만, top10 texture gate로 쓸 때 synthetic noise patch에 과하게
+열리는 문제가 있었다. 낮은-texture patch에 Gaussian noise sigma `0.10`을
+주입하자 v1의 top10 mask coverage가 해당 patch 안에서 `0.4531`까지 올라갔다.
+GT-supervised missing-detail target은 같은 영역을 `0.0869`로 낮게 봤으므로,
+이 반응은 texture 후보 탐지가 아니라 artifact/noise에 gate가 열린 것이다.
+
+v1 best3250에서 시작해 low-target patch noise-negative augmentation을 넣은
+`configs/detail_mask_predictor_v2_noise_negative_probe.yaml`를 `2000` step
+학습했다. best step `1500`은 clean top10 selection score를 `0.7173 -> 0.7219`
+로 유지/개선했고, excess capture는 `0.2496 -> 0.2375`로 낮췄다. 같은 noise
+response review에서 injected-noise top10 coverage는 `0.4531 -> 0.0000`,
+noise patch predictor mean은 `0.6430 -> 0.0018`로 줄었다.
+
+판단:
+
+- denoise 모델이라면 노이즈를 감지하는 것이 유용할 수 있지만, texture 생성
+  gate는 노이즈 영역을 닫아야 한다.
+- v2는 clean texture 선택을 거의 유지하면서 noise/excess opening을 해결했다.
+- 다음 texture branch gate는 v1이 아니라 v2 noise-negative predictor를 쓴다.
+
 ## 2026-06-13 high-frequency residual diffusion v1 조기 중단
 
 `configs/diffusion_photo130k_lsdir_highfreq_residual_v1_b8.yaml`은 frozen
