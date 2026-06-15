@@ -188,6 +188,53 @@ tools/train/train_detail_branch.py::apply_detail_mask_policy
 tools/infer/infer_detail_branch.py
 ```
 
+## 2026-06-15 Noise response review
+
+top10 gate가 실제 texture 위치를 잘 고르는지 확인한 뒤, 같은 predictor가
+가짜 고주파 노이즈도 detail로 착각하는지 진단했다. base image의 낮은-texture
+patch 하나를 골라 Gaussian noise를 주입하고, 원본 base와 noisy base에서
+predictor/top10 mask를 비교했다.
+
+실행:
+
+```bash
+python tools/analysis/review_detail_mask_noise_response.py \
+  --limit 24 \
+  --sample-count 8 \
+  --top-fraction 0.10 \
+  --noise-sigma 0.10 \
+  --noise-patch-size 96 \
+  --output-dir /home/ubuntu/scratch/sr-diffusion/runs/detail_mask_noise_response_review_top10_sigma010
+```
+
+결과:
+
+| metric | value |
+| --- | ---: |
+| clean top10 coverage inside future noise patch | `0.0012` |
+| noisy top10 coverage inside injected noise patch | `0.4531` |
+| noisy predictor mean inside noise patch | `0.6430` |
+| noisy predictor mean outside noise patch | `0.4115` |
+| noisy GT-supervised missing-detail target inside noise patch | `0.0869` |
+| normalized excess-detail energy inside noise patch | `0.2128` |
+| clean/noisy top10 mask IoU | `0.7285` |
+
+해석:
+
+- GT-supervised target은 주입 노이즈를 missing detail로 거의 보지 않는다.
+- 하지만 learned predictor는 관측 가능한 high-frequency 변화에 반응해 노이즈
+  patch를 top10 mask에 많이 포함했다.
+- 따라서 현재 v1 predictor + top10 gate는 texture branch의 위치 제한으로는
+  유용하지만, 그대로 쓰면 노이즈/압축 artifact를 detail 후보로 열 위험이 있다.
+- 다음 texture branch는 clean/detail positive만 보지 말고, noisy/excess negative
+  augmentation 또는 excess-detail penalty를 gate/loss에 같이 넣어야 한다.
+
+보존 grid:
+
+```text
+/home/ubuntu/scratch/sr-diffusion/runs/detail_mask_noise_response_review_top10_sigma010/detail_mask_noise_response_grid.png
+```
+
 ## Masked detail branch v2 장기 run 완료
 
 `configs/detail_branch_v2_masked_long_20ep.yaml`은 v1d best99500과 predictor

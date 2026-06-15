@@ -54,6 +54,10 @@ generative:
   `top_mode: binary`, `floor: 0.0`이다. train/infer detail branch 경로에
   선택적 `detail_mask.top_fraction` policy를 추가했으며, 기존 config는 이 값을
   정의하지 않으므로 soft mask 동작이 그대로 유지된다.
+- 같은 top10 gate에 synthetic noise patch를 주입해 비교한 결과, GT-supervised
+  missing-detail target은 노이즈 patch를 낮게 보지만 learned predictor는 노이즈
+  영역을 많이 열었다(`noisy_top_noise_region_mean 0.4531`). 다음 texture branch는
+  noisy/excess negative augmentation이나 excess-detail penalty가 필요하다.
 - 이 predictor를 frozen soft gate로 쓰는 masked detail branch v2 장기 run은
   완료됐다. step 38000 이후 step 50000까지 best를 갱신하지 못하고 고정 grid도
   거의 같아 조기 중단했다. 위치 선택은 성공했지만 같은 deterministic objective는
