@@ -76,6 +76,44 @@ noise patch predictor mean은 `0.6430 -> 0.0018`로 줄었다.
 - v2는 clean texture 선택을 거의 유지하면서 noise/excess opening을 해결했다.
 - 다음 texture branch gate는 v1이 아니라 v2 noise-negative predictor를 쓴다.
 
+## 2026-06-15 detail branch v5 noise-gated PatchGAN 붕괴
+
+v5는 v2 noise-negative mask를 hard top10 binary gate로 쓰고, selected
+deterministic v2 branch step38000에서 masked VGG + PatchGAN을 다시 시도한
+probe다.
+
+```text
+config: configs/detail_branch_v5_noise_gate_top10_patch_gan_probe.yaml
+run: /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v5_noise_gate_top10_patch_gan_probe
+wandb: https://wandb.ai/jwheo/LuSIR/runs/u9sbs752
+stopped: step 3500
+```
+
+초기에는 step 500에서 PSNR delta `+0.0537 dB`, mean delta `+0.0761 dB`,
+wins `99/100`까지 유지됐다. 하지만 adversarial이 켜진 뒤 점진적으로
+무너졌다.
+
+| step | PSNR delta | mean PSNR delta | SSIM delta | wins |
+| ---: | ---: | ---: | ---: | ---: |
+| 500 | `+0.0537` | `+0.0761` | `+0.00137` | `99/100` |
+| 1750 | `+0.0373` | `+0.0501` | `+0.00168` | `71/100` |
+| 2250 | `+0.0218` | `+0.0215` | `+0.00164` | `51/100` |
+| 3250 | `-0.0165` | `-0.0312` | `+0.00079` | `29/100` |
+| 3500 | `-0.0953` | `-0.1299` | `-0.00030` | `11/100` |
+
+중요한 점은 `outside_mask_residual_l1`이 끝까지 `0`이었다는 것이다. 즉 v2
+gate는 실패하지 않았다. 붕괴는 gate 밖으로 새는 문제가 아니라, gate 안쪽에서
+PatchGAN이 residual/gate를 키우며 긁힌 듯한 고주파 artifact를 만든 것이다.
+
+판단:
+
+- v2 noise-negative gate는 다음 실험에서도 쓸 수 있다.
+- PatchGAN 기반 visible-detail pressure는 현재 bounded highpass branch와
+  맞지 않는다.
+- 같은 config continuation, 더 긴 학습, 더 강한 GAN weight는 하지 않는다.
+- 다음은 adversarial을 빼고 generator의 artifact/noise negative loss를 직접
+  넣거나, Stage 1 decoder/detail capacity 병목을 먼저 확인한다.
+
 ## 2026-06-13 high-frequency residual diffusion v1 조기 중단
 
 `configs/diffusion_photo130k_lsdir_highfreq_residual_v1_b8.yaml`은 frozen

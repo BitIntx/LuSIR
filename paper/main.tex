@@ -1372,27 +1372,39 @@ from \texttt{0.4531} to \texttt{0.0000} and noisy-patch predictor mean
 from \texttt{0.6430} to \texttt{0.0018}. This makes v2 the preferred
 gate for any subsequent texture-generation branch.
 
+The follow-up v5 texture probe used this v2 mask as a hard top-10\%
+binary gate with zero floor and retried masked VGG plus PatchGAN
+pressure from the selected v2 generator. The gate itself behaved as
+intended: \texttt{detail\_mask\_mean} stayed near \texttt{0.10} and
+\texttt{outside\_mask\_residual\_l1} remained \texttt{0}. However, the
+adversarial phase still collapsed fidelity inside the mask. The run
+moved from \texttt{+0.0537\ dB} PSNR delta and \texttt{99/100} wins at
+step 500 to \texttt{-0.0953\ dB} and \texttt{11/100} wins at step 3500.
+Visual review showed high-frequency artifact growth rather than
+GT-aligned fine texture. This rejects the current PatchGAN route;
+stronger adversarial pressure or longer continuation is not planned.
+
 The next detail experiment should retain the frozen fidelity base and
-learned mask, but train a small bounded head with mask-weighted patch
-perceptual or adversarial supervision and explicit lowpass/fidelity
-guardrails.
+learned mask, but avoid the current PatchGAN objective. Candidate
+directions are explicit artifact/noise-negative generator loss inside
+the mask, a smaller fixed-review patch objective, or a Stage-1
+decoder-side detail-capacity audit.
 
-That direction is now implemented as the untrained masked detail v3
-patch probe. It preserves the selected v2 generator and its bounded
-highpass-only residual path, adds a frozen-VGG feature loss spatially
-weighted by the learned mask, and adds a small conditional PatchGAN that
-receives the frozen base reconstruction and real/fake high-frequency
-content. The adversarial objective starts after a 500-micro-step warmup
-with a deliberately small generator weight. No long-run result is
-claimed yet.
+Before v5, the v3/v3b/v4 series tested the same general idea with the
+original v1 mask. V3 added conservative masked VGG and PatchGAN losses
+and selected step 1000, but remained visually too close to the
+deterministic v2 branch. V3b increased perceptual and adversarial
+pressure; its final step 8000 fell to \texttt{-0.1824\ dB} PSNR delta
+and \texttt{11/100} wins. V4 added filtered Real-ESRGAN teacher highpass
+supervision, but its best checkpoint was step 0, meaning the teacher
+signal did not improve over the v3 initialization. V5 shows that
+switching to the cleaner v2 noise-negative gate fixes mask leakage but
+does not fix the adversarial texture objective itself.
 
-The evaluator now reports lowpass drift and residual energy inside and
-outside the learned mask. At the selected v2 initialization, the L40S
-smoke baseline is \texttt{0.000198} lowpass drift and \texttt{0.004333}
-outside-mask residual L1. These values, PSNR/SSIM, and fixed visual
-grids are explicit stop criteria for the v3 probe; the experiment is
-rejected if it creates repeated texture, ringing, white points, or
-persistent fidelity regression.
+The evaluator reports lowpass drift and residual energy inside and
+outside the learned mask. These values, PSNR/SSIM, wins, and fixed
+visual grids remain the guardrails for any future detail-generation
+probe.
 
 During reproducibility review, the original single-image and
 formal-benchmark inference paths were found to omit the learned

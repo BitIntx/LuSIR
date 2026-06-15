@@ -192,6 +192,11 @@ The next detail-generator probe is
 `configs/detail_branch_v5_noise_gate_top10_patch_gan_probe.yaml`, which uses
 that v2 gate as a hard top-10% binary mask with zero floor before applying
 masked perceptual and PatchGAN pressure.
+That probe was stopped at step 3500 after the PatchGAN phase collapsed
+fidelity (`+0.0537 dB` at step 500 to `-0.0953 dB` at step 3500). The v2 gate
+remained closed outside the selected top-10% region, so the failure is recorded
+as adversarial high-frequency artifact growth inside the mask rather than a
+mask-leak problem.
 
 Two separate generative-detail experiments have now been evaluated. The first
 latent residual probe added high-frequency energy without GT-aligned detail.

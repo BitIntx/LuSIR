@@ -103,6 +103,15 @@ generative:
   다시 시작한다. 목적은 v1 soft mask가 아니라 노이즈에 닫힌 top10 gate에서만
   masked VGG/PatchGAN texture pressure를 주는 것이다. 설계와 중단 기준은
   `docs/DETAIL_BRANCH_V5_NOISE_GATE_KO.md`에 있다.
+- v5는 step 3500 eval 직후 중단했다. W&B는
+  <https://wandb.ai/jwheo/LuSIR/runs/u9sbs752>이다. step 500까지는
+  PSNR delta `+0.0537`, wins `99/100`이었지만, PatchGAN 활성화 이후
+  지속적으로 악화되어 step 3250은 `-0.0165 dB`, wins `29/100`, step 3500은
+  `-0.0953 dB`, wins `11/100`까지 붕괴했다. `outside_mask_residual_l1`은 끝까지
+  `0`이라 v2 top10 gate 자체는 동작했다. 실패 원인은 gate 밖으로 새는 문제가
+  아니라, gate 안쪽에서 adversarial pressure가 GT-aligned correction 대신
+  artifact 고주파를 키운 것이다. 같은 PatchGAN continuation이나 더 강한 GAN
+  weight는 하지 않는다.
 - Stage2/base 경로 실험
   `configs/latent_pretrain_photo130k_lsdir_dual_detail_perceptual_v1.yaml`도
   완료됐다. best detail-score는 step `6000`, decoded PSNR `24.5921`,

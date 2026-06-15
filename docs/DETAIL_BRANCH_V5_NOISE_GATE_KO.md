@@ -58,3 +58,44 @@ source /home/ubuntu/venvs/cuda/bin/activate
 python -u tools/train/train_detail_branch.py \
   --config configs/detail_branch_v5_noise_gate_top10_patch_gan_probe.yaml
 ```
+
+## 결과
+
+v5는 사용자가 W&B sample grid에서 붕괴를 확인했고, step 3500 eval 직후
+중단했다.
+
+```text
+run: /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v5_noise_gate_top10_patch_gan_probe
+wandb: https://wandb.ai/jwheo/LuSIR/runs/u9sbs752
+stopped: step 3500
+```
+
+주요 val100 추이:
+
+| step | PSNR delta | mean PSNR delta | SSIM delta | wins | detail wins | lowpass drift | outside mask |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0 | `+0.0502` | `+0.0668` | `+0.00147` | `93/100` | `80/100` | `0.000133` | `0.000000` |
+| 500 | `+0.0537` | `+0.0761` | `+0.00137` | `99/100` | `95/100` | `0.000098` | `0.000000` |
+| 1750 | `+0.0373` | `+0.0501` | `+0.00168` | `71/100` | `59/100` | `0.000116` | `0.000000` |
+| 2250 | `+0.0218` | `+0.0215` | `+0.00164` | `51/100` | `36/100` | `0.000131` | `0.000000` |
+| 3250 | `-0.0165` | `-0.0312` | `+0.00079` | `29/100` | `18/100` | `0.000133` | `0.000000` |
+| 3500 | `-0.0953` | `-0.1299` | `-0.00030` | `11/100` | `5/100` | `0.000169` | `0.000000` |
+
+판단:
+
+- v2 noise-negative top10 gate 자체는 동작했다. `detail_mask_mean`은 약
+  `0.10`이고 `outside_mask_residual_l1`은 끝까지 `0`이었다.
+- 그러나 PatchGAN이 켜진 뒤 masked residual/gate가 점점 커졌고, 실제 GT-aligned
+  detail correction보다 긁힌 듯한 고주파 artifact를 mask 안쪽에 넣었다.
+- step 500의 best는 adversarial이 실질적으로 들어가기 전의 작은 이득이다.
+  이후 장기 학습은 high-frequency ratio만 올리면서 PSNR/wins를 빠르게 잃었다.
+- 따라서 v5 PatchGAN 방향은 실패로 기록한다. 같은 config continuation이나
+  더 강한 adversarial weight는 하지 않는다.
+
+다음 방향:
+
+- texture 생성 실험에서 PatchGAN을 우선 제외한다.
+- v2 gate는 유지하되, mask 안쪽 후보 patch를 고정 review set으로 더 작게 보고
+  artifact/noise negative loss를 generator에도 직접 넣는 쪽을 검토한다.
+- 또는 generator가 아니라 Stage 1 decoder-side/detail-capacity 병목을 먼저
+  점검한다.
