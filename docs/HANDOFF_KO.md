@@ -66,7 +66,8 @@ generative:
   `0.2496 -> 0.2375`로 낮다. 같은 noise response review에서 injected noise
   patch top10 coverage는 `0.4531 -> 0.0000`, predictor mean은 `0.6430 -> 0.0018`
   로 떨어졌다. 다음 texture branch gate는 v1이 아니라 이 v2 noise-negative
-  predictor를 우선 사용한다.
+  predictor를 우선 사용한다. HF preset은
+  `detail_mask_predictor_v2_noise_negative`이다.
 - 이 predictor를 frozen soft gate로 쓰는 masked detail branch v2 장기 run은
   완료됐다. step 38000 이후 step 50000까지 best를 갱신하지 못하고 고정 grid도
   거의 같아 조기 중단했다. 위치 선택은 성공했지만 같은 deterministic objective는

@@ -251,6 +251,7 @@ noise를 주입하고 그 영역의 prediction/excess를 직접 억제하는 v2 
 - W&B: <https://wandb.ai/jwheo/LuSIR/runs/g0ac6uvt>
 - train: `2000` micro steps, `grad_accum_steps 4`, lr `5e-5`
 - best: step `1500`, `best_eval_mask.pt`
+- HF preset: `detail_mask_predictor_v2_noise_negative`
 
 photo-detail val100, top10 selection:
 
@@ -284,6 +285,17 @@ selection score도 `+0.0046` 올라, 노이즈 negative가 clean texture 선택�
 
 ```text
 /home/ubuntu/scratch/sr-diffusion/runs/detail_mask_noise_response_review_v2_top10_sigma010/detail_mask_noise_response_grid.png
+```
+
+HF 보존 경로:
+
+```text
+checkpoints/detail_mask_predictor_v2_noise_negative_best1500.pt
+configs/detail_mask_predictor_v2_noise_negative_probe.yaml
+configs/hf/detail_mask_predictor_v2_noise_negative.yaml
+metrics/detail_mask_predictor_v2_noise_negative_summary.json
+metrics/detail_mask_predictor_v2_noise_response_top10_sigma010_summary.json
+samples/detail_mask_predictor_v2_noise_response_top10_sigma010_grid.png
 ```
 
 ## Masked detail branch v2 장기 run 완료

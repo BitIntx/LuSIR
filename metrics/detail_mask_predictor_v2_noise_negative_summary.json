@@ -1,0 +1,43 @@
+{
+  "best_metric_name": "eval/selection_score",
+  "best_metric_value": 0.7219491547346114,
+  "best_metrics": {
+    "eval/baseline_capture": 0.17748346388339997,
+    "eval/baseline_concentration": 1.7748617315292359,
+    "eval/baseline_corr": 0.5402553761005402,
+    "eval/baseline_excess_capture": 0.3004985064268112,
+    "eval/baseline_selection_score": 0.417240333557129,
+    "eval/capture": 0.2208288961648941,
+    "eval/concentration": 2.2083226346969607,
+    "eval/corr": 0.7386423969268798,
+    "eval/delta_selection_score": 0.30470882117748244,
+    "eval/excess_capture": 0.2375221383571625,
+    "eval/mae": 0.135879125893116,
+    "eval/num_images": 100.0,
+    "eval/prediction_mean": 0.3862143898010254,
+    "eval/selection_score": 0.7219491547346114,
+    "eval/target_mean": 0.3989172923564911
+  },
+  "checkpoint_best": "/home/ubuntu/scratch/sr-diffusion/runs/detail_mask_predictor_v2_noise_negative_probe/checkpoints/best_eval_mask.pt",
+  "checkpoint_latest": "/home/ubuntu/scratch/sr-diffusion/runs/detail_mask_predictor_v2_noise_negative_probe/checkpoints/latest.pt",
+  "config": "configs/detail_mask_predictor_v2_noise_negative_probe.yaml",
+  "final_metrics": {
+    "eval/baseline_capture": 0.17748346388339997,
+    "eval/baseline_concentration": 1.7748617315292359,
+    "eval/baseline_corr": 0.5402553761005402,
+    "eval/baseline_excess_capture": 0.3004985064268112,
+    "eval/baseline_selection_score": 0.417240333557129,
+    "eval/capture": 0.2215101045370102,
+    "eval/concentration": 2.2151348781585694,
+    "eval/corr": 0.7421637010574341,
+    "eval/delta_selection_score": 0.29602702856063834,
+    "eval/excess_capture": 0.25040644347667695,
+    "eval/mae": 0.13553411573171614,
+    "eval/num_images": 100.0,
+    "eval/prediction_mean": 0.3708814144134521,
+    "eval/selection_score": 0.7132673621177673,
+    "eval/target_mean": 0.3989172923564911
+  },
+  "finished_step": 2000,
+  "optimizer_updates": 500
+}

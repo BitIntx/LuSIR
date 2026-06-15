@@ -187,6 +187,23 @@ DETAIL_BRANCH_V2_MASKED_FILES = [
     "samples/detail_branch_v2_masked_photo130k_lsdir_best38000_grid.png",
 ]
 
+DETAIL_MASK_PREDICTOR_V2_NOISE_NEGATIVE_FILES = [
+    "checkpoints/stage1_autoencoder_best_eval_recon.pt",
+    "checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt",
+    "checkpoints/detail_mask_predictor_v1_best3250.pt",
+    "checkpoints/detail_mask_predictor_v2_noise_negative_best1500.pt",
+    "configs/autoencoder_photo10k.yaml",
+    "configs/latent_pretrain_photo130k_lsdir_dual_multiscale_long.yaml",
+    "configs/detail_mask_predictor_v1_probe.yaml",
+    "configs/detail_mask_predictor_v2_noise_negative_probe.yaml",
+    "configs/hf/detail_mask_predictor_v1.yaml",
+    "configs/hf/detail_mask_predictor_v2_noise_negative.yaml",
+    "metrics/detail_mask_predictor_v1_val100_summary.json",
+    "metrics/detail_mask_predictor_v2_noise_negative_summary.json",
+    "metrics/detail_mask_predictor_v2_noise_response_top10_sigma010_summary.json",
+    "samples/detail_mask_predictor_v2_noise_response_top10_sigma010_grid.png",
+]
+
 PRESETS = {
     "prototype": PROTOTYPE_FILES,
     "photo100k": PHOTO100K_FILES,
@@ -202,6 +219,7 @@ PRESETS = {
     "detail_branch_v1b": DETAIL_BRANCH_V1B_FILES,
     "detail_branch_v1d": DETAIL_BRANCH_V1D_FILES,
     "detail_branch_v2_masked": DETAIL_BRANCH_V2_MASKED_FILES,
+    "detail_mask_predictor_v2_noise_negative": DETAIL_MASK_PREDICTOR_V2_NOISE_NEGATIVE_FILES,
 }
 
 
@@ -229,7 +247,9 @@ def parse_args() -> argparse.Namespace:
             "'stage2_photo130k_lsdir_dual' includes the completed dual-context LSDIR Stage 2 best98000 checkpoint; "
             "'detail_branch_v1b' includes the earlier high-frequency detail branch best39500 checkpoint; "
             "'detail_branch_v1d' includes the selected 3.02M detail branch best99500 checkpoint and eval artifacts; "
-            "'detail_branch_v2_masked' includes the learned-mask-gated research candidate best38000."
+            "'detail_branch_v2_masked' includes the learned-mask-gated research candidate best38000; "
+            "'detail_mask_predictor_v2_noise_negative' includes the noise-negative detail gate best1500 "
+            "and its top10 noise-response review."
         ),
     )
     parser.add_argument(

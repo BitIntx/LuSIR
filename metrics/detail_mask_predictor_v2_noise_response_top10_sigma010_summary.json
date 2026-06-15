@@ -1,0 +1,27 @@
+{
+  "checkpoint": "/home/ubuntu/scratch/sr-diffusion/runs/detail_mask_predictor_v2_noise_negative_probe/checkpoints/best_eval_mask.pt",
+  "checkpoint_step": 1500,
+  "config": "configs/detail_mask_predictor_v2_noise_negative_probe.yaml",
+  "interpretation": {
+    "clean_noisy_top_iou": "IoU between clean and noisy top masks",
+    "clean_top_noise_region_mean": "top-mask coverage inside the future noise patch before noise injection; random baseline is top_fraction",
+    "noisy_excess_noise_region_mean": "normalized excess-detail energy inside the injected noise patch",
+    "noisy_prediction_noise_region_mean": "soft prediction mean inside the injected noise patch",
+    "noisy_prediction_outside_mean": "soft prediction mean outside the injected noise patch",
+    "noisy_target_noise_region_mean": "GT-supervised missing-detail target inside the injected noise patch; should remain low if noise is excess detail",
+    "noisy_top_noise_region_mean": "top-mask coverage inside the injected noise patch after noise injection; much above top_fraction means the mask reacts to noise"
+  },
+  "metrics": {
+    "clean_noisy_top_iou": 0.6027330160140991,
+    "clean_top_noise_region_mean": 0.0005515769589692354,
+    "noisy_excess_noise_region_mean": 0.21280764788389206,
+    "noisy_prediction_noise_region_mean": 0.0018479982390999794,
+    "noisy_prediction_outside_mean": 0.2764555464188258,
+    "noisy_target_noise_region_mean": 0.08692436975737412,
+    "noisy_top_noise_region_mean": 0.0
+  },
+  "noise_patch_size": 96,
+  "noise_sigma": 0.1,
+  "num_images": 24,
+  "top_fraction": 0.1
+}
