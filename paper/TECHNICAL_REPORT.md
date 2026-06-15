@@ -2,9 +2,10 @@
 
 Snapshot: masked detail branch v2 and its formal x4 benchmark are complete,
 Stage 2 clean-fidelity learning-rate probes are complete, the Stage 2
-detail-perceptual continuation has been formally reviewed but not promoted,
-and several deterministic/generative visible-detail probes were evaluated
-without producing a clear texture breakthrough.
+detail-perceptual continuation and shifted-window attention probes have been
+formally reviewed but not promoted, and several deterministic/generative
+visible-detail probes were evaluated without producing a clear texture
+breakthrough.
 
 `paper/TECHNICAL_REPORT.md` is the canonical report source.
 `paper/sr_diffusion_report.pdf` and `paper/main.tex` are generated from it with
@@ -277,6 +278,40 @@ metrics/formal_x4_benchmark_stage2_detail_perceptual_v1_metrics.csv
 metrics/formal_x4_benchmark_stage2_detail_perceptual_v1_delta_crop_selection.csv
 samples/stage2_detail_perceptual_v1_benchmark_delta_crop_sheet.jpg
 ```
+
+## Stage 2 Shifted-Window Attention Probe Review
+
+The next Stage 2/base architecture probe added shifted-window self-attention
+and a gated depthwise feed-forward branch to the dual-context predictor. The
+goal was to test whether broader feature mixing could reduce conditional-mean
+smoothing in repetitive structures such as windows, grids, leaves, and small
+texture.
+
+Three variants were evaluated on the same val100 proxy:
+
+| Candidate | Stop step | Decoded PSNR range | Detail-ratio range | Best score |
+| --- | ---: | ---: | ---: | ---: |
+| v2, implementation bug | 8000 | `24.60-24.63` | `0.315-0.343` | `24.950` |
+| v3 true-dual, window 8 | 6000 | `24.60-24.63` | `0.315-0.343` | `24.953` |
+| v3 true-dual, window 12 | 4000 | `24.60-24.63` | `0.315-0.341` | `24.954` |
+
+The v2 probe is retained only as a cautionary result: the
+`dual_multiscale_attention` implementation initially did not enable the second
+`extra_context` branch, so it compared single-context-plus-attention against
+the dual-context baseline. V3 corrected this by preserving the full
+dual-context path and applying attention after `context + extra_context`.
+Parameter groups then trained the new attention branch at `2e-5` while keeping
+the inherited trunk/context/output at `5e-6`, with a warmup-cosine scheduler.
+
+The corrected `8x8` and `12x12` probes both stayed near the dual-context
+baseline and did not produce a visible texture breakthrough. Increasing window
+size raised memory and compute cost (`12x12` used about `31.5 / 46.1 GB` on a
+single L40S and ran at about `1.83` micro-steps/s) without changing the
+trajectory. The interpretation is that attention window size is not the
+primary bottleneck. The model still learns a conservative deterministic latent
+estimate under the current supervision. Future Stage 2 work should target a
+residual/detail correction path on top of a preserved fidelity base, or
+decoder-side detail capacity, rather than continuing window-size scaling.
 
 The first separate generative probe is
 `configs/diffusion_photo130k_lsdir_highfreq_residual_v1_b8.yaml`. It freezes the
@@ -996,14 +1031,18 @@ branch v1d and masked detail branch v2 are selectable single-image/tiled Colab
 research options. The completed perceptual Stage 2 continuation is not promoted.
 Candidate next steps are:
 
-- preserve the deterministic base and validated learned detail-need mask, then
-  test a small bounded mask-weighted patch perceptual/adversarial head;
+- preserve the deterministic base and move from full latent re-prediction to a
+  residual/detail correction path that predicts `target_latent - baseline_latent`
+  or decoded highpass/detail residual over the existing Stage 2 output;
+- audit Stage 1 decoder-side detail capacity, because Stage 2 improvements can
+  still decode into overly smooth images if the VAE decoder is the limiting
+  reconstruction component;
 - select the generative path with LPIPS, DISTS, fixed visual review,
   high-frequency metrics, lowpass drift, and seed diversity instead of PSNR
   alone;
-- continue Stage 2/base architecture research as a separate clean-fidelity
-  track for the measured `0.9235 dB` DIV2K gap, rather than mixing that goal
-  into the generative detail objective;
+- keep Stage 2/base architecture research separate from the generative detail
+  objective, but do not continue the shifted-window attention/window-scaling
+  branch without a new supervision signal;
 - because v1d remains visually conservative and noise-MSE residual diffusion
   collapses toward zero, prioritize patch-level perceptual or adversarial
   supervision instead of increasing branch capacity again;

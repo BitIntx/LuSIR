@@ -10,7 +10,7 @@ Restoration**)입니다. GitHub repo id는 `BitIntx/LuSIR`, Hugging Face repo id
 `jwheo/LuSIR`입니다. W&B 기존 run URL, 로컬 scratch 경로, Python import
 namespace에는 아직 `sr-diffusion`/`sr_diffusion` 호환 이름이 남아 있습니다.
 
-## 2026-06-14 현재 상태
+## 2026-06-15 현재 상태
 
 ### 학습 단계와 실제 추론 경로
 
@@ -101,22 +101,24 @@ generative:
   범위였고 step `6000`은 decoded PSNR `24.62`, detail ratio `0.329`,
   psnr_detail_score `24.951`이었다. true-dual 구조 정정은 유효했지만
   `8x8` attention은 baseline을 의미 있게 넘지 못해 중단했다.
-- 현재 active 구조 테스트는 Stage2 v3 true-dual shifted-window attention
-  `12x12` window probe다.
-  init은 dual step98000 partial load다. v3는
-  `trunk -> context -> extra_context -> attention -> output` 순서로 기존
-  dual-context feature를 보존한 뒤 attention residual을 붙인다.
-  active config는
-  `configs/latent_pretrain_photo130k_lsdir_dual_attention_v3_w12_probe.yaml`이며
+- Stage2 v3 true-dual shifted-window attention `12x12` window probe도
+  step `4000`까지 확인하고 중단했다. config는
+  `configs/latent_pretrain_photo130k_lsdir_dual_attention_v3_w12_probe.yaml`,
+  W&B는 <https://wandb.ai/jwheo/LuSIR/runs/xg0358xl>이다.
   partial init은 `119.238M / 124.247M = 95.97%`, 새 attention params는
-  `5.009M`이다. optimizer는 default `5e-6`, attention `2e-5` param group과
-  `warmup_cosine(warmup_updates=50, min_lr_ratio=0.2)`를 사용한다.
-  active run은 tmux `stage2-attn-v3-w12`, W&B
-  <https://wandb.ai/jwheo/LuSIR/runs/xg0358xl>. 초기 속도는 약 `1.83`
-  micro-step/s, VRAM은 약 `31.5 / 46.1 GB`다. step `500` first eval은
-  decoded PSNR `24.61`, detail ratio `0.316`, psnr_detail_score `24.928`로
-  fidelity 붕괴 없이 baseline 근처에서 출발했다. step `1000-3000` 구간에서
-  window 확대 효과를 판단한다.
+  `5.009M`이었다. 초기 속도는 약 `1.83` micro-step/s, VRAM은 약
+  `31.5 / 46.1 GB`였다.
+  eval은 decoded PSNR `24.60-24.63`, detail ratio `0.315-0.341` 범위에
+  머물렀고, step `4000`은 decoded PSNR `24.62`, detail ratio `0.319`,
+  psnr_detail_score `24.941`이었다.
+- 결론: v2, v3 `8x8`, v3 `12x12` 모두 baseline 주변에서 정체했다. 더 큰
+  attention window는 무거워지기만 하고 missing texture를 복원하지 못했다.
+  shifted-window attention/window scaling은 당분간 중단한다.
+- 현재 active 학습은 없다. 다음 고신호 방향은 baseline Stage2 latent를 직접
+  다시 예측하는 구조가 아니라, frozen/baseline Stage2 출력 위에
+  `target_latent - baseline_latent` 또는 decoded highpass/detail residual을
+  보정하는 residual/detail correction branch다. 동시에 Stage1 decoder-side
+  detail capacity도 병목 후보로 점검한다.
 
 ### 최신 완료 detail v1d와 strict-bicubic 진단
 

@@ -1881,10 +1881,10 @@ smoke:
 - 2-step CUDA bf16 forward/backward 통과
 - 8-step smoke로 첫 optimizer update와 checkpoint save 통과
 
-active run:
+run:
 
 ```text
-tmux: stage2-attn-v2
+tmux: stage2-attn-v2 (stopped at step 8000)
 wandb: https://wandb.ai/jwheo/LuSIR/runs/68fwnfry
 log: /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_attention_v2_probe/train_console.log
 ```
@@ -1936,10 +1936,10 @@ max steps: 20000 micro-steps
 scheduler: warmup_cosine, warmup_updates=50, min_lr_ratio=0.2
 ```
 
-active run:
+run:
 
 ```text
-tmux: stage2-attn-v3
+tmux: stage2-attn-v3 (stopped at step 6000)
 wandb: https://wandb.ai/jwheo/LuSIR/runs/cx85a1ce
 log: /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_attention_v3_probe/train_console.log
 ```
@@ -1989,10 +1989,10 @@ max steps: 12000 micro-steps
 scheduler: warmup_cosine, warmup_updates=50, min_lr_ratio=0.2
 ```
 
-active run:
+run:
 
 ```text
-tmux: stage2-attn-v3-w12
+tmux: stage2-attn-v3-w12 (stopped at step 4000)
 wandb: https://wandb.ai/jwheo/LuSIR/runs/xg0358xl
 log: /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_attention_v3_w12_probe/train_console.log
 ```
@@ -2008,18 +2008,19 @@ log: /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual
   baseline 근처에서 출발했다. 실제 window 확대 효과는 step `1000-3000`
   구간에서 본다.
 
-성공 기준:
+중단 판정:
 
-- 초기 500-2000 step에서 dual step98000 근처의 decoded PSNR을 유지해야 한다.
-- val100 proxy가 기존 dual-context `24.6197`을 넘거나, formal benchmark에서
-  latest12000보다 나은 PSNR/SSIM tradeoff를 보여야 한다.
-- W&B sample에서 이전 detail-perceptual처럼 "수치상 detail만 증가"가 아니라
-  창문/격자/잎/작은 반복 질감이 실제로 덜 뭉개져야 한다.
-
-중단 기준:
-
-- decoded PSNR이 초반부터 지속적으로 무너지거나, highpass만 커지고 fixed sample이
-  반복 패턴/링잉으로 변하면 중단한다.
-- step 4000-6000까지 기존 dual보다 유의미한 수치/시각 개선이 없으면 같은
-  구조를 길게 밀지 않고, 더 직접적인 SR backbone 또는 decoder-side 구조로
-  넘어간다.
+- w12는 step `4000`까지 확인하고 중단했다.
+- eval 추세는 decoded PSNR `24.60-24.63`, detail ratio `0.315-0.341` 범위로
+  `8x8`과 사실상 같았다.
+- best decoded PSNR은 step `2500`의 `24.63`, best psnr_detail_score는
+  step `3000`의 `24.954`였다.
+- step `4000`은 decoded PSNR `24.62`, detail ratio `0.319`,
+  psnr_detail_score `24.941`이었다.
+- `12x12`는 VRAM 약 `31.5 / 46.1 GB`, 속도 약 `1.83` micro-step/s로
+  `8x8`보다 무거웠지만 수치/시각 개선 신호는 없었다.
+- 결론: shifted-window attention의 window 확대는 Stage2 병목을 해결하지
+  못한다. attention/window 방향은 여기서 중단하고, 다음은 baseline Stage2
+  latent를 보존한 채 `target_latent - baseline_latent` 또는 decoded highpass를
+  직접 보정하는 residual/detail correction branch나 decoder-side detail capacity를
+  검토한다.

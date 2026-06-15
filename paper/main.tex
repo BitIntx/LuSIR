@@ -134,9 +134,10 @@ without T2I Pretraining}
 }
 Snapshot: masked detail branch v2 and its formal x4 benchmark are
 complete, Stage 2 clean-fidelity learning-rate probes are complete, the
-Stage 2 detail-perceptual continuation has been formally reviewed but
-not promoted, and several deterministic/generative visible-detail probes
-were evaluated without producing a clear texture breakthrough.
+Stage 2 detail-perceptual continuation and shifted-window attention
+probes have been formally reviewed but not promoted, and several
+deterministic/generative visible-detail probes were evaluated without
+producing a clear texture breakthrough.
 
 \texttt{paper/TECHNICAL\_REPORT.md} is the canonical report source.
 \texttt{paper/sr\_diffusion\_report.pdf} and \texttt{paper/main.tex} are
@@ -507,6 +508,56 @@ The new machine-readable results and visual crop sheet are:
 \NormalTok{samples/stage2\_detail\_perceptual\_v1\_benchmark\_delta\_crop\_sheet.jpg}
 \end{Highlighting}
 \end{Shaded}
+
+\hypertarget{stage-2-shifted-window-attention-probe-review}{%
+\section{Stage 2 Shifted-Window Attention Probe
+Review}\label{stage-2-shifted-window-attention-probe-review}}
+
+The next Stage 2/base architecture probe added shifted-window
+self-attention and a gated depthwise feed-forward branch to the
+dual-context predictor. The goal was to test whether broader feature
+mixing could reduce conditional-mean smoothing in repetitive structures
+such as windows, grids, leaves, and small texture.
+
+Three variants were evaluated on the same val100 proxy:
+
+\begin{longtable}[]{@{}lrrrr@{}}
+\toprule\noalign{}
+Candidate & Stop step & Decoded PSNR range & Detail-ratio range & Best
+score \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+v2, implementation bug & 8000 & \texttt{24.60-24.63} &
+\texttt{0.315-0.343} & \texttt{24.950} \\
+v3 true-dual, window 8 & 6000 & \texttt{24.60-24.63} &
+\texttt{0.315-0.343} & \texttt{24.953} \\
+v3 true-dual, window 12 & 4000 & \texttt{24.60-24.63} &
+\texttt{0.315-0.341} & \texttt{24.954} \\
+\end{longtable}
+
+The v2 probe is retained only as a cautionary result: the
+\texttt{dual\_multiscale\_attention} implementation initially did not
+enable the second \texttt{extra\_context} branch, so it compared
+single-context-plus-attention against the dual-context baseline. V3
+corrected this by preserving the full dual-context path and applying
+attention after \texttt{context\ +\ extra\_context}. Parameter groups
+then trained the new attention branch at \texttt{2e-5} while keeping the
+inherited trunk/context/output at \texttt{5e-6}, with a warmup-cosine
+scheduler.
+
+The corrected \texttt{8x8} and \texttt{12x12} probes both stayed near
+the dual-context baseline and did not produce a visible texture
+breakthrough. Increasing window size raised memory and compute cost
+(\texttt{12x12} used about \texttt{31.5\ /\ 46.1\ GB} on a single L40S
+and ran at about \texttt{1.83} micro-steps/s) without changing the
+trajectory. The interpretation is that attention window size is not the
+primary bottleneck. The model still learns a conservative deterministic
+latent estimate under the current supervision. Future Stage 2 work
+should target a residual/detail correction path on top of a preserved
+fidelity base, or decoder-side detail capacity, rather than continuing
+window-size scaling.
 
 The first separate generative probe is
 \texttt{configs/diffusion\_photo130k\_lsdir\_highfreq\_residual\_v1\_b8.yaml}.
@@ -1438,17 +1489,22 @@ Stage 2 continuation is not promoted. Candidate next steps are:
 \begin{itemize}
 \tightlist
 \item
-  preserve the deterministic base and validated learned detail-need
-  mask, then test a small bounded mask-weighted patch
-  perceptual/adversarial head;
+  preserve the deterministic base and move from full latent
+  re-prediction to a residual/detail correction path that predicts
+  \texttt{target\_latent\ -\ baseline\_latent} or decoded
+  highpass/detail residual over the existing Stage 2 output;
+\item
+  audit Stage 1 decoder-side detail capacity, because Stage 2
+  improvements can still decode into overly smooth images if the VAE
+  decoder is the limiting reconstruction component;
 \item
   select the generative path with LPIPS, DISTS, fixed visual review,
   high-frequency metrics, lowpass drift, and seed diversity instead of
   PSNR alone;
 \item
-  continue Stage 2/base architecture research as a separate
-  clean-fidelity track for the measured \texttt{0.9235\ dB} DIV2K gap,
-  rather than mixing that goal into the generative detail objective;
+  keep Stage 2/base architecture research separate from the generative
+  detail objective, but do not continue the shifted-window
+  attention/window-scaling branch without a new supervision signal;
 \item
   because v1d remains visually conservative and noise-MSE residual
   diffusion collapses toward zero, prioritize patch-level perceptual or

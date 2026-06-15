@@ -167,6 +167,17 @@ higher on SSIM (`0.79827` vs `0.79742`), but the visible crop review still shows
 only subtle differences. It is preserved as a research candidate, not promoted
 as the default Stage 2 checkpoint.
 
+The Stage 2 shifted-window attention probes are also complete and not
+promoted. The v2 probe accidentally disabled the second dual-context branch,
+so it is not used as evidence against attention itself. The corrected
+true-dual v3 probe with `8x8` windows and the follow-up `12x12` window probe
+both stayed near the dual-context baseline: decoded PSNR remained
+`24.60-24.63` on the val100 proxy while detail ratio oscillated without a
+visible texture breakthrough. Larger windows increased cost without solving
+the conditional-mean smoothing problem. The next Stage 2 direction is therefore
+not wider attention windows, but a residual/detail correction path on top of a
+frozen or preserved fidelity base.
+
 Two separate generative-detail experiments have now been evaluated. The first
 latent residual probe added high-frequency energy without GT-aligned detail.
 The signed-Haar residual diffusion replacement preserved low-frequency
@@ -193,12 +204,14 @@ that location selection works, but spatial gating alone does not synthesize
 missing fine texture. See
 [`docs/DETAIL_NEED_MASK_KO.md`](docs/DETAIL_NEED_MASK_KO.md).
 
-A bounded masked detail v3 probe is now implemented, but no long run has been
-started. It initializes from masked v2 step 38000 and adds a mask-weighted
-frozen-VGG feature loss plus a small conditional high-frequency PatchGAN after
-a 500-step warmup. The existing highpass-only bounded residual path remains
-unchanged. New `lowpass_drift_l1` and `outside_mask_residual_l1` evaluation
-metrics act as fidelity guardrails. Design, stop criteria, and commands are in
+The bounded masked detail v3/v3b and teacher-highpass v4 probes were completed
+after masked v2. V3 was stable and slightly improved formal metrics, v3b made
+stronger visible-detail edits but regressed badly by step 8000, and the
+RealESRGAN highpass-teacher v4 probe selected its step-0 initialization as
+best. These results are useful negative evidence: mask placement and teacher
+highpass hints help define where detail is missing, but the current bounded
+deterministic branch still does not synthesize clearly new fine texture.
+Design notes and stop criteria remain in
 [`docs/DETAIL_BRANCH_V3_PATCH_KO.md`](docs/DETAIL_BRANCH_V3_PATCH_KO.md).
 
 For comparing training throughput on another GPU VM, use the DDP quick benchmark in
