@@ -11,16 +11,10 @@
 
 <p align="center">
   <img src="docs/assets/lusir_current_demo_set5_butterfly.gif"
-       alt="Animated bicubic versus LuSIR x4 comparison" width="460">
+       alt="Animated noisy LR input versus LuSIR x4 output" width="460">
 </p>
 
-Same `Set5/img_003` crop, from noisy LR input to LuSIR output. Noise is Gaussian
-`sigma=4/255`, seed `20260622`; the first frame is nearest-enlarged for display.
-LuSIR reaches `27.24 dB / 0.893` versus noisy bicubic's `22.07 dB / 0.730`.
-This is a high-impact example, not the benchmark average.
-
-Generated with `--variant detail_v2_masked`; the public Colab default remains
-the lighter guarded-detail Stage 2 v2 path.
+Noisy LR input to LuSIR deterministic x4 output. Gaussian noise `sigma=4/255`.
 
 LuSIR is a vision-only x4 latent diffusion super-resolution research project.
 The canonical report source is
