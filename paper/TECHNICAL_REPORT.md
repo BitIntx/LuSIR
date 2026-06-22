@@ -754,12 +754,14 @@ testing plus LPIPS/DISTS/MANIQA/MUSIQ and user-preference evaluation.
 
 ### Representative Visual Examples
 
-The current README demo uses an animated `Set5/img_003` bicubic-to-LuSIR toggle,
-where masked detail v2 improves Y PSNR by `+5.95 dB` and Y SSIM by `+0.189`.
+The current README demo uses an animated `Set5/img_003` noisy-LR to bicubic to
+LuSIR sequence. A fixed Gaussian degradation (`sigma=4/255`, seed `20260622`)
+is applied before both bicubic and LuSIR inference. Masked detail v2 improves
+over that noisy bicubic baseline by `+5.17 dB` Y PSNR and `+0.163` Y SSIM.
 Because the PDF cannot animate that comparison, the static report figure below
-uses `Urban100/img_043`, the strongest measured full-image example from the
-fixed x4 benchmark among the reviewed candidates. It is intentionally used as
-a high-impact visual explanation rather than as a claim of average SOTA
+uses `Urban100/img_043`, the strongest measured clean-bicubic full-image example
+from the fixed x4 benchmark among the reviewed candidates. It is intentionally
+used as a high-impact visual explanation rather than as a claim of average SOTA
 quality: masked detail v2 improves this sample over bicubic by `+10.66 dB` Y
 PSNR and `+0.152` Y SSIM, mainly by restoring repeated architectural structure.
 
