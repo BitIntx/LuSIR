@@ -125,6 +125,12 @@ generative:
   detail mask mean `0.1000`, outside mask `0.000000`, lowpass drift `0.000130`을
   확인했다. 이 수치는 초기 안정성 확인일 뿐이고, 실제 판정은 500-6000 step
   W&B sample grid와 eval 추세로 한다.
+- v6 장기 probe는 이 VM에서 실행 중이다. W&B run은
+  <https://wandb.ai/jwheo/LuSIR/runs/2clmtt44>, tmux session은
+  `lusir_v6_detail`, 로컬 로그는
+  `/home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v6_noise_gate_teacher_perceptual_no_gan_probe/train.log`다.
+  로그 확인:
+  `tail -f /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v6_noise_gate_teacher_perceptual_no_gan_probe/train.log`
 - Stage2/base 경로 실험
   `configs/latent_pretrain_photo130k_lsdir_dual_detail_perceptual_v1.yaml`도
   완료됐다. best detail-score는 step `6000`, decoded PSNR `24.5921`,
