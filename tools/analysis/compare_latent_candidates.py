@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from sr_diffusion.datasets import ManifestImageDataset
-from sr_diffusion.models import AutoencoderKL, LRToLatentPredictor
+from sr_diffusion.models import AutoencoderKL, LRToLatentPredictor, LatentResidualRefiner
 from sr_diffusion.utils import autocast_context, get_device, load_config, seed_everything
 
 
@@ -115,8 +115,17 @@ def load_autoencoder(config: dict[str, Any], device: torch.device) -> Autoencode
     return vae
 
 
-def load_candidate(config: dict[str, Any], checkpoint_path: Path, device: torch.device) -> tuple[LRToLatentPredictor, int]:
-    model = LRToLatentPredictor.from_config(config["model"]).to(device)
+def build_stage2_model(model_config: dict[str, Any]) -> torch.nn.Module:
+    model_type = str(model_config.get("type", "lr_to_latent_predictor"))
+    if model_type == "lr_to_latent_predictor":
+        return LRToLatentPredictor.from_config(model_config)
+    if model_type == "latent_residual_refiner":
+        return LatentResidualRefiner.from_config(model_config)
+    raise ValueError(f"Unsupported Stage 2 model type: {model_type}")
+
+
+def load_candidate(config: dict[str, Any], checkpoint_path: Path, device: torch.device) -> tuple[torch.nn.Module, int]:
+    model = build_stage2_model(config["model"]).to(device)
     checkpoint = torch.load(checkpoint_path, map_location=device)
     model.load_state_dict(checkpoint["model"])
     model.eval()

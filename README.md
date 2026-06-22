@@ -242,6 +242,12 @@ energy in flat or already-over-sharp regions. The config is
 `configs/detail_branch_v6_noise_gate_teacher_perceptual_no_gan_probe.yaml`; the
 design and stop criteria are documented in
 [`docs/DETAIL_BRANCH_V6_NO_GAN_KO.md`](docs/DETAIL_BRANCH_V6_NO_GAN_KO.md).
+V6 finished 6000 micro-steps without v5-style collapse, but its best checkpoint
+remained step 0 and fixed grids changed little. The next active probe is
+`configs/latent_pretrain_photo130k_lsdir_latent_residual_adapter_v1.yaml`, which
+freezes the dual-context Stage 2 base and trains only a zero-initialized latent
+residual adapter. See
+[`docs/LATENT_RESIDUAL_ADAPTER_V1_KO.md`](docs/LATENT_RESIDUAL_ADAPTER_V1_KO.md).
 
 Two separate generative-detail experiments have now been evaluated. The first
 latent residual probe added high-frequency energy without GT-aligned detail.

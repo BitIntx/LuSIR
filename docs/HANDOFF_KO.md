@@ -125,12 +125,18 @@ generative:
   detail mask mean `0.1000`, outside mask `0.000000`, lowpass drift `0.000130`을
   확인했다. 이 수치는 초기 안정성 확인일 뿐이고, 실제 판정은 500-6000 step
   W&B sample grid와 eval 추세로 한다.
-- v6 장기 probe는 이 VM에서 실행 중이다. W&B run은
-  <https://wandb.ai/jwheo/LuSIR/runs/2clmtt44>, tmux session은
-  `lusir_v6_detail`, 로컬 로그는
-  `/home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v6_noise_gate_teacher_perceptual_no_gan_probe/train.log`다.
-  로그 확인:
-  `tail -f /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v6_noise_gate_teacher_perceptual_no_gan_probe/train.log`
+- v6 장기 probe는 step `6000`까지 완료됐다. W&B run은
+  <https://wandb.ai/jwheo/LuSIR/runs/2clmtt44>이다. best checkpoint가 step `0`으로
+  남았고, final step6000은 mean PSNR delta `+0.0534 dB`, SSIM delta
+  `+0.00103`, wins `94/100`이다. v5 같은 붕괴는 없었지만 시작점보다 나아지지
+  못했다. 결론은 “no-GAN teacher/negative loss는 안전하지만 texture 생성력이
+  없다”이다. 같은 v6 continuation은 우선하지 않는다.
+- 다음 probe는 Stage2 latent residual adapter v1이다. config는
+  `configs/latent_pretrain_photo130k_lsdir_latent_residual_adapter_v1.yaml`,
+  설계 문서는 `docs/LATENT_RESIDUAL_ADAPTER_V1_KO.md`다. 기존 dual-context
+  Stage2 best98000은 frozen base로 로드하고, zero-init 3.75M adapter만
+  학습한다. 4-step smoke는 정상이며 optimizer가 adapter params
+  `3,745,296`개만 잡는 것을 확인했다.
 - Stage2/base 경로 실험
   `configs/latent_pretrain_photo130k_lsdir_dual_detail_perceptual_v1.yaml`도
   완료됐다. best detail-score는 step `6000`, decoded PSNR `24.5921`,

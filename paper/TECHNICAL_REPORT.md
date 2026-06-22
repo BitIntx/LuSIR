@@ -7,9 +7,9 @@ formally reviewed but not promoted, and several deterministic/generative
 visible-detail probes were evaluated without producing a clear texture
 breakthrough. A Stage 1 decoder capacity audit now points the active
 visible-detail bottleneck back to Stage 2 conditional-latent smoothing. The
-current active visible-detail probe is a no-GAN, noise-gated v6 detail branch
-that keeps the frozen fidelity path and adds filtered teacher/highpass and
-artifact-negative residual supervision.
+no-GAN, noise-gated v6 detail branch is now complete and did not improve over
+step 0; the current active probe is a Stage 2 latent residual adapter on top of
+the frozen dual-context base.
 
 `paper/TECHNICAL_REPORT.md` is the canonical report source.
 `paper/sr_diffusion_report.pdf` and `paper/main.tex` are generated from it with
@@ -49,7 +49,7 @@ current detail research candidate:
 
 active visible-detail probe:
   LR -> dual-context LSDIR Stage 2 -> Stage 1 decoder
-     -> v2 noise-negative top10 detail mask -> no-GAN v6 detail branch
+     -> zero-init latent residual adapter -> Stage 1 decoder
 
 generative comparison:
   LR -> Stage 2 condition encoder -> Stage 3 OR Stage 4 diffusion U-Net
@@ -1027,6 +1027,24 @@ promotion result; the actual decision depends on 500-6000 step W&B sample
 grids and whether the new supervision creates real texture without v5-style
 scratch/noise artifacts.
 
+The completed 6000-step v6 run did not collapse, but it also did not improve
+over its initialization. The selected checkpoint is step 0. Final step 6000
+still keeps `eval/outside_mask_residual_l1` at `0.000000` and remains positive
+versus the frozen base (`+0.0534 dB` mean PSNR and `+0.00103` SSIM), but it is
+below the initialized score and the fixed grids are visually almost unchanged.
+This is useful negative evidence: no-GAN teacher/negative losses can keep the
+branch safe, but this image-space branch still does not create the missing
+texture.
+
+The follow-up Stage 2 probe therefore moves the residual correction into latent
+space. `configs/latent_pretrain_photo130k_lsdir_latent_residual_adapter_v1.yaml`
+freezes the dual-context Stage 2 best98000 predictor, feeds its latent output
+and LR input into a zero-initialized 3.75M-parameter adapter, and trains only a
+bounded latent residual before decoding through the same Stage 1 decoder. Its
+starting output is exactly the frozen Stage 2 base, so any improvement or
+regression can be attributed to the adapter rather than a full Stage 2
+retraining drift.
+
 Before v5, the v3/v3b/v4 series tested the same general idea with the original
 v1 mask. V3 added conservative masked VGG and PatchGAN losses and selected
 step 1000, but remained visually too close to the deterministic v2 branch.
@@ -1150,7 +1168,10 @@ Candidate next steps are:
 - run and review the v6 no-GAN detail branch probe first, watching W&B sample
   grids, `eval/sr_vs_base_mean_psnr`, `eval/sr_vs_base_ssim`,
   `eval/lowpass_drift_l1`, `eval/outside_mask_residual_l1`,
-  `train/negative_residual`, and `train/negative_weight`;
+  `train/negative_residual`, and `train/negative_weight`; this is now complete
+  and is recorded as a safe but non-improving result;
+- run and review the Stage 2 latent residual adapter v1 probe, watching
+  decoded mean PSNR, highpass ratio, missing energy, and fixed samples;
 - preserve the deterministic base and move from full latent re-prediction to a
   residual/detail correction path that predicts `target_latent - baseline_latent`
   or decoded highpass/detail residual over the existing Stage 2 output;

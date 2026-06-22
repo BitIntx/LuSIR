@@ -32,7 +32,7 @@ from sr_diffusion.losses.reconstruction import (
     laplacian_residual_magnitude_loss,
     sobel_edge_loss,
 )
-from sr_diffusion.models import AutoencoderKL, LRToLatentPredictor
+from sr_diffusion.models import AutoencoderKL, LRToLatentPredictor, LatentResidualRefiner
 from sr_diffusion.utils import (
     autocast_context,
     format_partial_load_report,
@@ -415,12 +415,25 @@ def load_checkpoint(
 
 def load_model_weights(path: Path, model: torch.nn.Module, device: torch.device, partial: bool = False) -> int:
     checkpoint = torch.load(path, map_location=device)
+    if isinstance(model, LatentResidualRefiner) and not any(key.startswith("base.") for key in checkpoint["model"]):
+        model.load_base_state_dict(checkpoint["model"])
+        print(f"loaded_base_model={path} tensors={len(checkpoint['model'])}")
+        return int(checkpoint.get("step", 0))
     if partial:
         stats = load_matching_weights(model, checkpoint["model"])
         print(format_partial_load_report("model", stats))
     else:
         model.load_state_dict(checkpoint["model"])
     return int(checkpoint.get("step", 0))
+
+
+def build_stage2_model(model_config: dict[str, Any]) -> torch.nn.Module:
+    model_type = str(model_config.get("type", "lr_to_latent_predictor"))
+    if model_type == "lr_to_latent_predictor":
+        return LRToLatentPredictor.from_config(model_config)
+    if model_type == "latent_residual_refiner":
+        return LatentResidualRefiner.from_config(model_config)
+    raise ValueError(f"Unsupported Stage 2 model type: {model_type}")
 
 
 def matches_any_pattern(name: str, patterns: list[str]) -> bool:
@@ -811,7 +824,7 @@ def main() -> None:
 
     vae = load_autoencoder(config, device=device)
     perceptual_model = make_perceptual_model(loss_config, device=device)
-    model = LRToLatentPredictor.from_config(config["model"]).to(device)
+    model = build_stage2_model(config["model"]).to(device)
     optimizer = build_optimizer(model, train_cfg, rank=rank)
     print_main(f"optimizer_groups={format_optimizer_groups(optimizer)}", rank)
 

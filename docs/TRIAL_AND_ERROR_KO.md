@@ -2253,3 +2253,27 @@ eval/wins_vs_base:          93/100
   머무는 것이다.
 - 나쁜 신호는 v5처럼 scratch/noise artifact가 mask 안쪽에 생기거나,
   `eval/wins_vs_base`가 빠르게 떨어지는 것이다.
+
+완료 결과:
+
+- step `6000`까지 완료했다.
+- best checkpoint는 step `0`이다.
+- final step6000은 mean PSNR delta `+0.0534 dB`, PSNR delta `+0.0398 dB`,
+  SSIM delta `+0.00103`, wins `94/100`, lowpass drift `0.000106`,
+  outside mask `0.000000`이다.
+- step0과 step6000 fixed grid의 시각 차이는 거의 없었다.
+
+판정:
+
+- v5처럼 무너지지 않았고 gate도 계속 정상 동작했다.
+- 하지만 학습이 시작점보다 좋아지지 못했다.
+- no-GAN teacher/negative loss는 artifact를 줄이는 안전장치로는 의미가
+  있지만, 현재 image-space branch에 visible texture 생성력을 주지는 못했다.
+- 같은 v6 continuation이나 단순 weight 증가는 하지 않는다.
+
+다음 조치:
+
+- image-space branch가 없는 texture를 만드는 데 한계가 있다는 쪽으로 보고,
+  frozen Stage2 base 위에 latent residual adapter를 붙이는 v1 probe를 추가했다.
+- config는 `configs/latent_pretrain_photo130k_lsdir_latent_residual_adapter_v1.yaml`,
+  문서는 `docs/LATENT_RESIDUAL_ADAPTER_V1_KO.md`다.

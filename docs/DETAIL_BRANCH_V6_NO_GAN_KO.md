@@ -98,3 +98,36 @@ eval/wins_vs_base:          93/100
 
 이 수치는 v2/top10 초기 상태가 깨지지 않았다는 smoke 확인일 뿐이다. 실제
 판정은 500-6000 step 사이의 W&B sample grid와 val100 추세로 한다.
+
+## 2026-06-22 완료 결과
+
+v6는 6000 micro-step까지 완료됐다.
+
+```text
+run: https://wandb.ai/jwheo/LuSIR/runs/2clmtt44
+finished: step 6000
+best checkpoint: step 0
+latest checkpoint: step 6000
+```
+
+주요 수치:
+
+| checkpoint | mean PSNR delta | PSNR delta | SSIM delta | wins | detail wins | lowpass drift | outside mask |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| step 0 / best | `+0.0668 dB` | `+0.0502 dB` | `+0.00147` | `93/100` | `80/100` | `0.000133` | `0.000000` |
+| step 6000 | `+0.0534 dB` | `+0.0398 dB` | `+0.00103` | `94/100` | `87/100` | `0.000106` | `0.000000` |
+
+판정:
+
+- v5 같은 scratch/noise artifact 붕괴는 보이지 않았다.
+- `detail_mask_mean`은 `0.10`, `outside_mask_residual_l1`은 `0`으로 gate는
+  계속 의도대로 동작했다.
+- 하지만 best가 step 0이라는 점이 핵심이다. 학습이 시작점보다 나아지지
+  못했고, step 0과 step 6000 grid의 시각 차이도 거의 없다.
+- negative residual loss는 artifact를 막는 쪽으로는 안전하지만, 현재 세팅에서는
+  visible texture 생성력도 같이 눌렀다.
+
+결론: no-GAN teacher/negative branch는 안전한 음성 결과로 기록한다. 같은 v6를
+더 오래 돌리거나 weight만 키우는 것은 우선하지 않는다. 다음 실험은 frozen
+Stage2 base 위에 latent residual adapter를 붙여 Stage2 latent 자체가 detail
+evidence를 더 전달할 수 있는지 확인한다.

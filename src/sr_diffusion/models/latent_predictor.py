@@ -295,3 +295,87 @@ class LRToLatentPredictor(nn.Module):
         if self.attention is not None:
             x = self.attention(x)
         return self.output(x)
+
+
+class LatentResidualRefiner(nn.Module):
+    """Frozen Stage 2 base plus a zero-initialized latent residual adapter."""
+
+    def __init__(
+        self,
+        base_config: dict[str, Any],
+        in_channels: int = 3,
+        latent_channels: int = 16,
+        adapter_channels: int = 128,
+        adapter_blocks: int = 8,
+        norm_groups: int = 32,
+        num_domains: int = 2,
+        residual_scale: float = 0.35,
+        base_trainable: bool = False,
+        use_lr_input: bool = True,
+    ) -> None:
+        super().__init__()
+        self.base = LRToLatentPredictor.from_config(base_config)
+        self.latent_channels = int(latent_channels)
+        self.residual_scale = float(residual_scale)
+        self.use_lr_input = bool(use_lr_input)
+        self.base_trainable = bool(base_trainable)
+        for parameter in self.base.parameters():
+            parameter.requires_grad_(self.base_trainable)
+
+        adapter_in_channels = self.latent_channels + (int(in_channels) if self.use_lr_input else 0)
+        self.input = nn.Conv2d(adapter_in_channels, adapter_channels, kernel_size=3, padding=1)
+        self.domain_embedding = nn.Embedding(num_domains, adapter_channels)
+        self.blocks = nn.Sequential(
+            *[ResidualBlock(adapter_channels, groups=norm_groups) for _ in range(int(adapter_blocks))]
+        )
+        self.output = nn.Sequential(
+            _norm(adapter_channels, norm_groups),
+            nn.SiLU(),
+            nn.Conv2d(adapter_channels, self.latent_channels, kernel_size=3, padding=1),
+        )
+        output_conv = self.output[-1]
+        if isinstance(output_conv, nn.Conv2d):
+            nn.init.zeros_(output_conv.weight)
+            nn.init.zeros_(output_conv.bias)
+
+    @classmethod
+    def from_config(cls, config: dict[str, Any]) -> "LatentResidualRefiner":
+        base_config = dict(config.get("base_model", {}))
+        if not base_config:
+            raise ValueError("LatentResidualRefiner config requires model.base_model")
+        return cls(
+            base_config=base_config,
+            in_channels=config.get("in_channels", base_config.get("in_channels", 3)),
+            latent_channels=config.get("latent_channels", base_config.get("latent_channels", 16)),
+            adapter_channels=config.get("adapter_channels", 128),
+            adapter_blocks=config.get("adapter_blocks", 8),
+            norm_groups=config.get("norm_groups", base_config.get("norm_groups", 32)),
+            num_domains=config.get("num_domains", base_config.get("num_domains", 2)),
+            residual_scale=config.get("residual_scale", 0.35),
+            base_trainable=config.get("base_trainable", False),
+            use_lr_input=config.get("use_lr_input", True),
+        )
+
+    def load_base_state_dict(self, state_dict: dict[str, torch.Tensor]) -> None:
+        self.base.load_state_dict(state_dict)
+
+    def forward(self, lr: torch.Tensor, domain_id: torch.Tensor | None = None) -> torch.Tensor:
+        if self.base_trainable:
+            base_latent = self.base(lr, domain_id)
+        else:
+            with torch.no_grad():
+                base_latent = self.base(lr, domain_id)
+        features = [base_latent.detach() if not self.base_trainable else base_latent]
+        if self.use_lr_input:
+            if lr.shape[-2:] != base_latent.shape[-2:]:
+                lr_features = F.interpolate(lr, size=base_latent.shape[-2:], mode="bilinear", align_corners=False)
+            else:
+                lr_features = lr
+            features.append(lr_features)
+        x = self.input(torch.cat(features, dim=1))
+        if domain_id is not None:
+            domain_bias = self.domain_embedding(domain_id).unsqueeze(-1).unsqueeze(-1)
+            x = x + domain_bias
+        x = self.blocks(x)
+        residual = self.residual_scale * torch.tanh(self.output(x))
+        return base_latent + residual

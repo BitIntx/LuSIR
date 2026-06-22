@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
-from sr_diffusion.models import LRToLatentPredictor
+from sr_diffusion.models import LRToLatentPredictor, LatentResidualRefiner
 from sr_diffusion.utils import autocast_context
 from sr_diffusion.utils import get_device, load_config, seed_everything
 from tools.infer.infer_detail_branch import (
@@ -72,6 +72,15 @@ TTA_OPTIONS = {
     "hflip": ("identity", "hflip"),
     "x8": ("identity", "hflip", "vflip", "rot180", "rot90", "rot270", "transpose", "transverse"),
 }
+
+
+def build_stage2_encoder(model_config: dict[str, Any]) -> torch.nn.Module:
+    model_type = str(model_config.get("type", "lr_to_latent_predictor"))
+    if model_type == "lr_to_latent_predictor":
+        return LRToLatentPredictor.from_config(model_config)
+    if model_type == "latent_residual_refiner":
+        return LatentResidualRefiner.from_config(model_config)
+    raise ValueError(f"Unsupported Stage 2 model type: {model_type}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -186,8 +195,8 @@ def load_stage2_encoder(
     checkpoint_path: Path,
     device: torch.device,
     dtype_name: str | None,
-) -> tuple[LRToLatentPredictor, int]:
-    encoder = LRToLatentPredictor.from_config(config["model"])
+) -> tuple[torch.nn.Module, int]:
+    encoder = build_stage2_encoder(config["model"])
     checkpoint = torch.load(checkpoint_path, map_location="cpu")
     encoder.load_state_dict(checkpoint["model"])
     dtype = inference_module_dtype(device, dtype_name)
