@@ -1177,13 +1177,16 @@ LPIPS/DISTS/MANIQA/MUSIQ and user-preference evaluation.
 \subsection{Representative Visual
 Examples}\label{representative-visual-examples}}
 
-The current README demo uses \texttt{Urban100/img\_043}, the strongest
-measured full-image example from the fixed x4 benchmark among the
-reviewed candidates. It is intentionally used as a high-impact visual
-explanation rather than as a claim of average SOTA quality: masked
-detail v2 improves this sample over bicubic by \texttt{+10.66\ dB} Y
-PSNR and \texttt{+0.152} Y SSIM, mainly by restoring repeated
-architectural structure.
+The current README demo uses an animated \texttt{Set5/img\_003}
+bicubic-to-LuSIR toggle, where masked detail v2 improves Y PSNR by
+\texttt{+5.95\ dB} and Y SSIM by \texttt{+0.189}. Because the PDF cannot
+animate that comparison, the static report figure below uses
+\texttt{Urban100/img\_043}, the strongest measured full-image example
+from the fixed x4 benchmark among the reviewed candidates. It is
+intentionally used as a high-impact visual explanation rather than as a
+claim of average SOTA quality: masked detail v2 improves this sample
+over bicubic by \texttt{+10.66\ dB} Y PSNR and \texttt{+0.152} Y SSIM,
+mainly by restoring repeated architectural structure.
 
 \includegraphics{../docs/assets/lusir_current_demo_urban100_img043.jpg}
 
@@ -1654,6 +1657,7 @@ Hugging Face:
 \NormalTok{samples/stage2\_latent\_adapter\_v1\_value\_compare\_selected.jpg}
 \NormalTok{samples/stage2\_latent\_adapter\_v1\_value\_compare\_contact\_sheet.jpg}
 \NormalTok{docs/assets/lusir\_current\_demo\_urban100\_img043.jpg}
+\NormalTok{docs/assets/lusir\_current\_demo\_set5\_butterfly.gif}
 \NormalTok{configs/diffusion\_photo100k\_xl\_stage4\_condition\_v3\_edge\_b16.yaml}
 \NormalTok{configs/residual\_refiner\_stage2\_xl\_mild\_probe.yaml}
 \NormalTok{configs/diffusion\_photo100k\_xl\_stage4\_condition\_v3\_teacher\_residual\_photo\_v3\_b8\_probe.yaml}

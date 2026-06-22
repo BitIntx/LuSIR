@@ -754,12 +754,14 @@ testing plus LPIPS/DISTS/MANIQA/MUSIQ and user-preference evaluation.
 
 ### Representative Visual Examples
 
-The current README demo uses `Urban100/img_043`, the strongest measured
-full-image example from the fixed x4 benchmark among the reviewed candidates.
-It is intentionally used as a high-impact visual explanation rather than as a
-claim of average SOTA quality: masked detail v2 improves this sample over
-bicubic by `+10.66 dB` Y PSNR and `+0.152` Y SSIM, mainly by restoring repeated
-architectural structure.
+The current README demo uses an animated `Set5/img_003` bicubic-to-LuSIR toggle,
+where masked detail v2 improves Y PSNR by `+5.95 dB` and Y SSIM by `+0.189`.
+Because the PDF cannot animate that comparison, the static report figure below
+uses `Urban100/img_043`, the strongest measured full-image example from the
+fixed x4 benchmark among the reviewed candidates. It is intentionally used as
+a high-impact visual explanation rather than as a claim of average SOTA
+quality: masked detail v2 improves this sample over bicubic by `+10.66 dB` Y
+PSNR and `+0.152` Y SSIM, mainly by restoring repeated architectural structure.
 
 ![Urban100 img_043 shows the clearest current deterministic LuSIR improvement:
 LR and bicubic blur the repeating facade, while masked detail v2 recovers much
@@ -1173,6 +1175,7 @@ samples/stage2_detail_perceptual_v1_benchmark_delta_crop_sheet.jpg
 samples/stage2_latent_adapter_v1_value_compare_selected.jpg
 samples/stage2_latent_adapter_v1_value_compare_contact_sheet.jpg
 docs/assets/lusir_current_demo_urban100_img043.jpg
+docs/assets/lusir_current_demo_set5_butterfly.gif
 configs/diffusion_photo100k_xl_stage4_condition_v3_edge_b16.yaml
 configs/residual_refiner_stage2_xl_mild_probe.yaml
 configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_v3_b8_probe.yaml
