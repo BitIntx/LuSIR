@@ -9,7 +9,10 @@
 
 ## Current Demo
 
-![Animated bicubic versus LuSIR x4 comparison](docs/assets/lusir_current_demo_set5_butterfly.gif)
+<p align="center">
+  <img src="docs/assets/lusir_current_demo_set5_butterfly.gif"
+       alt="Animated bicubic versus LuSIR x4 comparison" width="460">
+</p>
 
 The animation alternates the exact same `Set5/img_003` butterfly crop between
 bicubic and LuSIR masked detail v2. LuSIR restores the wing outlines and small
