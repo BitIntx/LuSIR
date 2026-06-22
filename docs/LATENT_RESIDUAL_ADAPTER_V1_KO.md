@@ -70,3 +70,27 @@ eval step=1 missing=0.01968
 
 이 값은 기존 base 시작점과 일치한다. 실제 판정은 장기 run의 500-step 단위
 eval과 sample grid로 한다.
+
+## 2026-06-22 장기 run 시작
+
+```text
+wandb: https://wandb.ai/jwheo/LuSIR/runs/o7tsc4mo
+tmux:  lusir_latent_adapter_v1
+log:   /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_latent_residual_adapter_v1/train.log
+```
+
+확인 명령:
+
+```bash
+tail -f /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_latent_residual_adapter_v1/train.log
+```
+
+초기 상태:
+
+```text
+step 1 eval decoded_psnr=24.62
+step 1 eval mean_psnr=26.49
+step 1 eval highpass_ratio=0.789
+step 1 eval missing=0.01968
+GPU: L40S 100%, about 27.4GB VRAM after startup
+```

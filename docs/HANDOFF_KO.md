@@ -137,6 +137,14 @@ generative:
   Stage2 best98000은 frozen base로 로드하고, zero-init 3.75M adapter만
   학습한다. 4-step smoke는 정상이며 optimizer가 adapter params
   `3,745,296`개만 잡는 것을 확인했다.
+- latent residual adapter v1 장기 run은 실행 중이다. W&B run은
+  <https://wandb.ai/jwheo/LuSIR/runs/o7tsc4mo>, tmux session은
+  `lusir_latent_adapter_v1`, 로컬 로그는
+  `/home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_latent_residual_adapter_v1/train.log`다.
+  로그 확인:
+  `tail -f /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_latent_residual_adapter_v1/train.log`
+  초기 step1 eval은 decoded PSNR `24.62`, mean PSNR `26.49`, highpass ratio
+  `0.789`, missing `0.01968`로 frozen base 시작점과 일치한다.
 - Stage2/base 경로 실험
   `configs/latent_pretrain_photo130k_lsdir_dual_detail_perceptual_v1.yaml`도
   완료됐다. best detail-score는 step `6000`, decoded PSNR `24.5921`,
