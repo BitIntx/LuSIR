@@ -183,11 +183,16 @@ generative:
 - 결론: v2, v3 `8x8`, v3 `12x12` 모두 baseline 주변에서 정체했다. 더 큰
   attention window는 무거워지기만 하고 missing texture를 복원하지 못했다.
   shifted-window attention/window scaling은 당분간 중단한다.
-- 현재 active 학습은 없다. 다음 고신호 방향은 baseline Stage2 latent를 직접
-  다시 예측하는 구조가 아니라, frozen/baseline Stage2 출력 위에
-  `target_latent - baseline_latent` 또는 decoded highpass/detail residual을
-  보정하는 residual/detail correction branch다. 동시에 Stage1 decoder-side
-  detail capacity도 병목 후보로 점검한다.
+- masked latent residual-shift diffusion v1 5k probe가 현재 실행 중이다.
+  config는 `configs/masked_latent_residual_shift_v1_probe.yaml`, W&B는
+  <https://wandb.ai/jwheo/LuSIR/runs/ldo6yzfu>, 설계 문서는
+  `docs/MASKED_LATENT_RESIDUAL_SHIFT_V1_KO.md`다. frozen Stage2 best98000에서
+  HR latent 방향의 correction만 residual-shift로 학습하고, noise-negative
+  mask best1500 hard top10 밖 correction은 구조적으로 0으로 제한한다.
+  19.19M U-Net, batch 12, grad accumulation 1이며 L40S peak VRAM은 약
+  32.5GiB다. step0 val20은 base와 정확히 같은 decoded PSNR `27.6208`, SSIM
+  `0.81938`, detail ratio `0.7965`다. 5k에서 PSNR `-0.05 dB` guardrail,
+  detail ratio/highpass error, fixed grid artifact를 함께 판정한다.
 
 ### 최신 완료 detail v1d와 strict-bicubic 진단
 

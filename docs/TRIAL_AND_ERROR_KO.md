@@ -2341,3 +2341,42 @@ metrics/formal_x4_benchmark_stage2_latent_adapter_v1_value_compare_metrics.csv
 samples/stage2_latent_adapter_v1_value_compare_selected.jpg
 samples/stage2_latent_adapter_v1_value_compare_contact_sheet.jpg
 ```
+
+### 2026-06-22 masked latent residual-shift diffusion v1 시작
+
+plain latent adapter가 안정적이지만 visible texture를 만들지 못했고, 기존
+noise-MSE residual diffusion은 zero residual로 수렴했다. 다음 probe는 frozen
+Stage2 base를 시작점으로 두되 noise를 직접 예측하지 않고 masked target latent를
+예측하는 residual-shifting process로 바꿨다.
+
+```text
+config: configs/masked_latent_residual_shift_v1_probe.yaml
+wandb:  https://wandb.ai/jwheo/LuSIR/runs/ldo6yzfu
+model:  19,191,056 trainable params
+train:  batch 12, grad_accum 1, 5000 step, warmup cosine
+mask:   noise-negative best1500, hard top10
+```
+
+구현 guardrail:
+
+- Stage1/Stage2/mask predictor는 frozen이다.
+- U-Net output은 zero-init이라 step0이 frozen base identity다.
+- mask 밖 latent correction은 loss가 아니라 forward 수식에서 0이다.
+- decoded masked highpass/Laplacian과 small masked VGG를 사용한다.
+- outside-mask image anchor와 lowpass anchor를 함께 둔다.
+
+실측:
+
+```text
+step0 val20 decoded/base PSNR: 27.6208 / 27.6208
+step0 SSIM:                    0.81938
+step0 detail ratio:            0.7965
+step0 outside-mask drift:      0.000000
+batch12 peak VRAM:             약 32.5 GiB
+batch12 throughput:            약 0.68 step/s, 8.2 image/s
+```
+
+아직 결과 판정 단계가 아니다. 5k에서 PSNR delta `>= -0.05 dB`를 지키면서
+detail ratio와 GT-aligned highpass error가 함께 좋아지고 fixed grid에 artifact
+없는 texture 개선이 보여야 장기 학습으로 확장한다. `eval/detail_score` 하나만
+보고 승격하지 않는다.
