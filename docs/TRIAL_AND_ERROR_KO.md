@@ -2380,3 +2380,19 @@ batch12 throughput:            약 0.68 step/s, 8.2 image/s
 detail ratio와 GT-aligned highpass error가 함께 좋아지고 fixed grid에 artifact
 없는 texture 개선이 보여야 장기 학습으로 확장한다. `eval/detail_score` 하나만
 보고 승격하지 않는다.
+
+완료 판정:
+
+- v1은 step 5000까지 완료했고 best는 step 3500이다.
+- best full trajectory는 PSNR delta `-0.7557 dB`, SSIM delta `-0.01080`,
+  detail ratio `0.82718`, highpass gain `-0.001725`다.
+- detail ratio 상승은 GT-aligned improvement가 아니며, grid에서 과일/털/잎에
+  거친 가짜 texture가 보였다.
+- correction strength 0.1-0.5와 start timestep 10-75 sweep을 했지만,
+  fidelity를 지키는 설정에서는 detail 변화가 거의 사라졌다.
+- 구조를 바로 폐기하기 전에 latent target dominance를 분리하기 위해
+  `configs/masked_latent_residual_shift_v2_fidelity_continue.yaml`을 추가했다.
+  best3500에서 이어서 latent weight를 0.1로 낮추고 decoded image/highpass 및
+  outside/lowpass anchor를 강화한다.
+- v2 W&B는 <https://wandb.ai/jwheo/LuSIR/runs/6e463dc0>이다. step6500까지
+  continuation하며 timestep 10, strength 1.0으로 500 step마다 평가한다.

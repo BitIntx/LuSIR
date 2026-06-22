@@ -1206,14 +1206,15 @@ v1d and masked detail branch v2 are selectable single-image/tiled Colab research
 options. The completed perceptual Stage 2 continuation is not promoted.
 Candidate next steps are:
 
-- evaluate the active 5k masked latent residual-shift diffusion v1 probe. It
-  keeps Stage 1, Stage 2 best-98000, and the noise-negative top-10 detail mask
-  frozen, while a zero-initialized 19.19M U-Net predicts only the masked latent
-  correction along an eight-step residual-shifting trajectory. The step-0
-  val20 identity baseline is 27.6208 dB decoded PSNR, 0.81938 SSIM, and 0.7965
-  detail ratio. Promotion requires a PSNR loss no worse than roughly 0.05 dB,
-  improved GT-aligned high-frequency error, and artifact-free fixed-grid wins;
-  the scalar detail score alone is insufficient;
+- review the masked latent residual-shift v2 fidelity continuation. The v1
+  full-trajectory best at step 3500 increased detail ratio from 0.7965 to
+  0.8272 but lost 0.7557 dB PSNR and worsened GT-aligned high-frequency error.
+  Correction-strength and start-timestep sweeps showed that settings preserving
+  fidelity also removed nearly all visible effect. The active v2 continuation
+  therefore reduces latent-target weight from 1.0 to 0.1 and strengthens
+  decoded image, high-frequency, outside-mask, and lowpass supervision. It is
+  evaluated from timestep 10 and must improve high-frequency error without
+  exceeding the 0.05 dB PSNR-loss guardrail;
 
 - run and review the v6 no-GAN detail branch probe first, watching W&B sample
   grids, `eval/sr_vs_base_mean_psnr`, `eval/sr_vs_base_ssim`,

@@ -183,7 +183,7 @@ generative:
 - 결론: v2, v3 `8x8`, v3 `12x12` 모두 baseline 주변에서 정체했다. 더 큰
   attention window는 무거워지기만 하고 missing texture를 복원하지 못했다.
   shifted-window attention/window scaling은 당분간 중단한다.
-- masked latent residual-shift diffusion v1 5k probe가 현재 실행 중이다.
+- masked latent residual-shift diffusion v1 5k probe는 완료됐다.
   config는 `configs/masked_latent_residual_shift_v1_probe.yaml`, W&B는
   <https://wandb.ai/jwheo/LuSIR/runs/ldo6yzfu>, 설계 문서는
   `docs/MASKED_LATENT_RESIDUAL_SHIFT_V1_KO.md`다. frozen Stage2 best98000에서
@@ -193,6 +193,17 @@ generative:
   32.5GiB다. step0 val20은 base와 정확히 같은 decoded PSNR `27.6208`, SSIM
   `0.81938`, detail ratio `0.7965`다. 5k에서 PSNR `-0.05 dB` guardrail,
   detail ratio/highpass error, fixed grid artifact를 함께 판정한다.
+- v1은 완료됐고 full trajectory best3500이 base 대비 PSNR `-0.7557 dB`,
+  SSIM `-0.01080`으로 실패했다. detail ratio는 `0.82718`로 올랐지만 highpass
+  error도 악화됐고 grid에 거친 가짜 texture가 보였다. strength 0.1-0.5 및
+  start timestep 10-75 sweep도 fidelity를 지키면 효과가 사라졌다. 후속 v2는
+  `configs/masked_latent_residual_shift_v2_fidelity_continue.yaml`이며 best3500
+  optimizer state에서 latent loss를 10분의 1로 낮추고 decoded/highpass/fidelity
+  loss를 강화한다.
+- v2 fidelity continuation이 현재 실행 중이다. W&B는
+  <https://wandb.ai/jwheo/LuSIR/runs/6e463dc0>이며 v1 best3500에서 step6500까지
+  진행한다. batch12, LR `1e-5` 고정, eval은 start timestep 10/full strength다.
+  첫 판정은 step4000이며 PSNR delta, highpass gain, grid artifact를 함께 본다.
 
 ### 최신 완료 detail v1d와 strict-bicubic 진단
 

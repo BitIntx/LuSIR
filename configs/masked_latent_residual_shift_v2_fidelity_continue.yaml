@@ -1,0 +1,117 @@
+project:
+  name: masked_latent_residual_shift_v2_fidelity_continue
+  output_dir: /home/ubuntu/scratch/sr-diffusion/runs/masked_latent_residual_shift_v2_fidelity_continue
+
+logging:
+  wandb:
+    enabled: true
+    project: LuSIR
+    entity: jwheo
+    name: masked_latent_residual_shift_v2_fidelity_continue
+    mode: online
+    dir: /home/ubuntu/scratch/sr-diffusion/wandb
+    group: stage-latent-diffusion
+    job_type: masked-latent-residual-shift
+    tags: [latent-diffusion, residual-shift, masked, fidelity-rebalance, continuation, photo130k-lsdir]
+
+seed: 1337
+
+autoencoder:
+  config: configs/autoencoder_photo10k.yaml
+  checkpoint: checkpoints/stage1_autoencoder_best_eval_recon.pt
+
+condition_encoder:
+  config: configs/latent_pretrain_photo130k_lsdir_dual_multiscale_long.yaml
+  checkpoint: checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt
+  trainable: false
+
+detail_mask:
+  config: configs/hf/detail_mask_predictor_v2_noise_negative.yaml
+  checkpoint: checkpoints/detail_mask_predictor_v2_noise_negative_best1500.pt
+  trainable: false
+  floor: 0.0
+  top_fraction: 0.10
+  top_mode: binary
+
+data:
+  manifest: /home/ubuntu/scratch/sr-diffusion/data/manifest_photo130k_lsdir.csv
+  split: train
+  hr_size: 512
+  scale: 4
+  degradation_preset: photo_detail_mix
+  domains:
+    photo: 0
+    anime: 1
+  hflip_prob: 0.5
+  texture_crop_retries: 4
+  texture_crop_downsample: 128
+  hr_color_jitter_prob: 0.20
+  hr_color_jitter: [0.98, 1.02]
+  num_workers: 4
+
+model:
+  type: conditional_unet
+  latent_channels: 16
+  condition_channels: 20
+  out_channels: 16
+  base_channels: 64
+  channel_multipliers: [1, 2, 3, 4]
+  num_res_blocks: 2
+  norm_groups: 32
+  num_heads: 4
+  attention_resolutions: [32, 16]
+  base_resolution: 128
+  num_domains: 2
+  zero_init_output: true
+
+diffusion:
+  num_train_timesteps: 100
+  eta_power: 1.0
+  noise_scale: 0.15
+  max_correction: 4.0
+
+loss:
+  latent_weight: 0.10
+  image_weight: 2.00
+  highpass_weight: 3.00
+  laplacian_weight: 1.50
+  outside_anchor_weight: 3.00
+  lowpass_anchor_weight: 2.00
+  masked_perceptual_weight: 0.01
+  masked_perceptual:
+    resize: 256
+    layer_indices: [3, 8, 15]
+    layer_weights: [1.0, 1.0, 1.0]
+  correction_l1_weight: 0.005
+  lowpass_kernel: 31
+  charbonnier_eps: 0.001
+
+train:
+  device: auto
+  dtype: bf16
+  batch_size: 12
+  max_steps: 6500
+  lr: 0.00001
+  weight_decay: 0.0001
+  grad_accum_steps: 1
+  log_every: 25
+  save_every: 500
+  scheduler:
+    type: warmup_cosine
+    warmup_updates: 0
+    min_lr_ratio: 1.00
+
+eval:
+  split: val
+  limit: 20
+  batch_size: 2
+  num_workers: 4
+  every: 500
+  run_at_start: false
+  sample_steps: 8
+  start_timestep: 10
+  correction_strength: 1.0
+  seeds: [123]
+  sample_count: 6
+  best_metric: eval/detail_score
+  best_mode: max

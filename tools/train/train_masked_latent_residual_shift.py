@@ -58,6 +58,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--disable-wandb", action="store_true")
     parser.add_argument("--skip-final-eval", action="store_true")
     parser.add_argument("--resume", type=Path, default=None)
+    parser.add_argument("--eval-only-checkpoint", type=Path, default=None)
+    parser.add_argument("--eval-correction-strength", type=float, default=None)
+    parser.add_argument("--eval-start-timestep", type=int, default=None)
+    parser.add_argument("--eval-limit", type=int, default=None)
     parser.add_argument("--batch-size", type=int, default=None)
     parser.add_argument("--grad-accum-steps", type=int, default=None)
     return parser.parse_args()
@@ -129,6 +133,8 @@ def residual_shift_sample(
     diffusion_cfg: dict[str, Any],
     steps: int,
     seed: int,
+    correction_strength: float = 1.0,
+    start_timestep: int | None = None,
 ) -> torch.Tensor:
     num_timesteps = int(diffusion_cfg.get("num_train_timesteps", 100))
     eta_power = float(diffusion_cfg.get("eta_power", 1.0))
@@ -141,9 +147,16 @@ def residual_shift_sample(
         device=base_latent.device,
         dtype=base_latent.dtype,
     )
-    sample = base_latent + noise_scale * noise
+    if start_timestep is None:
+        start_timestep = num_timesteps - 1
+    start_timestep = max(0, min(int(start_timestep), num_timesteps - 1))
+    start_values = torch.full(
+        (base_latent.shape[0],), start_timestep, device=base_latent.device, dtype=torch.long
+    )
+    start_eta = residual_shift_eta(start_values, num_timesteps, eta_power)
+    sample = base_latent + noise_scale * start_eta.reshape(-1, 1, 1, 1).sqrt() * noise
     timestep_values = torch.linspace(
-        num_timesteps - 1,
+        start_timestep,
         0,
         steps=max(2, int(steps)),
         device=base_latent.device,
@@ -161,6 +174,7 @@ def residual_shift_sample(
             base_latent,
             bounded_correction(raw_correction, maximum),
             latent_mask,
+            correction_scale=correction_strength,
         )
         eta = residual_shift_eta(timestep, num_timesteps, eta_power)
         if index + 1 < len(timestep_values):
@@ -280,6 +294,8 @@ def evaluate(
     diffusion_cfg = config.get("diffusion", {})
     seeds = [int(seed) for seed in eval_cfg.get("seeds", [123])]
     sample_steps = int(eval_cfg.get("sample_steps", 8))
+    correction_strength = float(eval_cfg.get("correction_strength", 1.0))
+    start_timestep = eval_cfg.get("start_timestep")
     sample_count = int(eval_cfg.get("sample_count", 6))
     totals = {name: 0.0 for name in (
         "base_psnr", "base_ssim", "base_highpass_l1", "base_detail_ratio",
@@ -318,6 +334,8 @@ def evaluate(
                     diffusion_cfg=diffusion_cfg,
                     steps=sample_steps,
                     seed=seed + batch_index * 100_000,
+                    correction_strength=correction_strength,
+                    start_timestep=start_timestep,
                 )
                 sr = denormalize(vae.decode(sampled_latent)).float()
             sampled_images.append(sr)
@@ -416,6 +434,12 @@ def main() -> None:
         config.setdefault("train", {})["batch_size"] = int(args.batch_size)
     if args.grad_accum_steps is not None:
         config.setdefault("train", {})["grad_accum_steps"] = int(args.grad_accum_steps)
+    if args.eval_correction_strength is not None:
+        config.setdefault("eval", {})["correction_strength"] = float(args.eval_correction_strength)
+    if args.eval_start_timestep is not None:
+        config.setdefault("eval", {})["start_timestep"] = int(args.eval_start_timestep)
+    if args.eval_limit is not None:
+        config.setdefault("eval", {})["limit"] = int(args.eval_limit)
     seed = int(config.get("seed", 1337))
     seed_everything(seed)
     device = get_device(str(config.get("train", {}).get("device", "auto")))
@@ -444,7 +468,14 @@ def main() -> None:
     )
     step = 0
     optimizer_updates = 0
-    if args.resume is not None:
+    if args.eval_only_checkpoint is not None:
+        step, optimizer_updates = load_checkpoint(args.eval_only_checkpoint, model, optimizer, device)
+        print(
+            f"eval_only_checkpoint={args.eval_only_checkpoint} step={step} "
+            f"optimizer_updates={optimizer_updates}",
+            flush=True,
+        )
+    elif args.resume is not None:
         step, optimizer_updates = load_checkpoint(args.resume, model, optimizer, device)
         print(f"resumed={args.resume} step={step} optimizer_updates={optimizer_updates}", flush=True)
     parameter_count = sum(parameter.numel() for parameter in model.parameters())
@@ -508,6 +539,24 @@ def main() -> None:
             wandb_data["samples/eval_grid"] = wandb.Image(str(grid_path), caption=f"residual shift step {eval_step}")
         wandb_log(run, wandb_data, eval_step)
         return metrics
+
+    if args.eval_only_checkpoint is not None:
+        metrics = run_eval(step)
+        summary = {
+            "config": str(args.config),
+            "checkpoint": str(args.eval_only_checkpoint),
+            "checkpoint_step": step,
+            "correction_strength": config.get("eval", {}).get("correction_strength", 1.0),
+            "start_timestep": config.get("eval", {}).get("start_timestep"),
+            "metrics": metrics,
+        }
+        (output_dir / "eval_only_summary.json").write_text(
+            json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        print(json.dumps(summary, indent=2, sort_keys=True), flush=True)
+        if run is not None:
+            run.finish()
+        return
 
     if run_at_start and step == 0:
         run_eval(0)

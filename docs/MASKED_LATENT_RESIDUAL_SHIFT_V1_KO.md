@@ -106,3 +106,43 @@ W&B에서 우선 볼 항목:
 
 현재 public Colab/HF 기본값은 바꾸지 않는다. probe가 위 gate를 통과한 뒤에만
 40k-80k 장기 학습과 formal 219-image benchmark를 검토한다.
+
+## v1 완료와 inference sweep
+
+v1은 5000 step까지 완료됐고 best detail-score checkpoint는 step 3500이다.
+full trajectory 결과는 다음과 같아 승격 기준을 크게 벗어났다.
+
+```text
+decoded PSNR:       26.8651 (base 대비 -0.7557 dB)
+decoded SSIM:       0.80858 (base 대비 -0.01080)
+detail ratio:       0.82718 (base 0.79652)
+highpass gain:     -0.001725
+outside-mask drift: 0.000915
+```
+
+detail ratio는 올랐지만 GT highpass error도 악화됐다. grid에서는 과일 표면,
+동물 털, 잎 가장자리 등에 거친 가짜 질감이 보였다.
+
+같은 best3500에서 correction strength를 낮춘 결과:
+
+| strength | PSNR delta | SSIM delta | detail ratio | highpass gain |
+| ---: | ---: | ---: | ---: | ---: |
+| 0.10 | -0.0006 | +0.000003 | 0.79665 | -0.0000004 |
+| 0.20 | -0.0019 | -0.000006 | 0.79684 | -0.0000019 |
+| 0.35 | -0.0083 | -0.000074 | 0.79729 | -0.0000135 |
+| 0.50 | -0.0287 | -0.000362 | 0.79830 | -0.0000582 |
+
+strength를 줄이면 안전하지만 visible detail도 거의 사라졌다. full correction에서
+start timestep을 낮춘 sweep도 같은 trade-off였다. timestep 10은 PSNR delta
+`-0.0903 dB`, detail ratio `0.80099`, highpass gain `-0.000162`였다.
+
+따라서 v1은 “full noise만 과했다”가 아니라 masked GT latent loss 자체가 decoded
+fidelity보다 강했던 것으로 판단한다. v2 continuation은 best3500 optimizer
+state에서 시작해 latent weight `1.0 -> 0.1`, image/highpass/outside anchor를
+강화하고 timestep 10에서 평가한다.
+
+```text
+v2 config: configs/masked_latent_residual_shift_v2_fidelity_continue.yaml
+v2 W&B:   https://wandb.ai/jwheo/LuSIR/runs/6e463dc0
+range:    v1 best3500 -> step6500
+```
