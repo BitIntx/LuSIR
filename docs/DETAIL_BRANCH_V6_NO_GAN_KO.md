@@ -128,6 +128,8 @@ latest checkpoint: step 6000
   visible texture 생성력도 같이 눌렀다.
 
 결론: no-GAN teacher/negative branch는 안전한 음성 결과로 기록한다. 같은 v6를
-더 오래 돌리거나 weight만 키우는 것은 우선하지 않는다. 다음 실험은 frozen
-Stage2 base 위에 latent residual adapter를 붙여 Stage2 latent 자체가 detail
-evidence를 더 전달할 수 있는지 확인한다.
+더 오래 돌리거나 weight만 키우는 것은 우선하지 않는다. 후속 Stage2 latent
+residual adapter v1도 완료됐지만 guarded Stage2 v2보다 낮아 승격하지 않았다.
+따라서 다음 visible-detail 연구는 plain residual continuation이 아니라 learned
+mask/detail head 또는 patch-level perceptual/artifact-negative supervision으로
+넘어간다.

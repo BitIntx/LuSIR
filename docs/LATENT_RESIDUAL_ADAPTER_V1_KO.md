@@ -94,3 +94,84 @@ step 1 eval highpass_ratio=0.789
 step 1 eval missing=0.01968
 GPU: L40S 100%, about 27.4GB VRAM after startup
 ```
+
+## 2026-06-22 완료 및 판정
+
+장기 run은 `12000` micro-step까지 완료됐다.
+
+```text
+wandb:     https://wandb.ai/jwheo/LuSIR/runs/o7tsc4mo
+best ckpt: /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_latent_residual_adapter_v1/checkpoints/best_eval_mean_psnr_detail.pt
+best step: 11000
+latest:    12000
+```
+
+val100 composite 기준 best step `11000`:
+
+| metric | value |
+| --- | ---: |
+| decoded PSNR | `24.62017` |
+| mean PSNR | `26.48841` |
+| SSIM | `0.80135` |
+| highpass ratio | `0.80192` |
+| missing energy | `0.019230` |
+| mean PSNR detail score | `28.09225` |
+
+해석:
+
+- step 1 대비 highpass ratio와 missing energy는 좋아졌다.
+- 하지만 mean PSNR은 초기 `26.49146`보다 낮고, decoded PSNR도 사실상
+  변하지 않았다.
+- sample grid에서 6500/9000/11000/12000의 육안 차이는 작았다.
+- 붕괴는 없었지만, visible texture를 새로 만든 결과도 아니었다.
+
+같은 219장 clean-bicubic formal x4 benchmark에 투입해 frozen Stage2 base,
+guarded Stage2 v2, masked detail v2와 비교했다. SSIM 계산을 위해
+`opencv-python-headless`를 설치하고 기존 evaluator의 MATLAB-compatible Y
+PSNR/SSIM protocol을 그대로 사용했다.
+
+| candidate | mean Y PSNR | mean Y SSIM | mean RGB PSNR | mean RGB SSIM |
+| --- | ---: | ---: | ---: | ---: |
+| bicubic | `25.7170` | `0.71773` | `24.2697` | `0.69205` |
+| stage2 base | `27.8431` | `0.79742` | `26.3131` | `0.77340` |
+| latent adapter v1 | `27.8294` | `0.79836` | `26.3031` | `0.77430` |
+| guarded Stage2 v2 | `27.8539` | `0.79945` | `26.3263` | `0.77555` |
+| guarded Stage2 v2 x8 | `27.9496` | `0.80175` | `26.4303` | `0.77844` |
+| masked detail v2 | `28.1429` | `0.80797` | `26.6097` | `0.78473` |
+
+Pairwise 판정:
+
+```text
+latent adapter v1 vs stage2 base:
+  Y PSNR -0.0138 dB, Y SSIM +0.00094
+  Y PSNR wins 80/219, Y SSIM wins 191/219
+
+latent adapter v1 vs guarded Stage2 v2:
+  Y PSNR -0.0246 dB, Y SSIM -0.00109
+  Y PSNR wins 67/219, Y SSIM wins 20/219
+
+latent adapter v1 vs masked detail v2:
+  Y PSNR -0.3135 dB, Y SSIM -0.00960
+  Y PSNR wins 1/219, Y SSIM wins 0/219
+```
+
+보존 파일:
+
+```text
+metrics/formal_x4_benchmark_stage2_latent_adapter_v1_value_compare_summary.json
+metrics/formal_x4_benchmark_stage2_latent_adapter_v1_value_compare_metrics.csv
+samples/stage2_latent_adapter_v1_value_compare_selected.jpg
+samples/stage2_latent_adapter_v1_value_compare_contact_sheet.jpg
+```
+
+최종 결론:
+
+- `latent_residual_adapter_v1`은 연구 기록으로는 의미가 있다. frozen base 위에
+  bounded latent residual을 붙여도 붕괴하지 않고 SSIM을 아주 조금 올릴 수
+  있다는 것을 확인했다.
+- 그러나 public/default 또는 research-best 후보로 승격하지 않는다.
+- Stage2 base 대비 Y PSNR을 잃고, guarded Stage2 v2와 masked detail v2보다
+  명확히 낮다.
+- 다음 visible-detail 연구는 plain latent residual adapter continuation이 아니라
+  learned mask/detail head 또는 patch-level perceptual/artifact-negative
+  supervision 쪽으로 가는 것이 맞다.

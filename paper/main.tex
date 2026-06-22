@@ -140,9 +140,8 @@ deterministic/generative visible-detail probes were evaluated without
 producing a clear texture breakthrough. A Stage 1 decoder capacity audit
 now points the active visible-detail bottleneck back to Stage 2
 conditional-latent smoothing. The no-GAN, noise-gated v6 detail branch
-is now complete and did not improve over step 0; the current active
-probe is a Stage 2 latent residual adapter on top of the frozen
-dual-context base.
+and the follow-up Stage 2 latent residual adapter are now complete;
+neither is promoted.
 
 \texttt{paper/TECHNICAL\_REPORT.md} is the canonical report source.
 \texttt{paper/sr\_diffusion\_report.pdf} and \texttt{paper/main.tex} are
@@ -187,10 +186,6 @@ current runtime choices are:
 \NormalTok{current detail research candidate:}
 \NormalTok{  LR {-}\textgreater{} dual{-}context LSDIR Stage 2 {-}\textgreater{} Stage 1 decoder}
 \NormalTok{     {-}\textgreater{} learned detail mask {-}\textgreater{} masked detail branch v2}
-
-\NormalTok{active visible{-}detail probe:}
-\NormalTok{  LR {-}\textgreater{} dual{-}context LSDIR Stage 2 {-}\textgreater{} Stage 1 decoder}
-\NormalTok{     {-}\textgreater{} zero{-}init latent residual adapter {-}\textgreater{} Stage 1 decoder}
 
 \NormalTok{generative comparison:}
 \NormalTok{  LR {-}\textgreater{} Stage 2 condition encoder {-}\textgreater{} Stage 3 OR Stage 4 diffusion U{-}Net}
@@ -404,6 +399,17 @@ inference, so TTA is retained as an optional review setting rather than
 a new default. Masked detail v2 remains higher at \texttt{28.1429\ dB}
 in the same PSNR-only comparison.
 
+The Stage 2 latent residual adapter v1 completed the same benchmark
+after selecting step 11000 on the val100 composite metric. It is not
+promoted. Against the frozen dual-context Stage 2 base, it trades
+\texttt{-0.0138\ dB} mean Y PSNR for \texttt{+0.00094} mean Y SSIM.
+Against the guarded-detail Stage 2 v2 default, it is lower on both mean
+Y PSNR (\texttt{-0.0246\ dB}) and mean Y SSIM (\texttt{-0.00109}).
+Against masked detail v2, it trails by \texttt{0.3135\ dB} Y PSNR and
+\texttt{0.00960} Y SSIM. This is useful negative evidence: a small
+bounded latent residual can remain stable, but it does not recover
+visible detail better than the existing masked/detail branch path.
+
 The reproducible protocol and commands are in
 \texttt{docs/SR\_BENCHMARK.md}; full machine-readable results are in:
 
@@ -419,6 +425,8 @@ The reproducible protocol and commands are in
 \NormalTok{metrics/formal\_x4\_benchmark\_stage2\_detail\_perceptual\_v1\_metrics.csv}
 \NormalTok{metrics/formal\_x4\_benchmark\_stage2\_guarded\_tta\_compare\_summary.json}
 \NormalTok{metrics/formal\_x4\_benchmark\_stage2\_guarded\_tta\_compare\_metrics.csv}
+\NormalTok{metrics/formal\_x4\_benchmark\_stage2\_latent\_adapter\_v1\_value\_compare\_summary.json}
+\NormalTok{metrics/formal\_x4\_benchmark\_stage2\_latent\_adapter\_v1\_value\_compare\_metrics.csv}
 \end{Highlighting}
 \end{Shaded}
 
@@ -1169,19 +1177,33 @@ LPIPS/DISTS/MANIQA/MUSIQ and user-preference evaluation.
 \subsection{Representative Visual
 Examples}\label{representative-visual-examples}}
 
-The following two examples use the same lime image so that the role of
-the base reconstruction and the later detail branch can be inspected
-separately. They are representative diagnostic examples, not
-cherry-picked evidence of a formal benchmark win.
+The current README demo uses \texttt{Urban100/img\_043}, the strongest
+measured full-image example from the fixed x4 benchmark among the
+reviewed candidates. It is intentionally used as a high-impact visual
+explanation rather than as a claim of average SOTA quality: masked
+detail v2 improves this sample over bicubic by \texttt{+10.66\ dB} Y
+PSNR and \texttt{+0.152} Y SSIM, mainly by restoring repeated
+architectural structure.
+
+\includegraphics{../docs/assets/lusir_current_demo_urban100_img043.jpg}
+
+\emph{Figure 1. High-impact full-image benchmark example. The method
+still remains a conservative deterministic restoration path; this image
+is chosen because the improvement is easy to see.}
+
+The following two lime examples use the same validation crop so that the
+role of the base reconstruction and the later detail branch can be
+inspected separately. They are diagnostic examples, not claims of a
+formal benchmark win.
 
 \includegraphics{../docs/assets/stage2_multiscale_demo.jpg}
 
-\emph{Figure 1. Multiscale Stage 2 restores the degraded input while
+\emph{Figure 2. Multiscale Stage 2 restores the degraded input while
 retaining a visible fine-texture gap to ground truth.}
 
 \includegraphics{../docs/assets/detail_branch_v1d_lime_demo.jpg}
 
-\emph{Figure 2. Selected detail branch v1d adds a controlled,
+\emph{Figure 3. Selected detail branch v1d adds a controlled,
 artifact-light correction over the base; this illustrates both its
 improvement and its remaining conservative behavior.}
 
@@ -1507,8 +1529,8 @@ unchanged. This is useful negative evidence: no-GAN teacher/negative
 losses can keep the branch safe, but this image-space branch still does
 not create the missing texture.
 
-The follow-up Stage 2 probe therefore moves the residual correction into
-latent space.
+The follow-up Stage 2 latent residual adapter v1 moved the residual
+correction into latent space.
 \texttt{configs/latent\_pretrain\_photo130k\_lsdir\_latent\_residual\_adapter\_v1.yaml}
 freezes the dual-context Stage 2 best98000 predictor, feeds its latent
 output and LR input into a zero-initialized 3.75M-parameter adapter, and
@@ -1516,6 +1538,14 @@ trains only a bounded latent residual before decoding through the same
 Stage 1 decoder. Its starting output is exactly the frozen Stage 2 base,
 so any improvement or regression can be attributed to the adapter rather
 than a full Stage 2 retraining drift.
+
+The run completed 12000 micro-steps and selected step 11000 on the
+val100 composite metric. It was stable, but not useful enough to
+promote. On the formal 219-image benchmark, it is slightly worse than
+the frozen Stage 2 base in mean Y PSNR (\texttt{27.8294} versus
+\texttt{27.8431}) and lower than the guarded Stage 2 v2 default in both
+Y PSNR and Y SSIM. This rules out plain latent residual adapter
+continuation as the next priority.
 
 Before v5, the v3/v3b/v4 series tested the same general idea with the
 original v1 mask. V3 added conservative masked VGG and PatchGAN losses
@@ -1596,6 +1626,8 @@ Hugging Face:
 \NormalTok{metrics/formal\_x4\_benchmark\_stage2\_detail\_perceptual\_v1\_summary.json}
 \NormalTok{metrics/formal\_x4\_benchmark\_stage2\_detail\_perceptual\_v1\_metrics.csv}
 \NormalTok{metrics/formal\_x4\_benchmark\_stage2\_detail\_perceptual\_v1\_delta\_crop\_selection.csv}
+\NormalTok{metrics/formal\_x4\_benchmark\_stage2\_latent\_adapter\_v1\_value\_compare\_summary.json}
+\NormalTok{metrics/formal\_x4\_benchmark\_stage2\_latent\_adapter\_v1\_value\_compare\_metrics.csv}
 \NormalTok{samples/stage4\_photo100k\_xl\_edge\_b16\_val100\_t50\_32step\_grid\_lr\_bicubic\_sr\_gt.png}
 \NormalTok{samples/diagnose\_stage2\_xl\_residuals\_mild\_val100\_grid.png}
 \NormalTok{samples/residual\_refiner\_stage2\_xl\_mild\_probe\_step500\_grid.png}
@@ -1619,6 +1651,9 @@ Hugging Face:
 \NormalTok{samples/benchmark\_bicubic5\_detail\_v1d\_best99500\_grid.png}
 \NormalTok{samples/detail\_branch\_v2\_masked\_photo130k\_lsdir\_best38000\_grid.png}
 \NormalTok{samples/stage2\_detail\_perceptual\_v1\_benchmark\_delta\_crop\_sheet.jpg}
+\NormalTok{samples/stage2\_latent\_adapter\_v1\_value\_compare\_selected.jpg}
+\NormalTok{samples/stage2\_latent\_adapter\_v1\_value\_compare\_contact\_sheet.jpg}
+\NormalTok{docs/assets/lusir\_current\_demo\_urban100\_img043.jpg}
 \NormalTok{configs/diffusion\_photo100k\_xl\_stage4\_condition\_v3\_edge\_b16.yaml}
 \NormalTok{configs/residual\_refiner\_stage2\_xl\_mild\_probe.yaml}
 \NormalTok{configs/diffusion\_photo100k\_xl\_stage4\_condition\_v3\_teacher\_residual\_photo\_v3\_b8\_probe.yaml}
@@ -1634,6 +1669,7 @@ Hugging Face:
 \NormalTok{configs/hf/detail\_branch\_v1d\_deep3m\_photo130k\_lsdir\_3ep.yaml}
 \NormalTok{configs/hf/detail\_mask\_predictor\_v1.yaml}
 \NormalTok{configs/hf/detail\_branch\_v2\_masked\_photo130k\_lsdir.yaml}
+\NormalTok{configs/latent\_pretrain\_photo130k\_lsdir\_latent\_residual\_adapter\_v1.yaml}
 \end{Highlighting}
 \end{Shaded}
 
@@ -1658,8 +1694,9 @@ Stage 2 continuation is not promoted. Candidate next steps are:
   \texttt{train/negative\_weight}; this is now complete and is recorded
   as a safe but non-improving result;
 \item
-  run and review the Stage 2 latent residual adapter v1 probe, watching
-  decoded mean PSNR, highpass ratio, missing energy, and fixed samples;
+  do not continue the Stage 2 latent residual adapter v1 objective
+  without a new supervision signal; it completed stably but trailed
+  guarded Stage 2 v2 on the formal benchmark;
 \item
   preserve the deterministic base and move from full latent
   re-prediction to a residual/detail correction path that predicts

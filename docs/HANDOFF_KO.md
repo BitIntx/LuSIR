@@ -131,20 +131,21 @@ generative:
   `+0.00103`, wins `94/100`이다. v5 같은 붕괴는 없었지만 시작점보다 나아지지
   못했다. 결론은 “no-GAN teacher/negative loss는 안전하지만 texture 생성력이
   없다”이다. 같은 v6 continuation은 우선하지 않는다.
-- 다음 probe는 Stage2 latent residual adapter v1이다. config는
+- Stage2 latent residual adapter v1 probe도 완료됐다. config는
   `configs/latent_pretrain_photo130k_lsdir_latent_residual_adapter_v1.yaml`,
   설계 문서는 `docs/LATENT_RESIDUAL_ADAPTER_V1_KO.md`다. 기존 dual-context
   Stage2 best98000은 frozen base로 로드하고, zero-init 3.75M adapter만
   학습한다. 4-step smoke는 정상이며 optimizer가 adapter params
   `3,745,296`개만 잡는 것을 확인했다.
-- latent residual adapter v1 장기 run은 실행 중이다. W&B run은
-  <https://wandb.ai/jwheo/LuSIR/runs/o7tsc4mo>, tmux session은
-  `lusir_latent_adapter_v1`, 로컬 로그는
-  `/home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_latent_residual_adapter_v1/train.log`다.
-  로그 확인:
-  `tail -f /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_latent_residual_adapter_v1/train.log`
-  초기 step1 eval은 decoded PSNR `24.62`, mean PSNR `26.49`, highpass ratio
-  `0.789`, missing `0.01968`로 frozen base 시작점과 일치한다.
+- latent residual adapter v1은 `12000` micro-step까지 완료됐고 W&B run은
+  <https://wandb.ai/jwheo/LuSIR/runs/o7tsc4mo>이다. best checkpoint는 step
+  `11000`의 `best_eval_mean_psnr_detail.pt`다. val100에서는 decoded PSNR
+  `24.62017`, mean PSNR `26.48841`, SSIM `0.80135`, highpass ratio
+  `0.80192`, missing `0.019230`이었다. 그러나 formal 219-image x4 benchmark는
+  stage2 base 대비 Y PSNR `-0.0138 dB` / Y SSIM `+0.00094`, guarded Stage2 v2
+  대비 Y PSNR `-0.0246 dB` / Y SSIM `-0.00109`였으므로 승격하지 않는다.
+  Colab/HF 기본값은 guarded Stage2 v2 step10000 유지, masked detail v2는
+  research/detail 옵션 유지다.
 - Stage2/base 경로 실험
   `configs/latent_pretrain_photo130k_lsdir_dual_detail_perceptual_v1.yaml`도
   완료됐다. best detail-score는 step `6000`, decoded PSNR `24.5921`,
@@ -1129,7 +1130,9 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
 
 1. 현재 Stage2 continuation은 원래 LR로 보존하되, 같은 objective의 장기
    continuation이 SwinIR gap이나 visible detail을 해결할 것으로 기대하지 않는다.
-2. latent residual v1과 signed-wavelet residual v2는 모두 종료했다. v2는
+2. latent residual v1, Stage2 latent residual adapter v1, signed-wavelet
+   residual v2는 모두 종료했다. adapter v1은 SSIM을 아주 조금 올렸지만
+   guarded Stage2 v2보다 낮아 승격하지 않는다. signed-wavelet v2는
    step20000까지 노이즈를 제거했지만 residual/diversity도 zero 쪽으로 수렴해
    실제 missing detail을 만들지 못했다. 같은 objective continuation은 하지 않는다.
 3. 다음 생성형 detail 실험은 LR에서 근거가 있는 위치만 여는 learned

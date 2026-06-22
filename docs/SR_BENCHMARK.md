@@ -239,6 +239,45 @@ metrics/formal_x4_benchmark_stage2_guarded_tta_compare_summary.json
 metrics/formal_x4_benchmark_stage2_guarded_tta_compare_metrics.csv
 ```
 
+## 2026-06-22 Stage2 Latent Adapter v1 Value Check
+
+Stage2 latent residual adapter v1은 val100 composite metric에서는 step `11000`을
+선택했지만, 같은 219개 full-image benchmark에서는 public/default 후보로
+승격할 근거가 부족했다. 이 비교는 SSIM 포함 계산을 위해
+`opencv-python-headless` 설치 후 같은 evaluator로 수행했다.
+
+| Candidate | Mean Y PSNR | Mean Y SSIM | Mean RGB PSNR | Mean RGB SSIM |
+| --- | ---: | ---: | ---: | ---: |
+| Bicubic | `25.7170` | `0.71773` | `24.2697` | `0.69205` |
+| RealESRGAN x4plus | `24.7366` | `0.72190` | `22.9936` | `0.67457` |
+| Stage2 base | `27.8431` | `0.79742` | `26.3131` | `0.77340` |
+| Stage2 latent adapter v1 | `27.8294` | `0.79836` | `26.3031` | `0.77430` |
+| Guarded Stage2 v2 | `27.8539` | `0.79945` | `26.3263` | `0.77555` |
+| Guarded Stage2 v2 x8 | `27.9496` | `0.80175` | `26.4303` | `0.77844` |
+| Masked detail v2 | **`28.1429`** | **`0.80797`** | **`26.6097`** | **`0.78473`** |
+
+Pairwise 결과:
+
+- adapter v1 vs Stage2 base: Y PSNR `-0.0138 dB`, Y SSIM `+0.00094`.
+- adapter v1 vs guarded Stage2 v2: Y PSNR `-0.0246 dB`, Y SSIM `-0.00109`.
+- adapter v1 vs masked detail v2: Y PSNR `-0.3135 dB`, Y SSIM `-0.00960`.
+
+판정:
+
+- adapter v1은 안정적이지만 useful upgrade는 아니다.
+- Colab/default는 guarded Stage2 v2 step10000 유지.
+- masked detail v2는 평균 수치상 가장 높지만, 여전히 research/detail 옵션으로
+  유지한다.
+
+Machine-readable results:
+
+```text
+metrics/formal_x4_benchmark_stage2_latent_adapter_v1_value_compare_summary.json
+metrics/formal_x4_benchmark_stage2_latent_adapter_v1_value_compare_metrics.csv
+samples/stage2_latent_adapter_v1_value_compare_selected.jpg
+samples/stage2_latent_adapter_v1_value_compare_contact_sheet.jpg
+```
+
 SwinIR output은 외부 official repository에서 생성한 뒤 같은 evaluator에
 입력했다:
 

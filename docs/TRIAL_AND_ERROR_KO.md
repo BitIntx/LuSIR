@@ -2277,3 +2277,67 @@ eval/wins_vs_base:          93/100
   frozen Stage2 base 위에 latent residual adapter를 붙이는 v1 probe를 추가했다.
 - config는 `configs/latent_pretrain_photo130k_lsdir_latent_residual_adapter_v1.yaml`,
   문서는 `docs/LATENT_RESIDUAL_ADAPTER_V1_KO.md`다.
+
+### 2026-06-22 Stage2 latent residual adapter v1 완료 및 비승격
+
+v6 no-GAN detail branch 후속으로 frozen dual-context Stage2 base 위에
+3.75M-parameter zero-init latent residual adapter를 붙여 `12000` micro-step까지
+학습했다.
+
+```text
+config: configs/latent_pretrain_photo130k_lsdir_latent_residual_adapter_v1.yaml
+base:   checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt
+wandb:  https://wandb.ai/jwheo/LuSIR/runs/o7tsc4mo
+best:   step 11000, best_eval_mean_psnr_detail.pt
+```
+
+val100 best step11000:
+
+| metric | value |
+| --- | ---: |
+| decoded PSNR | `24.62017` |
+| mean PSNR | `26.48841` |
+| SSIM | `0.80135` |
+| highpass ratio | `0.80192` |
+| missing energy | `0.019230` |
+| mean PSNR detail score | `28.09225` |
+
+학습은 안정적이었다. highpass ratio는 step1 `0.7886`에서 best `0.8019`까지
+올랐고 missing energy도 `0.01968`에서 `0.01923`까지 낮아졌다. 그러나
+mean PSNR은 초기보다 낮아졌고 fixed sample grid에서 6500/9000/11000/12000의
+차이는 거의 보이지 않았다.
+
+formal 219-image x4 benchmark:
+
+| candidate | mean Y PSNR | mean Y SSIM | mean RGB PSNR | mean RGB SSIM |
+| --- | ---: | ---: | ---: | ---: |
+| stage2 base | `27.8431` | `0.79742` | `26.3131` | `0.77340` |
+| latent adapter v1 | `27.8294` | `0.79836` | `26.3031` | `0.77430` |
+| guarded Stage2 v2 | `27.8539` | `0.79945` | `26.3263` | `0.77555` |
+| guarded Stage2 v2 x8 | `27.9496` | `0.80175` | `26.4303` | `0.77844` |
+| masked detail v2 | `28.1429` | `0.80797` | `26.6097` | `0.78473` |
+
+Pairwise:
+
+- vs frozen Stage2 base: Y PSNR `-0.0138 dB`, Y SSIM `+0.00094`.
+- vs guarded Stage2 v2 default: Y PSNR `-0.0246 dB`, Y SSIM `-0.00109`.
+- vs masked detail v2: Y PSNR `-0.3135 dB`, Y SSIM `-0.00960`.
+
+판정:
+
+- 붕괴하지 않는 latent residual correction은 가능했다.
+- 하지만 실사용 후보로 승격할 정도의 이득은 없다.
+- 특히 guarded Stage2 v2와 masked detail v2보다 낮으므로 Colab/HF 기본값은
+  바꾸지 않는다.
+- plain latent residual adapter continuation은 우선하지 않는다. 다음은 frozen
+  fidelity base를 보존하면서 learned mask/detail head 또는 patch-level
+  perceptual/artifact-negative supervision으로 가야 한다.
+
+보존 파일:
+
+```text
+metrics/formal_x4_benchmark_stage2_latent_adapter_v1_value_compare_summary.json
+metrics/formal_x4_benchmark_stage2_latent_adapter_v1_value_compare_metrics.csv
+samples/stage2_latent_adapter_v1_value_compare_selected.jpg
+samples/stage2_latent_adapter_v1_value_compare_contact_sheet.jpg
+```

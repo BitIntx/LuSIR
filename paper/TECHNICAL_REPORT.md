@@ -7,9 +7,8 @@ formally reviewed but not promoted, and several deterministic/generative
 visible-detail probes were evaluated without producing a clear texture
 breakthrough. A Stage 1 decoder capacity audit now points the active
 visible-detail bottleneck back to Stage 2 conditional-latent smoothing. The
-no-GAN, noise-gated v6 detail branch is now complete and did not improve over
-step 0; the current active probe is a Stage 2 latent residual adapter on top of
-the frozen dual-context base.
+no-GAN, noise-gated v6 detail branch and the follow-up Stage 2 latent residual
+adapter are now complete; neither is promoted.
 
 `paper/TECHNICAL_REPORT.md` is the canonical report source.
 `paper/sr_diffusion_report.pdf` and `paper/main.tex` are generated from it with
@@ -46,10 +45,6 @@ conservative deterministic option:
 current detail research candidate:
   LR -> dual-context LSDIR Stage 2 -> Stage 1 decoder
      -> learned detail mask -> masked detail branch v2
-
-active visible-detail probe:
-  LR -> dual-context LSDIR Stage 2 -> Stage 1 decoder
-     -> zero-init latent residual adapter -> Stage 1 decoder
 
 generative comparison:
   LR -> Stage 2 condition encoder -> Stage 3 OR Stage 4 diffusion U-Net
@@ -203,6 +198,16 @@ differences and the x8 path costs roughly eight times more inference, so TTA
 is retained as an optional review setting rather than a new default. Masked
 detail v2 remains higher at `28.1429 dB` in the same PSNR-only comparison.
 
+The Stage 2 latent residual adapter v1 completed the same benchmark after
+selecting step 11000 on the val100 composite metric. It is not promoted. Against
+the frozen dual-context Stage 2 base, it trades `-0.0138 dB` mean Y PSNR for
+`+0.00094` mean Y SSIM. Against the guarded-detail Stage 2 v2 default, it is
+lower on both mean Y PSNR (`-0.0246 dB`) and mean Y SSIM (`-0.00109`). Against
+masked detail v2, it trails by `0.3135 dB` Y PSNR and `0.00960` Y SSIM. This is
+useful negative evidence: a small bounded latent residual can remain stable,
+but it does not recover visible detail better than the existing masked/detail
+branch path.
+
 The reproducible protocol and commands are in `docs/SR_BENCHMARK.md`; full
 machine-readable results are in:
 
@@ -217,6 +222,8 @@ metrics/formal_x4_benchmark_stage2_detail_perceptual_v1_summary.json
 metrics/formal_x4_benchmark_stage2_detail_perceptual_v1_metrics.csv
 metrics/formal_x4_benchmark_stage2_guarded_tta_compare_summary.json
 metrics/formal_x4_benchmark_stage2_guarded_tta_compare_metrics.csv
+metrics/formal_x4_benchmark_stage2_latent_adapter_v1_value_compare_summary.json
+metrics/formal_x4_benchmark_stage2_latent_adapter_v1_value_compare_metrics.csv
 ```
 
 ## Stage 2 Clean-Fidelity Continuation and Learning-Rate Probes
@@ -747,23 +754,37 @@ testing plus LPIPS/DISTS/MANIQA/MUSIQ and user-preference evaluation.
 
 ### Representative Visual Examples
 
-The following two examples use the same lime image so that the role of the
-base reconstruction and the later detail branch can be inspected separately.
-They are representative diagnostic examples, not cherry-picked evidence of a
-formal benchmark win.
+The current README demo uses `Urban100/img_043`, the strongest measured
+full-image example from the fixed x4 benchmark among the reviewed candidates.
+It is intentionally used as a high-impact visual explanation rather than as a
+claim of average SOTA quality: masked detail v2 improves this sample over
+bicubic by `+10.66 dB` Y PSNR and `+0.152` Y SSIM, mainly by restoring repeated
+architectural structure.
+
+![Urban100 img_043 shows the clearest current deterministic LuSIR improvement:
+LR and bicubic blur the repeating facade, while masked detail v2 recovers much
+of the geometric structure without a generative sampler.](../docs/assets/lusir_current_demo_urban100_img043.jpg)
+
+*Figure 1. High-impact full-image benchmark example. The method still remains a
+conservative deterministic restoration path; this image is chosen because the
+improvement is easy to see.*
+
+The following two lime examples use the same validation crop so that the role
+of the base reconstruction and the later detail branch can be inspected
+separately. They are diagnostic examples, not claims of a formal benchmark win.
 
 ![The selected multiscale Stage 2 model restores color and large structure from
 the degraded LR input, but remains visibly smoother than ground truth on rind
 texture.](../docs/assets/stage2_multiscale_demo.jpg)
 
-*Figure 1. Multiscale Stage 2 restores the degraded input while retaining a
+*Figure 2. Multiscale Stage 2 restores the degraded input while retaining a
 visible fine-texture gap to ground truth.*
 
 ![The selected v1d high-frequency detail branch makes a controlled texture correction
 over the dual-context base. It remains artifact-light, but the gap to ground
 truth fine detail is still clear.](../docs/assets/detail_branch_v1d_lime_demo.jpg)
 
-*Figure 2. Selected detail branch v1d adds a controlled, artifact-light
+*Figure 3. Selected detail branch v1d adds a controlled, artifact-light
 correction over the base; this illustrates both its improvement and its
 remaining conservative behavior.*
 
@@ -1036,14 +1057,22 @@ This is useful negative evidence: no-GAN teacher/negative losses can keep the
 branch safe, but this image-space branch still does not create the missing
 texture.
 
-The follow-up Stage 2 probe therefore moves the residual correction into latent
-space. `configs/latent_pretrain_photo130k_lsdir_latent_residual_adapter_v1.yaml`
+The follow-up Stage 2 latent residual adapter v1 moved the residual correction
+into latent space.
+`configs/latent_pretrain_photo130k_lsdir_latent_residual_adapter_v1.yaml`
 freezes the dual-context Stage 2 best98000 predictor, feeds its latent output
 and LR input into a zero-initialized 3.75M-parameter adapter, and trains only a
 bounded latent residual before decoding through the same Stage 1 decoder. Its
 starting output is exactly the frozen Stage 2 base, so any improvement or
 regression can be attributed to the adapter rather than a full Stage 2
 retraining drift.
+
+The run completed 12000 micro-steps and selected step 11000 on the val100
+composite metric. It was stable, but not useful enough to promote. On the
+formal 219-image benchmark, it is slightly worse than the frozen Stage 2 base
+in mean Y PSNR (`27.8294` versus `27.8431`) and lower than the guarded Stage 2
+v2 default in both Y PSNR and Y SSIM. This rules out plain latent residual
+adapter continuation as the next priority.
 
 Before v5, the v3/v3b/v4 series tested the same general idea with the original
 v1 mask. V3 added conservative masked VGG and PatchGAN losses and selected
@@ -1116,6 +1145,8 @@ metrics/formal_x4_benchmark_detail_v2_masked_metrics.csv
 metrics/formal_x4_benchmark_stage2_detail_perceptual_v1_summary.json
 metrics/formal_x4_benchmark_stage2_detail_perceptual_v1_metrics.csv
 metrics/formal_x4_benchmark_stage2_detail_perceptual_v1_delta_crop_selection.csv
+metrics/formal_x4_benchmark_stage2_latent_adapter_v1_value_compare_summary.json
+metrics/formal_x4_benchmark_stage2_latent_adapter_v1_value_compare_metrics.csv
 samples/stage4_photo100k_xl_edge_b16_val100_t50_32step_grid_lr_bicubic_sr_gt.png
 samples/diagnose_stage2_xl_residuals_mild_val100_grid.png
 samples/residual_refiner_stage2_xl_mild_probe_step500_grid.png
@@ -1139,6 +1170,9 @@ samples/detail_branch_v1d_deep3m_photo130k_lsdir_best99500_grid.png
 samples/benchmark_bicubic5_detail_v1d_best99500_grid.png
 samples/detail_branch_v2_masked_photo130k_lsdir_best38000_grid.png
 samples/stage2_detail_perceptual_v1_benchmark_delta_crop_sheet.jpg
+samples/stage2_latent_adapter_v1_value_compare_selected.jpg
+samples/stage2_latent_adapter_v1_value_compare_contact_sheet.jpg
+docs/assets/lusir_current_demo_urban100_img043.jpg
 configs/diffusion_photo100k_xl_stage4_condition_v3_edge_b16.yaml
 configs/residual_refiner_stage2_xl_mild_probe.yaml
 configs/diffusion_photo100k_xl_stage4_condition_v3_teacher_residual_photo_v3_b8_probe.yaml
@@ -1154,6 +1188,7 @@ configs/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml
 configs/hf/detail_branch_v1d_deep3m_photo130k_lsdir_3ep.yaml
 configs/hf/detail_mask_predictor_v1.yaml
 configs/hf/detail_branch_v2_masked_photo130k_lsdir.yaml
+configs/latent_pretrain_photo130k_lsdir_latent_residual_adapter_v1.yaml
 ```
 
 ## Next Work
@@ -1170,8 +1205,9 @@ Candidate next steps are:
   `eval/lowpass_drift_l1`, `eval/outside_mask_residual_l1`,
   `train/negative_residual`, and `train/negative_weight`; this is now complete
   and is recorded as a safe but non-improving result;
-- run and review the Stage 2 latent residual adapter v1 probe, watching
-  decoded mean PSNR, highpass ratio, missing energy, and fixed samples;
+- do not continue the Stage 2 latent residual adapter v1 objective without a
+  new supervision signal; it completed stably but trailed guarded Stage 2 v2
+  on the formal benchmark;
 - preserve the deterministic base and move from full latent re-prediction to a
   residual/detail correction path that predicts `target_latent - baseline_latent`
   or decoded highpass/detail residual over the existing Stage 2 output;
