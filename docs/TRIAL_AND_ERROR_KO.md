@@ -2203,3 +2203,53 @@ Colab 기본값인 guarded-detail Stage2 v2 step10000에 `--tta off`, `hflip`,
   Colab에서는 느린 리뷰 옵션으로만 노출한다.
 - 다음 연구 우선순위는 TTA 확대가 아니라 masked/detail branch 또는 별도
   generator가 실제 texture를 만들도록 supervision을 바꾸는 것이다.
+
+### 2026-06-22 detail branch v6 no-GAN teacher/negative probe 구현
+
+v5 PatchGAN 붕괴 이후 같은 adversarial 방향을 더 밀지 않기로 했다. v5에서
+확인한 핵심은 v2 noise-negative top10 gate가 밖으로 새지 않았다는 점이다.
+문제는 mask 내부에서 GAN이 GT-aligned detail correction 대신 scratch/noise성
+고주파를 키운 것이다.
+
+새 probe:
+
+```text
+config: configs/detail_branch_v6_noise_gate_teacher_perceptual_no_gan_probe.yaml
+doc:    docs/DETAIL_BRANCH_V6_NO_GAN_KO.md
+init:   checkpoints/detail_branch_v2_masked_photo130k_lsdir_best38000.pt
+mask:   checkpoints/detail_mask_predictor_v2_noise_negative_best1500.pt
+GAN:    disabled
+```
+
+변경점:
+
+- v2 noise-negative predictor를 `top_fraction 0.10`, `top_mode binary`,
+  `floor 0.0`으로 사용한다.
+- RealESRGAN teacher cache를 쓰되, GT highpass보다 locally worse인 위치는
+  confidence mask로 제거한다.
+- masked VGG는 유지하되 PatchGAN은 제거한다.
+- 새 `artifact_negative_residual_loss`를 추가했다. GT target highpass가 낮은
+  평탄 영역이나 base가 이미 target보다 과한 highpass를 가진 영역에서 residual
+  energy를 직접 누른다.
+- train log에 `train/negative_residual`, `train/negative_weight`를 추가했다.
+
+4-step smoke 결과:
+
+```text
+eval/sr_vs_base_psnr:      +0.0515 dB
+eval/sr_vs_base_mean_psnr: +0.0696 dB
+eval/sr_vs_base_ssim:      +0.00147
+eval/detail_mask_mean:      0.1000
+eval/outside_mask_residual_l1: 0.000000
+eval/lowpass_drift_l1:      0.000130
+eval/wins_vs_base:          93/100
+```
+
+판정:
+
+- smoke는 v2 초기 보정과 top10 mask 제한이 깨지지 않았다는 확인이다.
+- 성공 여부는 500-6000 step W&B grid에서 판단한다. 좋은 신호는 실제 texture
+  correction이 보이면서 PSNR/SSIM delta가 양수이고 lowpass drift가 v2/v3 수준에
+  머무는 것이다.
+- 나쁜 신호는 v5처럼 scratch/noise artifact가 mask 안쪽에 생기거나,
+  `eval/wins_vs_base`가 빠르게 떨어지는 것이다.

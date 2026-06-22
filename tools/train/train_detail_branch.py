@@ -488,6 +488,43 @@ def masked_charbonnier(
     return (numerator / denominator).mean()
 
 
+def artifact_negative_residual_loss(
+    residual: torch.Tensor,
+    base_sr: torch.Tensor,
+    hr: torch.Tensor,
+    detail_mask: torch.Tensor | None,
+    *,
+    highpass_kernel: int = 15,
+    patch_kernel: int = 9,
+    flat_threshold: float = 0.018,
+    excess_margin: float = 0.002,
+    excess_temperature: float = 0.006,
+    mask_floor: float = 0.0,
+    eps: float = 1e-8,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Penalize generated residuals where target evidence says texture is unsafe."""
+    residual_energy = metric_highpass(residual.float(), kernel_size=highpass_kernel).abs().mean(dim=1, keepdim=True)
+    target_detail = metric_highpass(hr.float(), kernel_size=highpass_kernel).abs().mean(dim=1, keepdim=True)
+    base_detail = metric_highpass(base_sr.detach().float(), kernel_size=highpass_kernel).abs().mean(dim=1, keepdim=True)
+    target_detail = lowpass(target_detail, patch_kernel).detach()
+    base_detail = lowpass(base_detail, patch_kernel).detach()
+
+    flat_threshold = max(float(flat_threshold), eps)
+    excess_temperature = max(float(excess_temperature), eps)
+    flat_weight = torch.exp(-target_detail / flat_threshold)
+    excess_weight = torch.sigmoid((base_detail - target_detail - float(excess_margin)) / excess_temperature)
+    weight = torch.maximum(flat_weight, excess_weight)
+    if detail_mask is not None:
+        mask = detail_mask.float().clamp(0.0, 1.0)
+        if mask.shape[-2:] != weight.shape[-2:]:
+            mask = F.interpolate(mask, size=weight.shape[-2:], mode="bilinear", align_corners=False)
+        if mask_floor > 0.0:
+            mask = float(mask_floor) + (1.0 - float(mask_floor)) * mask
+        weight = weight * mask
+
+    return (residual_energy * weight).mean(), weight.mean()
+
+
 class TeacherImageCache:
     def __init__(self, config: dict[str, Any]) -> None:
         teacher_cfg = config.get("teacher", {})
@@ -832,6 +869,23 @@ def training_loss(
                 teacher_mask,
                 eps,
             )
+    negative_residual_loss = sr.new_zeros(())
+    negative_weight_mean = sr.new_zeros(())
+    negative_residual_weight = float(loss_cfg.get("negative_residual_weight", 0.0))
+    if negative_residual_weight > 0.0:
+        negative_cfg = loss_cfg.get("negative_residual", {})
+        negative_residual_loss, negative_weight_mean = artifact_negative_residual_loss(
+            residual=residual,
+            base_sr=base_sr.detach(),
+            hr=hr,
+            detail_mask=detail_mask,
+            highpass_kernel=highpass_kernel,
+            patch_kernel=int(negative_cfg.get("patch_kernel", 9)),
+            flat_threshold=float(negative_cfg.get("flat_threshold", 0.018)),
+            excess_margin=float(negative_cfg.get("excess_margin", 0.002)),
+            excess_temperature=float(negative_cfg.get("excess_temperature", 0.006)),
+            mask_floor=float(negative_cfg.get("mask_floor", 0.0)),
+        )
     loss = (
         float(loss_cfg.get("image_weight", 1.0)) * image_loss
         + float(loss_cfg.get("residual_target_weight", 0.5)) * residual_target_loss
@@ -844,6 +898,7 @@ def training_loss(
         + adversarial_weight * adversarial_loss
         + teacher_residual_weight * teacher_residual_loss
         + teacher_highpass_weight * teacher_highpass_loss
+        + negative_residual_weight * negative_residual_loss
     )
     return loss, {
         "image": image_loss,
@@ -858,6 +913,8 @@ def training_loss(
         "teacher_residual": teacher_residual_loss,
         "teacher_highpass": teacher_highpass_loss,
         "teacher_weight": teacher_weight_mean,
+        "negative_residual": negative_residual_loss,
+        "negative_weight": negative_weight_mean,
         "sr": sr,
     }
 
@@ -1133,6 +1190,8 @@ def main() -> None:
                 "train/teacher_residual": float(loss_parts["teacher_residual"].detach().cpu()),
                 "train/teacher_highpass": float(loss_parts["teacher_highpass"].detach().cpu()),
                 "train/teacher_weight": float(loss_parts["teacher_weight"].detach().cpu()),
+                "train/negative_residual": float(loss_parts["negative_residual"].detach().cpu()),
+                "train/negative_weight": float(loss_parts["negative_weight"].detach().cpu()),
                 "train/discriminator": float(discriminator_loss.detach().cpu()),
                 "train/adversarial_active": float(adversarial_active),
                 "train/lr": float(optimizer.param_groups[0]["lr"]),
@@ -1149,6 +1208,7 @@ def main() -> None:
                 f"perceptual={train_metrics['train/masked_perceptual']:.5f} "
                 f"teacher_res={train_metrics['train/teacher_residual']:.5f} "
                 f"teacher_hp={train_metrics['train/teacher_highpass']:.5f} "
+                f"neg={train_metrics['train/negative_residual']:.5f} "
                 f"adv={train_metrics['train/adversarial']:.5f} "
                 f"disc={train_metrics['train/discriminator']:.5f} "
                 f"gate={train_metrics['train/gate']:.5f} "

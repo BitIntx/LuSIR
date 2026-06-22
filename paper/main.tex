@@ -139,7 +139,10 @@ probes have been formally reviewed but not promoted, and several
 deterministic/generative visible-detail probes were evaluated without
 producing a clear texture breakthrough. A Stage 1 decoder capacity audit
 now points the active visible-detail bottleneck back to Stage 2
-conditional-latent smoothing.
+conditional-latent smoothing. The current active visible-detail probe is
+a no-GAN, noise-gated v6 detail branch that keeps the frozen fidelity
+path and adds filtered teacher/highpass and artifact-negative residual
+supervision.
 
 \texttt{paper/TECHNICAL\_REPORT.md} is the canonical report source.
 \texttt{paper/sr\_diffusion\_report.pdf} and \texttt{paper/main.tex} are
@@ -184,6 +187,10 @@ current runtime choices are:
 \NormalTok{current detail research candidate:}
 \NormalTok{  LR {-}\textgreater{} dual{-}context LSDIR Stage 2 {-}\textgreater{} Stage 1 decoder}
 \NormalTok{     {-}\textgreater{} learned detail mask {-}\textgreater{} masked detail branch v2}
+
+\NormalTok{active visible{-}detail probe:}
+\NormalTok{  LR {-}\textgreater{} dual{-}context LSDIR Stage 2 {-}\textgreater{} Stage 1 decoder}
+\NormalTok{     {-}\textgreater{} v2 noise{-}negative top10 detail mask {-}\textgreater{} no{-}GAN v6 detail branch}
 
 \NormalTok{generative comparison:}
 \NormalTok{  LR {-}\textgreater{} Stage 2 condition encoder {-}\textgreater{} Stage 3 OR Stage 4 diffusion U{-}Net}
@@ -1468,11 +1475,27 @@ Visual review showed high-frequency artifact growth rather than
 GT-aligned fine texture. This rejects the current PatchGAN route;
 stronger adversarial pressure or longer continuation is not planned.
 
-The next detail experiment should retain the frozen fidelity base and
-learned mask, but avoid the current PatchGAN objective. Candidate
-directions are explicit artifact/noise-negative generator loss inside
-the mask, a smaller fixed-review patch objective, or a Stage-1
-decoder-side detail-capacity audit.
+The implemented v6 follow-up retains the frozen fidelity base and v2
+noise-negative top-10 mask, but removes the PatchGAN objective. It
+starts from selected masked detail v2 step 38000 and combines masked VGG
+supervision, GT-filtered RealESRGAN highpass/residual teacher signal,
+and a new artifact-negative residual loss. The negative loss directly
+suppresses residual highpass energy in flat target regions or regions
+where the base is already sharper than the target. Its config is
+\texttt{configs/detail\_branch\_v6\_noise\_gate\_teacher\_perceptual\_no\_gan\_probe.yaml},
+with design and stop criteria in
+\texttt{docs/DETAIL\_BRANCH\_V6\_NO\_GAN\_KO.md}.
+
+A four-step smoke run confirmed that the v6 wiring preserves the
+intended guardrails before long training:
+\texttt{eval/detail\_mask\_mean} is \texttt{0.1000},
+\texttt{eval/outside\_mask\_residual\_l1} is \texttt{0.000000},
+\texttt{eval/lowpass\_drift\_l1} is \texttt{0.000130}, and the
+initialized path remains positive versus the frozen base with
+\texttt{+0.0696\ dB} mean PSNR and \texttt{+0.00147} SSIM. These values
+are not a promotion result; the actual decision depends on 500-6000 step
+W\&B sample grids and whether the new supervision creates real texture
+without v5-style scratch/noise artifacts.
 
 Before v5, the v3/v3b/v4 series tested the same general idea with the
 original v1 mask. V3 added conservative masked VGG and PatchGAN losses
@@ -1607,6 +1630,13 @@ Stage 2 continuation is not promoted. Candidate next steps are:
 \begin{itemize}
 \tightlist
 \item
+  run and review the v6 no-GAN detail branch probe first, watching W\&B
+  sample grids, \texttt{eval/sr\_vs\_base\_mean\_psnr},
+  \texttt{eval/sr\_vs\_base\_ssim}, \texttt{eval/lowpass\_drift\_l1},
+  \texttt{eval/outside\_mask\_residual\_l1},
+  \texttt{train/negative\_residual}, and
+  \texttt{train/negative\_weight};
+\item
   preserve the deterministic base and move from full latent
   re-prediction to a residual/detail correction path that predicts
   \texttt{target\_latent\ -\ baseline\_latent} or decoded
@@ -1629,9 +1659,10 @@ Stage 2 continuation is not promoted. Candidate next steps are:
   guarded Stage 2 by only \texttt{+0.0957\ dB} mean Y PSNR while
   preserving the same visibly conservative texture character;
 \item
-  because v1d remains visually conservative and noise-MSE residual
-  diffusion collapses toward zero, prioritize patch-level perceptual or
-  adversarial supervision instead of increasing branch capacity again;
+  because v1d remains visually conservative, noise-MSE residual
+  diffusion collapses toward zero, and v5 PatchGAN collapsed inside the
+  mask, prioritize patch-level perceptual and artifact-negative
+  supervision before trying adversarial pressure again;
 \item
   keep a degradation-aware gate or strong-input guardrail as the primary
   response to the remaining strong-preset failure tail.

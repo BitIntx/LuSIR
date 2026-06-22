@@ -104,6 +104,11 @@ Current detail research candidate:
      -> learned detail mask step 3250
      -> masked high-frequency detail branch v2 step 38000 -> SR
 
+Active visible-detail probe:
+  LR -> dual-context LSDIR Stage 2 step 98000 -> Stage 1 VAE decoder
+     -> v2 noise-negative top10 detail mask step 1500
+     -> no-GAN teacher/negative detail branch v6 -> SR
+
 Generative comparison:
   LR -> Stage 2 condition encoder -> Stage 3 OR Stage 4 diffusion U-Net
      -> Stage 1 VAE decoder -> SR
@@ -221,15 +226,22 @@ reducing injected-noise top-10 coverage to `0.0000`. See
 [`docs/DETAIL_NEED_MASK_KO.md`](docs/DETAIL_NEED_MASK_KO.md). The preserved
 artifact set is available with
 `python scripts/download_hf_checkpoints.py --preset detail_mask_predictor_v2_noise_negative`.
-The next detail-generator probe is
-`configs/detail_branch_v5_noise_gate_top10_patch_gan_probe.yaml`, which uses
-that v2 gate as a hard top-10% binary mask with zero floor before applying
-masked perceptual and PatchGAN pressure.
-That probe was stopped at step 3500 after the PatchGAN phase collapsed
+The completed v5 detail-generator probe,
+`configs/detail_branch_v5_noise_gate_top10_patch_gan_probe.yaml`, used that v2
+gate as a hard top-10% binary mask with zero floor before applying masked
+perceptual and PatchGAN pressure. It was stopped at step 3500 after the
+PatchGAN phase collapsed
 fidelity (`+0.0537 dB` at step 500 to `-0.0953 dB` at step 3500). The v2 gate
 remained closed outside the selected top-10% region, so the failure is recorded
 as adversarial high-frequency artifact growth inside the mask rather than a
 mask-leak problem.
+The follow-up v6 probe keeps the same v2 top-10% gate but removes GAN pressure.
+It combines masked perceptual loss, locally filtered RealESRGAN highpass
+teacher signal, and a new negative residual loss that suppresses residual
+energy in flat or already-over-sharp regions. The config is
+`configs/detail_branch_v6_noise_gate_teacher_perceptual_no_gan_probe.yaml`; the
+design and stop criteria are documented in
+[`docs/DETAIL_BRANCH_V6_NO_GAN_KO.md`](docs/DETAIL_BRANCH_V6_NO_GAN_KO.md).
 
 Two separate generative-detail experiments have now been evaluated. The first
 latent residual probe added high-frequency energy without GT-aligned detail.

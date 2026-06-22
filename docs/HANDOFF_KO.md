@@ -10,7 +10,7 @@ Restoration**)입니다. GitHub repo id는 `BitIntx/LuSIR`, Hugging Face repo id
 `jwheo/LuSIR`입니다. W&B 기존 run URL, 로컬 scratch 경로, Python import
 namespace에는 아직 `sr-diffusion`/`sr_diffusion` 호환 이름이 남아 있습니다.
 
-## 2026-06-15 현재 상태
+## 2026-06-22 현재 상태
 
 ### 학습 단계와 실제 추론 경로
 
@@ -115,6 +115,16 @@ generative:
   아니라, gate 안쪽에서 adversarial pressure가 GT-aligned correction 대신
   artifact 고주파를 키운 것이다. 같은 PatchGAN continuation이나 더 강한 GAN
   weight는 하지 않는다.
+- v6 no-GAN detail probe를 추가했다. config는
+  `configs/detail_branch_v6_noise_gate_teacher_perceptual_no_gan_probe.yaml`,
+  설계 문서는 `docs/DETAIL_BRANCH_V6_NO_GAN_KO.md`다. v2 noise-negative mask
+  best1500을 hard top10 gate로 쓰고, selected masked detail v2 step38000에서
+  시작한다. PatchGAN은 제거했고, masked VGG + GT-filtered RealESRGAN
+  teacher highpass + 새 `artifact_negative_residual_loss`를 쓴다. 4-step smoke는
+  정상이며 val100에서 mean PSNR delta `+0.0696 dB`, SSIM delta `+0.00147`,
+  detail mask mean `0.1000`, outside mask `0.000000`, lowpass drift `0.000130`을
+  확인했다. 이 수치는 초기 안정성 확인일 뿐이고, 실제 판정은 500-6000 step
+  W&B sample grid와 eval 추세로 한다.
 - Stage2/base 경로 실험
   `configs/latent_pretrain_photo130k_lsdir_dual_detail_perceptual_v1.yaml`도
   완료됐다. best detail-score는 step `6000`, decoded PSNR `24.5921`,

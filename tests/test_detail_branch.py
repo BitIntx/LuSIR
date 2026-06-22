@@ -7,6 +7,7 @@ from sr_diffusion.detail_adversarial import MaskedHighpassPatchDiscriminator
 from tools.train.train_detail_branch import (
     GatedHighFrequencyDetailBranch,
     apply_detail_mask_policy,
+    artifact_negative_residual_loss,
     init_model_from_checkpoint,
     load_checkpoint,
     save_checkpoint,
@@ -199,6 +200,76 @@ def test_detail_branch_training_loss_backpropagates() -> None:
 
     assert torch.isfinite(loss)
     assert torch.isfinite(parts["sr"]).all()
+    assert model.output.weight.grad is not None
+    assert model.output.weight.grad.abs().sum() > 0
+
+
+def test_artifact_negative_residual_loss_penalizes_flat_targets_more() -> None:
+    pattern = torch.tensor([[0.0, 1.0] * 12, [1.0, 0.0] * 12] * 12)
+    pattern = pattern.mul(2.0).sub(1.0).view(1, 1, 24, 24)
+    residual = pattern.repeat(1, 3, 1, 1) * 0.08
+    flat_hr = torch.full((1, 3, 24, 24), 0.5)
+    textured_hr = (flat_hr + residual).clamp(0.0, 1.0)
+    base = flat_hr.clone()
+    detail_mask = torch.ones(1, 1, 24, 24)
+
+    flat_loss, flat_weight = artifact_negative_residual_loss(
+        residual=residual,
+        base_sr=base,
+        hr=flat_hr,
+        detail_mask=detail_mask,
+        highpass_kernel=5,
+        patch_kernel=3,
+        flat_threshold=0.02,
+    )
+    textured_loss, textured_weight = artifact_negative_residual_loss(
+        residual=residual,
+        base_sr=base,
+        hr=textured_hr,
+        detail_mask=detail_mask,
+        highpass_kernel=5,
+        patch_kernel=3,
+        flat_threshold=0.02,
+    )
+
+    assert flat_weight > textured_weight
+    assert flat_loss > textured_loss
+
+
+def test_detail_branch_negative_residual_loss_backpropagates() -> None:
+    torch.manual_seed(6)
+    model = GatedHighFrequencyDetailBranch(
+        hidden_channels=16,
+        num_blocks=1,
+        norm_groups=8,
+        highpass_kernel=5,
+    )
+    base = torch.rand(2, 3, 32, 32) * 0.5 + 0.25
+    bicubic = torch.rand(2, 3, 32, 32)
+    condition = torch.rand(2, 16, 8, 8)
+    hr = (base + 0.02 * torch.randn_like(base)).clamp(0.0, 1.0)
+    domain_id = torch.tensor([0, 1], dtype=torch.long)
+    detail_mask = torch.ones(2, 1, 32, 32)
+
+    loss, parts = training_loss(
+        model=model,
+        base_sr=base,
+        bicubic=bicubic,
+        condition=condition,
+        hr=hr,
+        domain_id=domain_id,
+        loss_cfg={
+            "highpass_kernel": 5,
+            "lowpass_kernel": 7,
+            "negative_residual_weight": 1.0,
+            "negative_residual": {"patch_kernel": 3, "flat_threshold": 0.02},
+        },
+        detail_mask=detail_mask,
+    )
+    loss.backward()
+
+    assert parts["negative_residual"] >= 0
+    assert parts["negative_weight"] > 0
     assert model.output.weight.grad is not None
     assert model.output.weight.grad.abs().sum() > 0
 
