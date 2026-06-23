@@ -131,12 +131,19 @@ laplacian ratios regressed and the eval grid showed no visible detail
 breakthrough. Notes are in
 [`docs/DETAIL_BRANCH_V7_TEACHER_FILTERED_KO.md`](docs/DETAIL_BRANCH_V7_TEACHER_FILTERED_KO.md).
 The follow-up teacher patch diagnostic found that RealESRGAN did not beat the
-base on PSNR or highpass-L1 for any of the first 256 cached training samples,
-so the active v8 probe removes teacher supervision and uses a GT detail-need
-mask only during training. Eval and inference still use the learned
-noise-negative mask. See
+base on PSNR or highpass-L1 for any of the first 256 cached training samples.
+The v8 GT-mask training probe therefore removed teacher supervision and used a
+GT detail-need mask only during training. It was stable and selected step 500,
+but visible detail gains stayed small and step 2000 began to lose laplacian
+ratio, so it is preserved as a diagnostic result rather than promoted. Eval and
+inference still used the learned noise-negative mask. See
 [`docs/TEACHER_PATCH_QUALITY_KO.md`](docs/TEACHER_PATCH_QUALITY_KO.md) and
 [`docs/DETAIL_BRANCH_V8_GTMASK_KO.md`](docs/DETAIL_BRANCH_V8_GTMASK_KO.md).
+The active follow-up is now a Stage2 GT-masked detail probe,
+`configs/latent_pretrain_photo130k_lsdir_dual_detail_gtmasked_v3_probe.yaml`,
+which starts from guarded-detail Stage2 v2 step 10000 and adds a train-only
+missing-detail weighted decoded/highpass loss. See
+[`docs/STAGE2_GTMASKED_DETAIL_V3_KO.md`](docs/STAGE2_GTMASKED_DETAIL_V3_KO.md).
 
 The latest guarded-detail Stage 2 candidate
 `latent_pretrain_photo130k_lsdir_dual_detail_guarded_v2` was continued for

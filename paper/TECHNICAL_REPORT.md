@@ -13,8 +13,12 @@ is promoted. V7 used RealESRGAN only on local highpass patches that were
 near/better than the base against GT, but step500 still regressed highpass and
 laplacian detail ratios. A 256-image teacher patch diagnostic then showed that
 RealESRGAN did not beat the base on PSNR or highpass-L1 for any cached sample,
-so the active v8 probe removes teacher supervision and uses GT detail-need masks
-only during training.
+so the v8 probe removed teacher supervision and used GT detail-need masks only
+during training. V8 stayed stable and selected step 500, but visible detail
+remained small and step2000 began to lose laplacian ratio, so it is not promoted.
+The active follow-up moves the GT-missing-detail signal into Stage 2 itself via
+a train-only masked decoded/highpass loss initialized from guarded-detail Stage
+2 v2 step 10000.
 
 `paper/TECHNICAL_REPORT.md` is the canonical report source.
 `paper/sr_diffusion_report.pdf` and `paper/main.tex` are generated from it with
@@ -45,6 +49,10 @@ The numbered stages describe training order, not a mandatory Stage 1 -> 2 -> 3
 public Colab default:
   LR -> guarded-detail Stage 2 v2 step 10000 -> Stage 1 decoder
 
+active Stage 2 smoothing probe:
+  train: current decoded prediction/GT -> GT missing-detail top20 training mask
+  eval:  LR -> GT-masked-detail Stage 2 v3 -> Stage 1 decoder
+
 conservative deterministic option:
   LR -> Stage 2 XL condition encoder -> residual refiner v2 -> Stage 1 decoder
 
@@ -56,7 +64,7 @@ teacher-filtered negative result:
   LR -> dual-context LSDIR Stage 2 -> Stage 1 decoder
      -> relaxed learned detail mask -> v7 teacher-filtered detail branch
 
-active GT-mask training probe:
+GT-mask training diagnostic:
   train: base/GT -> GT detail-need top20 training mask
   eval:  LR -> dual-context LSDIR Stage 2 -> Stage 1 decoder
             -> learned detail mask -> v8 detail branch
@@ -1230,11 +1238,12 @@ Candidate next steps are:
   ratio increased only to 0.8003 and high-frequency error remained slightly
   worse. The branch is therefore not promoted;
 
-- run and review the v6 no-GAN detail branch probe first, watching W&B sample
-  grids, `eval/sr_vs_base_mean_psnr`, `eval/sr_vs_base_ssim`,
-  `eval/lowpass_drift_l1`, `eval/outside_mask_residual_l1`,
-  `train/negative_residual`, and `train/negative_weight`; this is now complete
-  and is recorded as a safe but non-improving result;
+- do not continue the v6/v7/v8 detail-branch objectives without a new signal.
+  V6 was safe but non-improving, v7 showed that RealESRGAN teacher patches were
+  not reliable under the GT highpass filter, and v8 showed that training-time
+  GT detail masks can preserve a small stable correction but do not create a
+  visible texture breakthrough. V8 selected step 500; step2000 was stopped after
+  laplacian ratio turned slightly negative;
 - do not continue the Stage 2 latent residual adapter v1 objective without a
   new supervision signal; it completed stably but trailed guarded Stage 2 v2
   on the formal benchmark;
@@ -1244,6 +1253,12 @@ Candidate next steps are:
 - use the completed Stage 1 audit result as a guardrail: the decoder preserves
   high-frequency detail when fed HR latents, so the next bottleneck to attack is
   Stage 2 conditional-mean smoothing rather than decoder capacity;
+- the active Stage 2/base reconstruction experiment is
+  `configs/latent_pretrain_photo130k_lsdir_dual_detail_gtmasked_v3_probe.yaml`.
+  It starts from guarded-detail Stage 2 v2 step 10000 and adds a train-only
+  `prediction_missing` top20 masked decoded/highpass objective. The goal is to
+  reduce conditional-mean smoothing before another image-space detail branch is
+  added;
 - select the generative path with LPIPS, DISTS, fixed visual review,
   high-frequency metrics, lowpass drift, and seed diversity instead of PSNR
   alone;

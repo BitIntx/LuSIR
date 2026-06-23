@@ -72,13 +72,27 @@ step250/500에서 먼저 본다:
 - v7과 달리 `eval/sr_vs_base_highpass_ratio`와
   `eval/sr_vs_base_laplacian_ratio`도 양수를 유지해야 한다.
 - grid에서 visible detail이 거의 없거나 가짜 texture/노이즈가 늘면 중단한다.
-- step500까지 highpass/laplacian이 유지되면 3000 step까지 본다.
+- step500까지 highpass/laplacian이 유지되면 계속 보되, 후반 detail score가
+  정체되거나 laplacian이 음수로 꺾이면 중단한다.
 
-## 중간 결과
+## 결과
 
-step250과 step500은 통과했다.
+run은 step2000 eval 이후 중단했다. step2000에서 PSNR은 step500보다 아주
+조금 높았지만, laplacian ratio delta가 음수로 꺾였고 best detail score는
+계속 step500에 머물렀다. 더 오래 돌리는 것은 같은 작은 correction을 흔드는
+쪽으로 보였다.
 
 ```text
+step0:
+  sr_psnr delta      +0.0967 dB
+  mean_psnr delta    +0.1133 dB
+  SSIM delta         +0.00364
+  highpass ratio     +0.0129
+  laplacian ratio    +0.0049
+  lowpass drift      0.000211
+  outside mask L1    0.000497
+  wins               95/100
+
 step250:
   sr_psnr delta      +0.1000 dB
   mean_psnr delta    +0.1146 dB
@@ -87,6 +101,7 @@ step250:
   laplacian ratio    +0.0040
   lowpass drift      0.000203
   outside mask L1    0.000657
+  wins               91/100
 
 step500:
   sr_psnr delta      +0.1000 dB
@@ -96,14 +111,60 @@ step500:
   laplacian ratio    +0.0024
   lowpass drift      0.000192
   outside mask L1    0.000658
+  wins               92/100
+
+step1500:
+  sr_psnr delta      +0.0981 dB
+  mean_psnr delta    +0.1129 dB
+  SSIM delta         +0.00431
+  highpass ratio     +0.0167
+  laplacian ratio    +0.0048
+  lowpass drift      0.000191
+  outside mask L1    0.000711
+  wins               90/100
+
+step1750:
+  sr_psnr delta      +0.1000 dB
+  mean_psnr delta    +0.1181 dB
+  SSIM delta         +0.00429
+  highpass ratio     +0.0151
+  laplacian ratio    +0.0019
+  lowpass drift      0.000185
+  outside mask L1    0.000706
+  wins               92/100
+
+step2000:
+  sr_psnr delta      +0.1008 dB
+  mean_psnr delta    +0.1191 dB
+  SSIM delta         +0.00413
+  highpass ratio     +0.0138
+  laplacian ratio    -0.0006
+  lowpass drift      0.000180
+  outside mask L1    0.000702
+  wins               95/100
+```
+
+Best checkpoint:
+
+```text
+checkpoint: /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v8_gtmask_training_probe/checkpoints/best_eval_detail.pt
+best step:  500
+latest:     step 2000
 ```
 
 해석:
 
 - v7은 step500에서 highpass ratio `-0.0021`, laplacian ratio `-0.0167`로 꺾였지만,
-  v8은 둘 다 양수를 유지했다.
-- step500 grid에서 artifact 붕괴는 보이지 않는다.
-- 다만 visible detail 변화는 아직 작다. 현 시점 판정은 "계속 볼 가치 있음"이며,
-  promotion 후보는 아니다.
+  v8은 적어도 step1750까지 둘 다 대체로 양수를 유지했다.
+- step500/1000 grid에서 artifact 붕괴는 보이지 않는다.
+- 다만 visible detail 변화는 여전히 작고, step2000에서는 laplacian ratio가
+  음수로 꺾였다.
+- GT-mask training은 RealESRGAN teacher를 제거하는 판단을 지지하지만,
+  masked detail branch 구조 자체의 texture 생성 한계를 풀지는 못했다.
 
-현재 run은 3000 step까지 계속 진행 중이다.
+판정:
+
+- v8은 보존할 diagnostic result지만 public/default artifact로 승격하지 않는다.
+- 같은 config를 3000+ step으로 길게 이어 돌리지 않는다.
+- 다음 실험은 teacher/detail branch continuation이 아니라 Stage2/base
+  conditional-latent smoothing을 줄이는 방향으로 잡는다.

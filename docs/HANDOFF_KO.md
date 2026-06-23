@@ -1163,7 +1163,8 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
    `-2.5596 dB`로 base보다 낮고, v7 effective highpass oracle gain도 `+0.0131 dB`
    에 그쳤다. 따라서 teacher loss를 키우는 continuation은 하지 않는다.
    상세 내용은 `docs/TEACHER_PATCH_QUALITY_KO.md`.
-3. active run은 `configs/detail_branch_v8_gtmask_training_probe.yaml`이다.
+3. `configs/detail_branch_v8_gtmask_training_probe.yaml`도 완료 후 step2000에서
+   조기 중단했다.
    W&B run은 <https://wandb.ai/jwheo/LuSIR/runs/099kwayk>, local log는
    `/home/ubuntu/scratch/sr-diffusion/detail_branch_v8_gtmask_training_probe.log`다.
    v8은 teacher를 끄고, 학습시에만 GT detail-need top20 mask를 쓴다. eval/inference는
@@ -1174,39 +1175,54 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
    highpass ratio delta `+0.0177`, laplacian ratio delta `+0.0040`이고, step500도
    PSNR delta `+0.1000`, SSIM delta `+0.00431`, highpass ratio delta `+0.0158`,
    laplacian ratio delta `+0.0024`라 v7과 달리 detail 지표가 양수로 유지된다.
-   step500 grid에서 artifact 붕괴는 없지만 visible detail 변화는 아직 작다.
-   3000 step까지 계속 본다.
-4. 현재 Stage2 continuation은 원래 LR로 보존하되, 같은 objective의 장기
+   step1750도 PSNR delta `+0.1000`, SSIM delta `+0.00429`, highpass ratio delta
+   `+0.0151`, laplacian ratio delta `+0.0019`로 안정적이었다. 하지만 step2000은
+   PSNR delta `+0.1008`에도 laplacian ratio delta가 `-0.0006`으로 꺾였고,
+   best detail score는 step500에 머물렀다. best checkpoint는
+   `/home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v8_gtmask_training_probe/checkpoints/best_eval_detail.pt`
+   이고 내부 step은 `500`이다. v8은 diagnostic으로 보존하되 승격하지 않고,
+   같은 config를 더 오래 돌리지 않는다.
+4. 현재 active run은 Stage2 GT-masked detail v3 probe다.
+   `configs/latent_pretrain_photo130k_lsdir_dual_detail_gtmasked_v3_probe.yaml`,
+   W&B는 <https://wandb.ai/jwheo/LuSIR/runs/ch8ma1sk>, local log는
+   `/home/ubuntu/scratch/sr-diffusion/latent_pretrain_photo130k_lsdir_dual_detail_gtmasked_v3_probe.log`다.
+   guarded-detail Stage2 v2 best10000에서 시작하고, train-only
+   `prediction_missing` top20 mask로 `detail_weighted.decoded_weight 0.35`,
+   `detail_weighted.highpass_weight 1.25`를 추가한다. smoke와 full run step1은
+   `detail_mask=0.2400`, `detail_decoded=0.15427`, `detail_highpass=0.11050`로
+   정상이다. step500/1000에서 `eval/mean_psnr_detail_score`, mean PSNR,
+   highpass ratio, missing energy, sample grid를 보고 계속 여부를 결정한다.
+5. 현재 Stage2 continuation은 원래 LR로 보존하되, 같은 objective의 장기
    continuation이 SwinIR gap이나 visible detail을 해결할 것으로 기대하지 않는다.
-5. latent residual v1, Stage2 latent residual adapter v1, signed-wavelet
+6. latent residual v1, Stage2 latent residual adapter v1, signed-wavelet
    residual v2는 모두 종료했다. adapter v1은 SSIM을 아주 조금 올렸지만
    guarded Stage2 v2보다 낮아 승격하지 않는다. signed-wavelet v2는
    step20000까지 노이즈를 제거했지만 residual/diversity도 zero 쪽으로 수렴해
    실제 missing detail을 만들지 못했다. 같은 objective continuation은 하지 않는다.
-6. 다음 생성형 detail 실험은 LR에서 근거가 있는 위치만 여는 learned
+7. 다음 생성형 detail 실험은 LR에서 근거가 있는 위치만 여는 learned
    uncertainty/detail mask와 patch-level perceptual/adversarial supervision을
    결합하는 two-head 구조를 우선 검토한다.
-7. clean-fidelity gap 개선은 별도 Stage2/base 구조 연구로 유지하고,
+8. clean-fidelity gap 개선은 별도 Stage2/base 구조 연구로 유지하고,
    생성형 detail 목표와 섞지 않는다.
-8. public Colab 기본 경로는 guarded-detail Stage2 v2 step10000으로 변경했다.
+9. public Colab 기본 경로는 guarded-detail Stage2 v2 step10000으로 변경했다.
    tile batch size 기본값은 T4 안정성을 위해 `1`이다. residual refiner v2,
    detail branch v1d, masked v2는 WebUI 옵션으로 유지한다.
-9. `detail-need mask` GT target/proxy/진단 metric 구현과 photo-detail val100
+10. `detail-need mask` GT target/proxy/진단 metric 구현과 photo-detail val100
    진단은 완료됐다. GT target 상위 20%는 missing-detail `0.4878`을 포착하고
    밀도는 `2.4389x`다. 최고 observable proxy는 highpass disagreement이며
    correlation `0.5403`, top20 capture `0.3252`, excess capture `0.4838`이다.
    상세 정의와 결과는 `docs/DETAIL_NEED_MASK_KO.md`를 따른다.
-10. learned mask predictor와 masked detail branch v2 검증은 완료됐다. selected
+11. learned mask predictor와 masked detail branch v2 검증은 완료됐다. selected
    step38000은 ordinary val100에서 PSNR `+0.18177 dB`, SSIM `+0.00755`,
    wins `100/100`이지만 시각적으로 v1d와 거의 같고 step50000까지 plateau했다.
-11. masked v2 추론/benchmark 재현 경로와 HF preset은 추가됐다. formal
+12. masked v2 추론/benchmark 재현 경로와 HF preset은 추가됐다. formal
    clean-bicubic benchmark와 real-degradation 고정 visual set 결과를 확인한 뒤
    연구 옵션 유지 여부만 결정한다. public 기본값은 guarded-detail Stage2 v2로
    이동했으며, masked v2는 아직 연구 옵션으로 유지한다.
-12. 다음 detail 실험은 같은 objective continuation이 아니라 frozen fidelity base와
+13. 다음 detail 실험은 같은 objective continuation이 아니라 frozen fidelity base와
    learned mask 위에 작은 bounded patch perceptual/adversarial head를 붙인다.
    lowpass drift, PSNR, strong-input artifact, blind visual review를 guardrail로 둔다.
-13. Stage1 audit 이후 Stage2 guarded-detail v2 probe를 추가했다:
+14. Stage1 audit 이후 Stage2 guarded-detail v2 probe를 추가했다:
     `configs/latent_pretrain_photo130k_lsdir_dual_detail_guarded_v2.yaml`.
     이 config는 dual-context best98000에서 이어 받고 VGG/GAN 없이 decoded/highpass
     supervision만 보수적으로 강화한다. best metric은

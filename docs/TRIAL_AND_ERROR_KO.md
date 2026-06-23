@@ -2537,7 +2537,7 @@ effective HP oracle gain:     +0.0131 dB
 - 다음은 teacher를 제거하고 학습시에만 GT detail-need mask를 써서 정확한 위치에서
   residual/highpass target을 보게 하는 v8 probe로 진행한다.
 
-### 2026-06-23 detail branch v8 GT-mask training probe 시작
+### 2026-06-23 detail branch v8 GT-mask training probe 완료
 
 ```text
 config: configs/detail_branch_v8_gtmask_training_probe.yaml
@@ -2575,10 +2575,7 @@ step4 eval:
   outside mask L1    0.000480
 ```
 
-첫 판단 지점은 step250/500이다. v7처럼 PSNR/SSIM만 유지되고 highpass/laplacian이
-음수로 꺾이면 조기 중단한다. 반대로 highpass/laplacian과 grid가 유지되면 3k까지 본다.
-
-중간 결과:
+결과:
 
 ```text
 step250:
@@ -2594,8 +2591,81 @@ step500:
   SSIM delta         +0.00431
   highpass ratio     +0.0158
   laplacian ratio    +0.0024
+
+step1750:
+  sr_psnr delta      +0.1000 dB
+  mean_psnr delta    +0.1181 dB
+  SSIM delta         +0.00429
+  highpass ratio     +0.0151
+  laplacian ratio    +0.0019
+
+step2000:
+  sr_psnr delta      +0.1008 dB
+  mean_psnr delta    +0.1191 dB
+  SSIM delta         +0.00413
+  highpass ratio     +0.0138
+  laplacian ratio    -0.0006
 ```
 
-v7과 달리 step500에서도 highpass/laplacian이 양수로 유지된다. step500 grid에서
-artifact 붕괴는 보이지 않지만 visible detail 변화는 아직 작다. 현재 판정은
-"계속 볼 가치 있음"이며 3000 step까지 진행한다.
+Best checkpoint는
+`/home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v8_gtmask_training_probe/checkpoints/best_eval_detail.pt`
+이고 step `500`이다. latest는 step `2000`이다.
+
+판정:
+
+- v7과 달리 step500에서도 highpass/laplacian은 양수로 유지됐고, grid artifact
+  붕괴도 보이지 않았다.
+- 하지만 visible detail 변화는 계속 작았고, step2000에서는 laplacian ratio가
+  `-0.0006`으로 음수 전환했다.
+- GT-mask training은 RealESRGAN teacher 제거 판단을 강화하는 diagnostic으로
+  보존하지만, public/default artifact로 승격하지 않는다.
+- 같은 config를 더 오래 continuation하지 않는다. 다음은 detail branch
+  continuation이 아니라 Stage2/base conditional-latent smoothing을 줄이는 방향이다.
+
+### 2026-06-23 Stage2 GT-masked detail v3 probe 시작
+
+detail branch 계열이 frozen base 위에서 visible texture breakthrough를 만들지
+못했으므로, 다음은 Stage2 LR-to-latent predictor 자체의 smoothing을 줄이는
+실험으로 전환했다.
+
+```text
+config: configs/latent_pretrain_photo130k_lsdir_dual_detail_gtmasked_v3_probe.yaml
+init:   checkpoints/stage2_photo130k_lsdir_dual_detail_guarded_v2_best10000.pt
+run:    /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_detail_gtmasked_v3_probe
+log:    /home/ubuntu/scratch/sr-diffusion/latent_pretrain_photo130k_lsdir_dual_detail_gtmasked_v3_probe.log
+wandb:  https://wandb.ai/jwheo/LuSIR/runs/ch8ma1sk
+```
+
+변경점:
+
+- 기존 decoded/edge/highpass guardrail은 유지한다.
+- `detail_weighted` loss를 추가해 현재 decoded prediction이 GT 대비 detail을 놓친
+  top20 영역에만 추가 decoded/highpass loss를 건다.
+- mask source는 `prediction_missing`이고 `decoded.detach()`로 계산하므로 mask 선택
+  자체에는 gradient를 흘리지 않는다.
+- `mask_floor: 0.05`라서 train `detail_mask_mean`은 약 `0.24`가 정상이다.
+
+4-step smoke와 full run 초기 step1은 정상이다.
+
+```text
+step1:
+  detail_decoded    0.15427
+  detail_highpass   0.11050
+  detail_mask       0.2400
+
+eval step1:
+  decoded_psnr      24.63
+  mean_psnr         26.50
+  detail_ratio      0.328
+  highpass_ratio    0.808
+  missing           0.01897
+  psnr_detail_score 25.286
+```
+
+판단 기준:
+
+- guarded v2 best10000의 mean PSNR `26.5050`, highpass ratio `0.8084`,
+  missing energy `0.01897`가 기준선이다.
+- highpass ratio만 오르고 mean PSNR/missing/grid가 악화하면 artifact성 detail로 본다.
+- step500/1000에서 `eval/mean_psnr_detail_score`와 sample grid를 보고 계속 여부를
+  결정한다.

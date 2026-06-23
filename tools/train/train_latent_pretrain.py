@@ -199,6 +199,53 @@ def selected_capture(energy: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
     return (energy.float() * mask.float()).flatten(1).sum(dim=1) / energy.float().flatten(1).sum(dim=1).clamp_min(1e-12)
 
 
+def masked_charbonnier_loss(
+    prediction: torch.Tensor,
+    target: torch.Tensor,
+    mask: torch.Tensor,
+    *,
+    eps: float = 1e-3,
+) -> torch.Tensor:
+    if mask.ndim != 4 or mask.shape[0] != prediction.shape[0] or mask.shape[1] != 1:
+        raise ValueError(f"mask must have shape [B, 1, H, W], got {tuple(mask.shape)}")
+    if mask.shape[-2:] != prediction.shape[-2:]:
+        mask = F.interpolate(mask.float(), size=prediction.shape[-2:], mode="bilinear", align_corners=False)
+    weight = mask.to(device=prediction.device, dtype=prediction.dtype).clamp(0.0, 1.0)
+    per_pixel = torch.sqrt((prediction - target).pow(2) + eps * eps).mean(dim=1, keepdim=True)
+    return (per_pixel * weight).sum() / weight.sum().clamp_min(1e-8)
+
+
+def make_stage2_detail_training_mask(
+    decoded: torch.Tensor,
+    target: torch.Tensor,
+    reference: torch.Tensor,
+    config: dict[str, Any],
+) -> torch.Tensor:
+    source = str(config.get("source", "prediction_missing"))
+    if source in {"prediction_missing", "decoded_missing"}:
+        base = denormalize(decoded.detach())
+    elif source in {"reference_missing", "bicubic_missing"}:
+        base = denormalize(reference.detach())
+    else:
+        raise ValueError(f"unsupported detail_weighted.source {source!r}")
+    target_01 = denormalize(target.detach())
+    components = detail_need_components(
+        base.float(),
+        target_01.float(),
+        highpass_kernel=int(config.get("highpass_kernel", 15)),
+        patch_kernel=int(config.get("patch_kernel", 9)),
+        score_quantile=float(config.get("score_quantile", 0.95)),
+    )
+    top_fraction = float(config.get("top_fraction", 0.20))
+    mask = top_fraction_mask(components["score"], top_fraction)
+    if str(config.get("top_mode", "binary")) == "soft":
+        mask = mask * components["score"]
+    floor = float(config.get("mask_floor", 0.0))
+    if floor > 0.0:
+        mask = mask * (1.0 - floor) + floor
+    return mask.clamp(0.0, 1.0).to(device=decoded.device, dtype=decoded.dtype)
+
+
 def compute_stage2_loss(
     prediction: torch.Tensor,
     target_latent: torch.Tensor,
@@ -214,12 +261,17 @@ def compute_stage2_loss(
     highpass_weight = float(loss_config.get("highpass_weight", 0.0))
     highpass_magnitude_weight = float(loss_config.get("highpass_magnitude_weight", 0.0))
     perceptual_weight = float(loss_config.get("perceptual_weight", 0.0))
+    detail_weighted_config = loss_config.get("detail_weighted", {}) or {}
+    detail_decoded_weight = float(detail_weighted_config.get("decoded_weight", 0.0))
+    detail_highpass_weight = float(detail_weighted_config.get("highpass_weight", 0.0))
     if (
         decoded_weight > 0.0
         or edge_weight > 0.0
         or highpass_weight > 0.0
         or highpass_magnitude_weight > 0.0
         or perceptual_weight > 0.0
+        or detail_decoded_weight > 0.0
+        or detail_highpass_weight > 0.0
     ):
         decoded = vae.decode(prediction)
         eps = float(loss_config.get("charbonnier_eps", 1e-3))
@@ -238,6 +290,23 @@ def compute_stage2_loss(
             perceptual = perceptual_model(decoded, target_image)
         else:
             perceptual = prediction.new_zeros(())
+        if detail_decoded_weight > 0.0 or detail_highpass_weight > 0.0:
+            detail_mask = make_stage2_detail_training_mask(
+                decoded,
+                target_image,
+                reference_image,
+                detail_weighted_config,
+            )
+            detail_decoded = masked_charbonnier_loss(decoded, target_image, detail_mask, eps=eps)
+            decoded_highpass = metric_highpass(decoded, int(detail_weighted_config.get("laplacian_kernel", 3)))
+            target_highpass = metric_highpass(target_image, int(detail_weighted_config.get("laplacian_kernel", 3)))
+            detail_highpass = masked_charbonnier_loss(decoded_highpass, target_highpass, detail_mask, eps=eps)
+            detail_mask_mean = detail_mask.float().mean()
+        else:
+            detail_mask = prediction.new_empty(0)
+            detail_decoded = prediction.new_zeros(())
+            detail_highpass = prediction.new_zeros(())
+            detail_mask_mean = prediction.new_zeros(())
     else:
         decoded = prediction.new_empty(0)
         pixel = prediction.new_zeros(())
@@ -245,6 +314,10 @@ def compute_stage2_loss(
         highpass = prediction.new_zeros(())
         highpass_magnitude = prediction.new_zeros(())
         perceptual = prediction.new_zeros(())
+        detail_mask = prediction.new_empty(0)
+        detail_decoded = prediction.new_zeros(())
+        detail_highpass = prediction.new_zeros(())
+        detail_mask_mean = prediction.new_zeros(())
     total = (
         float(loss_config.get("latent_weight", 1.0)) * latent
         + decoded_weight * pixel
@@ -252,6 +325,8 @@ def compute_stage2_loss(
         + highpass_weight * highpass
         + highpass_magnitude_weight * highpass_magnitude
         + perceptual_weight * perceptual
+        + detail_decoded_weight * detail_decoded
+        + detail_highpass_weight * detail_highpass
     )
     return total, {
         "latent": latent,
@@ -260,6 +335,10 @@ def compute_stage2_loss(
         "highpass": highpass,
         "highpass_magnitude": highpass_magnitude,
         "perceptual": perceptual,
+        "detail_decoded": detail_decoded,
+        "detail_highpass": detail_highpass,
+        "detail_mask_mean": detail_mask_mean,
+        "detail_mask": detail_mask,
         "decoded_image": decoded,
     }
 
@@ -948,6 +1027,9 @@ def main() -> None:
                     f"highpass={float(loss_components['highpass'].detach().cpu()):.5f} "
                     f"highpass_mag={float(loss_components['highpass_magnitude'].detach().cpu()):.5f} "
                     f"perceptual={float(loss_components['perceptual'].detach().cpu()):.5f} "
+                    f"detail_decoded={float(loss_components['detail_decoded'].detach().cpu()):.5f} "
+                    f"detail_highpass={float(loss_components['detail_highpass'].detach().cpu()):.5f} "
+                    f"detail_mask={float(loss_components['detail_mask_mean'].detach().cpu()):.4f} "
                     f"latent_mse={float(latent_mse.detach().cpu()):.5f} "
                     f"lr={format_optimizer_lrs(optimizer)} "
                     f"steps_per_sec={interval_steps / elapsed:.2f}"
@@ -960,6 +1042,9 @@ def main() -> None:
                     "train/highpass": float(loss_components["highpass"].detach().cpu()),
                     "train/highpass_magnitude": float(loss_components["highpass_magnitude"].detach().cpu()),
                     "train/perceptual": float(loss_components["perceptual"].detach().cpu()),
+                    "train/detail_decoded": float(loss_components["detail_decoded"].detach().cpu()),
+                    "train/detail_highpass": float(loss_components["detail_highpass"].detach().cpu()),
+                    "train/detail_mask_mean": float(loss_components["detail_mask_mean"].detach().cpu()),
                     "train/latent_mse": float(latent_mse.detach().cpu()),
                     "train/optimizer_updates": optimizer_updates,
                     "system/steps_per_sec": interval_steps / elapsed,
