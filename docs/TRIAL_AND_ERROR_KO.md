@@ -2396,3 +2396,22 @@ detail ratio와 GT-aligned highpass error가 함께 좋아지고 fixed grid에 a
   outside/lowpass anchor를 강화한다.
 - v2 W&B는 <https://wandb.ai/jwheo/LuSIR/runs/6e463dc0>이다. step6500까지
   continuation하며 timestep 10, strength 1.0으로 500 step마다 평가한다.
+
+v2 완료 결과:
+
+- best checkpoint는 step `6000`이다.
+- best decoded PSNR은 `27.5557`, base 대비 `-0.0651 dB`다.
+- SSIM은 `0.81872`, base 대비 `-0.00066`이다.
+- detail ratio는 `0.80025`로 base `0.79652`보다 `+0.00373` 높다.
+- highpass gain은 `-0.000115`로 여전히 GT-aligned highpass error가 아주 조금
+  악화된다.
+- grid에서는 v1 full-strength artifact가 줄었지만, visible improvement도 거의
+  사라졌다.
+
+판정:
+
+- v2는 안전성은 회복했지만 성능/시각 이득이 promotion 기준에 못 미친다.
+- masked latent residual-shift를 현재 형태로 더 오래 돌리는 것은 우선하지 않는다.
+- 다음은 latent를 국소적으로 잘라 붙이는 방식이 아니라 decoded/image-space에서
+  GT-aligned detail을 직접 보상하거나, stronger external prior/teacher를 더 엄격한
+  confidence filter로 쓰는 방향을 검토한다.

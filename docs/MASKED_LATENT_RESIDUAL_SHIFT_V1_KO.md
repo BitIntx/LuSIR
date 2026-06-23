@@ -146,3 +146,18 @@ v2 config: configs/masked_latent_residual_shift_v2_fidelity_continue.yaml
 v2 W&B:   https://wandb.ai/jwheo/LuSIR/runs/6e463dc0
 range:    v1 best3500 -> step6500
 ```
+
+v2는 완료됐고 best checkpoint는 step 6000이다.
+
+```text
+decoded PSNR:       27.5557 (base 대비 -0.0651 dB)
+decoded SSIM:       0.81872 (base 대비 -0.00066)
+detail ratio:       0.80025 (base 0.79652)
+highpass gain:     -0.000115
+outside-mask drift: 0.000396
+```
+
+v1의 artifact는 크게 줄었지만, promotion 기준인 PSNR `-0.05 dB` guardrail을
+아직 넘지 못했고 highpass error도 미세하게 악화됐다. grid상 체감 detail도 거의
+base와 같아졌다. 즉 v2는 “안전해지면 효과가 사라지는” 결과다. masked latent
+residual-shift branch는 현 형태로 장기 continuation하지 않는다.

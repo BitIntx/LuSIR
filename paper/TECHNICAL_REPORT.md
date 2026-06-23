@@ -1206,15 +1206,14 @@ v1d and masked detail branch v2 are selectable single-image/tiled Colab research
 options. The completed perceptual Stage 2 continuation is not promoted.
 Candidate next steps are:
 
-- review the masked latent residual-shift v2 fidelity continuation. The v1
+- do not continue masked latent residual-shift in its current form. The v1
   full-trajectory best at step 3500 increased detail ratio from 0.7965 to
   0.8272 but lost 0.7557 dB PSNR and worsened GT-aligned high-frequency error.
   Correction-strength and start-timestep sweeps showed that settings preserving
-  fidelity also removed nearly all visible effect. The active v2 continuation
-  therefore reduces latent-target weight from 1.0 to 0.1 and strengthens
-  decoded image, high-frequency, outside-mask, and lowpass supervision. It is
-  evaluated from timestep 10 and must improve high-frequency error without
-  exceeding the 0.05 dB PSNR-loss guardrail;
+  fidelity also removed nearly all visible effect. The v2 fidelity continuation
+  reduced the loss to 0.0651 dB PSNR and 0.00066 SSIM below base, but detail
+  ratio increased only to 0.8003 and high-frequency error remained slightly
+  worse. The branch is therefore not promoted;
 
 - run and review the v6 no-GAN detail branch probe first, watching W&B sample
   grids, `eval/sr_vs_base_mean_psnr`, `eval/sr_vs_base_ssim`,

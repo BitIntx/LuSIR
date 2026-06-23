@@ -200,10 +200,12 @@ generative:
   `configs/masked_latent_residual_shift_v2_fidelity_continue.yaml`이며 best3500
   optimizer state에서 latent loss를 10분의 1로 낮추고 decoded/highpass/fidelity
   loss를 강화한다.
-- v2 fidelity continuation이 현재 실행 중이다. W&B는
-  <https://wandb.ai/jwheo/LuSIR/runs/6e463dc0>이며 v1 best3500에서 step6500까지
-  진행한다. batch12, LR `1e-5` 고정, eval은 start timestep 10/full strength다.
-  첫 판정은 step4000이며 PSNR delta, highpass gain, grid artifact를 함께 본다.
+- v2 fidelity continuation도 완료됐다. W&B는
+  <https://wandb.ai/jwheo/LuSIR/runs/6e463dc0>이다. best step은 `6000`, decoded
+  PSNR은 `27.5557`로 base 대비 `-0.0651 dB`, SSIM delta `-0.00066`, detail ratio
+  `0.80025`, highpass gain `-0.000115`다. v1 artifact는 줄었지만 visible
+  improvement도 거의 사라져 승격하지 않는다. masked latent residual-shift 현
+  구조의 단순 continuation은 중단한다.
 
 ### 최신 완료 detail v1d와 strict-bicubic 진단
 
