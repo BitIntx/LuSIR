@@ -2415,3 +2415,56 @@ v2 완료 결과:
 - 다음은 latent를 국소적으로 잘라 붙이는 방식이 아니라 decoded/image-space에서
   GT-aligned detail을 직접 보상하거나, stronger external prior/teacher를 더 엄격한
   confidence filter로 쓰는 방향을 검토한다.
+
+### 2026-06-23 detail branch v7 teacher-filtered hinge probe 시작
+
+masked latent residual-shift v2는 안전해졌지만 visible detail 이득이 거의 사라졌다.
+따라서 다음 실험은 latent splicing이 아니라 decoded/image-space branch로 돌아가되,
+RealESRGAN teacher를 전체 정답으로 모방하지 않고 GT highpass 기준으로 locally
+near/better인 patch만 쓴다.
+
+```text
+config: configs/detail_branch_v7_teacher_filtered_hinge_probe.yaml
+run:    /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v7_teacher_filtered_hinge_probe
+wandb:  https://wandb.ai/jwheo/LuSIR/runs/4ysx4nk0
+log:    /home/ubuntu/scratch/sr-diffusion/detail_branch_v7_teacher_filtered_hinge_probe.log
+init:   checkpoints/detail_branch_v2_masked_photo130k_lsdir_best38000.pt
+teacher cache: /home/ubuntu/scratch/sr-diffusion/teacher_cache/realesrgan_x4plus_photo_detail_mix_2048
+```
+
+구현 변경:
+
+- `teacher_improvement_mask`: base/teacher/GT local highpass error를 비교해
+  teacher-positive mask를 만든다.
+- `gt_highpass_hinge_losses`: teacher-positive 위치에서 SR highpass error가 base보다
+  낮아지도록 직접 보상하고, teacher-negative 위치에서는 base보다 악화되는 것을 막는다.
+- hard top10 learned detail mask와 teacher-positive patch overlap이 너무 작아
+  top20 + floor `0.05`로 완화했다.
+
+4-step smoke:
+
+```text
+step0 val100:
+  sr_psnr delta      +0.0967 dB
+  mean_psnr delta    +0.1133 dB
+  SSIM delta         +0.00364
+  highpass ratio     +0.0129
+  lowpass drift      0.000211
+  outside mask L1    0.000497
+
+step1 train:
+  teacher_w          0.0372
+  teacher_hinge      0.00076
+  teacher_guard      0.00008
+```
+
+해석:
+
+- 코드 경로와 teacher cache 로드는 정상이다.
+- v6의 hard top10 설정에서는 `teacher_w`가 약 `0.001-0.002` 수준이라 teacher signal이
+  거의 막혔다. v7은 약 `0.03-0.04` 수준으로 올라와 학습 신호가 실제로 들어간다.
+- 시작점 metric은 좋지만, top20+floor가 만든 inference-time 변화도 포함되어 있으므로
+  promotion 근거가 아니다.
+- 5k probe에서는 `eval/sr_vs_base_psnr`, `eval/sr_vs_base_ssim`,
+  `eval/sr_vs_base_highpass_ratio`, `eval/lowpass_drift_l1`,
+  `eval/outside_mask_residual_l1`, 그리고 eval grid의 가짜 texture 여부를 함께 본다.

@@ -7,8 +7,10 @@ formally reviewed but not promoted, and several deterministic/generative
 visible-detail probes were evaluated without producing a clear texture
 breakthrough. A Stage 1 decoder capacity audit now points the active
 visible-detail bottleneck back to Stage 2 conditional-latent smoothing. The
-no-GAN, noise-gated v6 detail branch and the follow-up Stage 2 latent residual
-adapter are now complete; neither is promoted.
+no-GAN, noise-gated v6 detail branch, Stage 2 latent residual adapter, and
+masked latent residual-shift probes are complete; none is promoted. The active
+follow-up is a teacher-filtered v7 detail probe that uses RealESRGAN only on
+local highpass patches that are near/better than the base against GT.
 
 `paper/TECHNICAL_REPORT.md` is the canonical report source.
 `paper/sr_diffusion_report.pdf` and `paper/main.tex` are generated from it with
@@ -45,6 +47,10 @@ conservative deterministic option:
 current detail research candidate:
   LR -> dual-context LSDIR Stage 2 -> Stage 1 decoder
      -> learned detail mask -> masked detail branch v2
+
+active teacher-filtered probe:
+  LR -> dual-context LSDIR Stage 2 -> Stage 1 decoder
+     -> relaxed learned detail mask -> v7 teacher-filtered detail branch
 
 generative comparison:
   LR -> Stage 2 condition encoder -> Stage 3 OR Stage 4 diffusion U-Net

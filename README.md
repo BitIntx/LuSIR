@@ -119,6 +119,18 @@ blocks, and selects step 99500 after exactly three epochs. It is the latest
 preserved public detail artifact, while the public Colab default is now the
 guarded-detail Stage 2 step 10000 path.
 
+The current visible-detail research probe is
+`configs/detail_branch_v7_teacher_filtered_hinge_probe.yaml`. It keeps the
+frozen dual-context Stage 2 + Stage 1 base, starts from masked detail v2, and
+uses RealESRGAN only where its local highpass error is near/better than the
+base against GT. The learned detail mask is relaxed from hard top10 to top20
+with a small floor so teacher-positive patches are not blocked before the
+branch can learn. This is not promoted; watch
+`train/teacher_weight`, `train/teacher_hinge`, `eval/sr_vs_base_psnr`,
+`eval/sr_vs_base_ssim`, `eval/sr_vs_base_highpass_ratio`, lowpass drift, and
+the eval grid. Notes are in
+[`docs/DETAIL_BRANCH_V7_TEACHER_FILTERED_KO.md`](docs/DETAIL_BRANCH_V7_TEACHER_FILTERED_KO.md).
+
 The latest guarded-detail Stage 2 candidate
 `latent_pretrain_photo130k_lsdir_dual_detail_guarded_v2` was continued for
 20,000 micro-steps from the dual-context LSDIR step 98000 checkpoint. It stayed

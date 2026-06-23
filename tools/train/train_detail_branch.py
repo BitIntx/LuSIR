@@ -525,6 +525,122 @@ def artifact_negative_residual_loss(
     return (residual_energy * weight).mean(), weight.mean()
 
 
+def masked_map_mean(values: torch.Tensor, weight: torch.Tensor | None, eps: float = 1e-8) -> torch.Tensor:
+    if weight is None:
+        return values.float().mean()
+    if weight.ndim != 4 or weight.shape[0] != values.shape[0] or weight.shape[1] != 1:
+        raise ValueError(f"weight must have shape [B, 1, H, W], got {tuple(weight.shape)}")
+    if weight.shape[-2:] != values.shape[-2:]:
+        weight = F.interpolate(weight.float(), size=values.shape[-2:], mode="bilinear", align_corners=False)
+    weight = weight.float().clamp_min(0.0)
+    numerator = (values.float() * weight).flatten(1).sum(dim=1)
+    denominator = weight.flatten(1).sum(dim=1).clamp_min(float(eps))
+    return (numerator / denominator).mean()
+
+
+def local_highpass_error(
+    candidate: torch.Tensor,
+    target: torch.Tensor,
+    *,
+    highpass_kernel: int = 15,
+    patch_kernel: int = 31,
+) -> torch.Tensor:
+    error = (
+        metric_highpass(candidate.float(), kernel_size=highpass_kernel)
+        - metric_highpass(target.float(), kernel_size=highpass_kernel)
+    ).abs().mean(dim=1, keepdim=True)
+    if int(patch_kernel) > 1:
+        error = lowpass(error, int(patch_kernel))
+    return error
+
+
+def teacher_improvement_mask(
+    teacher_sr: torch.Tensor,
+    base_sr: torch.Tensor,
+    hr: torch.Tensor,
+    detail_mask: torch.Tensor | None,
+    *,
+    highpass_kernel: int = 15,
+    patch_kernel: int = 31,
+    ratio: float = 0.95,
+    margin: float = 0.001,
+    min_base_error: float = 0.0,
+    min_teacher_residual: float = 0.0,
+    mask_floor: float = 0.0,
+) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+    """Select pixels where the teacher is locally closer to GT highpass than the base."""
+    base_error = local_highpass_error(
+        base_sr.detach(),
+        hr,
+        highpass_kernel=highpass_kernel,
+        patch_kernel=patch_kernel,
+    ).detach()
+    teacher_error = local_highpass_error(
+        teacher_sr.detach(),
+        hr,
+        highpass_kernel=highpass_kernel,
+        patch_kernel=patch_kernel,
+    ).detach()
+    teacher_residual_energy = metric_highpass(
+        teacher_sr.detach().float() - base_sr.detach().float(),
+        kernel_size=highpass_kernel,
+    ).abs().mean(dim=1, keepdim=True)
+    if int(patch_kernel) > 1:
+        teacher_residual_energy = lowpass(teacher_residual_energy, int(patch_kernel))
+    teacher_residual_energy = teacher_residual_energy.detach()
+
+    selected = teacher_error <= base_error * float(ratio) + float(margin)
+    if float(min_base_error) > 0.0:
+        selected = selected & (base_error >= float(min_base_error))
+    if float(min_teacher_residual) > 0.0:
+        selected = selected & (teacher_residual_energy >= float(min_teacher_residual))
+    weight = selected.float()
+
+    if detail_mask is not None:
+        mask = detail_mask.float().clamp(0.0, 1.0)
+        if mask.shape[-2:] != weight.shape[-2:]:
+            mask = F.interpolate(mask, size=weight.shape[-2:], mode="bilinear", align_corners=False)
+        floor = min(max(float(mask_floor), 0.0), 1.0)
+        if floor > 0.0:
+            mask = floor + (1.0 - floor) * mask
+        weight = weight * mask
+
+    stats = {
+        "base_error": base_error.mean(),
+        "teacher_error": teacher_error.mean(),
+        "teacher_residual_energy": teacher_residual_energy.mean(),
+        "improvement": (base_error - teacher_error).mean(),
+        "selected": selected.float().mean(),
+        "weight": weight.mean(),
+    }
+    return weight.detach(), stats
+
+
+def gt_highpass_hinge_losses(
+    sr: torch.Tensor,
+    base_sr: torch.Tensor,
+    hr: torch.Tensor,
+    positive_weight: torch.Tensor | None,
+    guard_weight: torch.Tensor | None,
+    *,
+    highpass_kernel: int = 15,
+    patch_kernel: int = 31,
+    positive_ratio: float = 0.98,
+    positive_margin: float = 0.0,
+    guard_margin: float = 0.001,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    sr_error = local_highpass_error(sr, hr, highpass_kernel=highpass_kernel, patch_kernel=patch_kernel)
+    base_error = local_highpass_error(
+        base_sr.detach(),
+        hr,
+        highpass_kernel=highpass_kernel,
+        patch_kernel=patch_kernel,
+    ).detach()
+    positive = F.relu(sr_error - base_error * float(positive_ratio) - float(positive_margin))
+    guard = F.relu(sr_error - base_error - float(guard_margin))
+    return masked_map_mean(positive, positive_weight), masked_map_mean(guard, guard_weight)
+
+
 class TeacherImageCache:
     def __init__(self, config: dict[str, Any]) -> None:
         teacher_cfg = config.get("teacher", {})
@@ -836,27 +952,50 @@ def training_loss(
         )
     teacher_residual_loss = sr.new_zeros(())
     teacher_highpass_loss = sr.new_zeros(())
+    teacher_hinge_loss = sr.new_zeros(())
+    teacher_guard_loss = sr.new_zeros(())
     teacher_weight_mean = sr.new_zeros(())
+    teacher_selected_mean = sr.new_zeros(())
+    teacher_base_error_mean = sr.new_zeros(())
+    teacher_error_mean = sr.new_zeros(())
+    teacher_improvement_mean = sr.new_zeros(())
+    teacher_residual_energy_mean = sr.new_zeros(())
     teacher_residual_weight = float(loss_cfg.get("teacher_residual_weight", 0.0))
     teacher_highpass_weight = float(loss_cfg.get("teacher_highpass_weight", 0.0))
-    if teacher_sr is not None and (teacher_residual_weight > 0.0 or teacher_highpass_weight > 0.0):
+    teacher_hinge_weight = float(loss_cfg.get("teacher_hinge_weight", 0.0))
+    teacher_guard_weight = float(loss_cfg.get("teacher_guard_weight", 0.0))
+    teacher_loss_enabled = (
+        teacher_residual_weight > 0.0
+        or teacher_highpass_weight > 0.0
+        or teacher_hinge_weight > 0.0
+        or teacher_guard_weight > 0.0
+    )
+    if teacher_sr is not None and teacher_loss_enabled:
         teacher_sr = teacher_sr.detach().to(dtype=sr.dtype).clamp(0.0, 1.0)
         teacher_mask = detail_mask.float() if detail_mask is not None else torch.ones_like(gate.float())
         teacher_mask_floor = float(loss_cfg.get("teacher_mask_floor", 0.0))
         if teacher_mask_floor > 0.0:
             teacher_mask = teacher_mask_floor + (1.0 - teacher_mask_floor) * teacher_mask
         if bool(loss_cfg.get("teacher_gt_filter", True)):
-            target_high = metric_highpass(hr, kernel_size=highpass_kernel)
-            base_high = metric_highpass(base_sr.detach(), kernel_size=highpass_kernel)
-            teacher_high = metric_highpass(teacher_sr, kernel_size=highpass_kernel)
-            base_error = (base_high - target_high).abs().mean(dim=1, keepdim=True)
-            teacher_error = (teacher_high - target_high).abs().mean(dim=1, keepdim=True)
-            teacher_error = lowpass(teacher_error, int(loss_cfg.get("teacher_filter_kernel", lowpass_kernel)))
-            base_error = lowpass(base_error, int(loss_cfg.get("teacher_filter_kernel", lowpass_kernel)))
-            ratio = float(loss_cfg.get("teacher_filter_ratio", 1.0))
-            margin = float(loss_cfg.get("teacher_filter_margin", 0.0))
-            confidence = (teacher_error <= base_error * ratio + margin).float()
-            teacher_mask = teacher_mask * confidence
+            confidence, confidence_stats = teacher_improvement_mask(
+                teacher_sr=teacher_sr,
+                base_sr=base_sr.detach(),
+                hr=hr,
+                detail_mask=detail_mask,
+                highpass_kernel=highpass_kernel,
+                patch_kernel=int(loss_cfg.get("teacher_filter_kernel", lowpass_kernel)),
+                ratio=float(loss_cfg.get("teacher_filter_ratio", 1.0)),
+                margin=float(loss_cfg.get("teacher_filter_margin", 0.0)),
+                min_base_error=float(loss_cfg.get("teacher_filter_min_base_error", 0.0)),
+                min_teacher_residual=float(loss_cfg.get("teacher_filter_min_residual", 0.0)),
+                mask_floor=teacher_mask_floor,
+            )
+            teacher_mask = confidence
+            teacher_selected_mean = confidence_stats["selected"]
+            teacher_base_error_mean = confidence_stats["base_error"]
+            teacher_error_mean = confidence_stats["teacher_error"]
+            teacher_improvement_mean = confidence_stats["improvement"]
+            teacher_residual_energy_mean = confidence_stats["teacher_residual_energy"]
         teacher_weight_mean = teacher_mask.mean()
         if teacher_residual_weight > 0.0:
             teacher_residual = metric_highpass(teacher_sr - base_sr.detach(), kernel_size=highpass_kernel)
@@ -868,6 +1007,24 @@ def training_loss(
                 teacher_high,
                 teacher_mask,
                 eps,
+            )
+        if teacher_hinge_weight > 0.0 or teacher_guard_weight > 0.0:
+            guard_mask = detail_mask.float() if detail_mask is not None else torch.ones_like(gate.float())
+            if detail_mask is not None and detail_mask_floor > 0.0:
+                guard_mask = detail_mask_floor + (1.0 - detail_mask_floor) * guard_mask
+            if bool(loss_cfg.get("teacher_guard_outside_confidence", True)):
+                guard_mask = guard_mask * (teacher_mask <= 0.0).float()
+            teacher_hinge_loss, teacher_guard_loss = gt_highpass_hinge_losses(
+                sr=sr,
+                base_sr=base_sr.detach(),
+                hr=hr,
+                positive_weight=teacher_mask,
+                guard_weight=guard_mask,
+                highpass_kernel=highpass_kernel,
+                patch_kernel=int(loss_cfg.get("teacher_filter_kernel", lowpass_kernel)),
+                positive_ratio=float(loss_cfg.get("teacher_hinge_positive_ratio", 0.98)),
+                positive_margin=float(loss_cfg.get("teacher_hinge_positive_margin", 0.0)),
+                guard_margin=float(loss_cfg.get("teacher_guard_margin", 0.001)),
             )
     negative_residual_loss = sr.new_zeros(())
     negative_weight_mean = sr.new_zeros(())
@@ -898,6 +1055,8 @@ def training_loss(
         + adversarial_weight * adversarial_loss
         + teacher_residual_weight * teacher_residual_loss
         + teacher_highpass_weight * teacher_highpass_loss
+        + teacher_hinge_weight * teacher_hinge_loss
+        + teacher_guard_weight * teacher_guard_loss
         + negative_residual_weight * negative_residual_loss
     )
     return loss, {
@@ -912,7 +1071,14 @@ def training_loss(
         "adversarial": adversarial_loss,
         "teacher_residual": teacher_residual_loss,
         "teacher_highpass": teacher_highpass_loss,
+        "teacher_hinge": teacher_hinge_loss,
+        "teacher_guard": teacher_guard_loss,
         "teacher_weight": teacher_weight_mean,
+        "teacher_selected": teacher_selected_mean,
+        "teacher_base_error": teacher_base_error_mean,
+        "teacher_error": teacher_error_mean,
+        "teacher_improvement": teacher_improvement_mean,
+        "teacher_residual_energy": teacher_residual_energy_mean,
         "negative_residual": negative_residual_loss,
         "negative_weight": negative_weight_mean,
         "sr": sr,
@@ -1189,7 +1355,14 @@ def main() -> None:
                 "train/adversarial": float(loss_parts["adversarial"].detach().cpu()),
                 "train/teacher_residual": float(loss_parts["teacher_residual"].detach().cpu()),
                 "train/teacher_highpass": float(loss_parts["teacher_highpass"].detach().cpu()),
+                "train/teacher_hinge": float(loss_parts["teacher_hinge"].detach().cpu()),
+                "train/teacher_guard": float(loss_parts["teacher_guard"].detach().cpu()),
                 "train/teacher_weight": float(loss_parts["teacher_weight"].detach().cpu()),
+                "train/teacher_selected": float(loss_parts["teacher_selected"].detach().cpu()),
+                "train/teacher_base_error": float(loss_parts["teacher_base_error"].detach().cpu()),
+                "train/teacher_error": float(loss_parts["teacher_error"].detach().cpu()),
+                "train/teacher_improvement": float(loss_parts["teacher_improvement"].detach().cpu()),
+                "train/teacher_residual_energy": float(loss_parts["teacher_residual_energy"].detach().cpu()),
                 "train/negative_residual": float(loss_parts["negative_residual"].detach().cpu()),
                 "train/negative_weight": float(loss_parts["negative_weight"].detach().cpu()),
                 "train/discriminator": float(discriminator_loss.detach().cpu()),
@@ -1208,6 +1381,10 @@ def main() -> None:
                 f"perceptual={train_metrics['train/masked_perceptual']:.5f} "
                 f"teacher_res={train_metrics['train/teacher_residual']:.5f} "
                 f"teacher_hp={train_metrics['train/teacher_highpass']:.5f} "
+                f"teacher_hinge={train_metrics['train/teacher_hinge']:.5f} "
+                f"teacher_guard={train_metrics['train/teacher_guard']:.5f} "
+                f"teacher_w={train_metrics['train/teacher_weight']:.4f} "
+                f"teacher_imp={train_metrics['train/teacher_improvement']:+.5f} "
                 f"neg={train_metrics['train/negative_residual']:.5f} "
                 f"adv={train_metrics['train/adversarial']:.5f} "
                 f"disc={train_metrics['train/discriminator']:.5f} "

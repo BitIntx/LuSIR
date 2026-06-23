@@ -8,9 +8,11 @@ from tools.train.train_detail_branch import (
     GatedHighFrequencyDetailBranch,
     apply_detail_mask_policy,
     artifact_negative_residual_loss,
+    gt_highpass_hinge_losses,
     init_model_from_checkpoint,
     load_checkpoint,
     save_checkpoint,
+    teacher_improvement_mask,
     training_loss,
 )
 
@@ -234,6 +236,73 @@ def test_artifact_negative_residual_loss_penalizes_flat_targets_more() -> None:
 
     assert flat_weight > textured_weight
     assert flat_loss > textured_loss
+
+
+def test_teacher_improvement_mask_selects_gt_aligned_teacher_detail() -> None:
+    torch.manual_seed(8)
+    base = torch.full((1, 3, 24, 24), 0.5)
+    pattern = torch.tensor([[0.0, 1.0] * 12, [1.0, 0.0] * 12] * 12).view(1, 1, 24, 24)
+    hr = (base + pattern.repeat(1, 3, 1, 1) * 0.04).clamp(0.0, 1.0)
+    good_teacher = (base + pattern.repeat(1, 3, 1, 1) * 0.035).clamp(0.0, 1.0)
+    bad_teacher = base.clone()
+    detail_mask = torch.ones(1, 1, 24, 24)
+
+    good_mask, good_stats = teacher_improvement_mask(
+        good_teacher,
+        base,
+        hr,
+        detail_mask,
+        highpass_kernel=5,
+        patch_kernel=3,
+        ratio=0.95,
+        margin=0.0,
+    )
+    bad_mask, bad_stats = teacher_improvement_mask(
+        bad_teacher,
+        base,
+        hr,
+        detail_mask,
+        highpass_kernel=5,
+        patch_kernel=3,
+        ratio=0.95,
+        margin=0.0,
+    )
+
+    assert good_mask.mean() > 0.9
+    assert bad_mask.mean() == 0
+    assert good_stats["improvement"] > bad_stats["improvement"]
+
+
+def test_gt_highpass_hinge_losses_penalize_regressed_detail() -> None:
+    base = torch.full((1, 3, 24, 24), 0.5)
+    pattern = torch.tensor([[0.0, 1.0] * 12, [1.0, 0.0] * 12] * 12).view(1, 1, 24, 24)
+    hr = (base + pattern.repeat(1, 3, 1, 1) * 0.04).clamp(0.0, 1.0)
+    improved = (base + pattern.repeat(1, 3, 1, 1) * 0.035).clamp(0.0, 1.0)
+    regressed = base.clone()
+    weight = torch.ones(1, 1, 24, 24)
+
+    improved_loss, _ = gt_highpass_hinge_losses(
+        improved,
+        base,
+        hr,
+        positive_weight=weight,
+        guard_weight=weight,
+        highpass_kernel=5,
+        patch_kernel=3,
+        positive_ratio=0.98,
+    )
+    regressed_loss, _ = gt_highpass_hinge_losses(
+        regressed,
+        base,
+        hr,
+        positive_weight=weight,
+        guard_weight=weight,
+        highpass_kernel=5,
+        patch_kernel=3,
+        positive_ratio=0.98,
+    )
+
+    assert regressed_loss > improved_loss
 
 
 def test_detail_branch_negative_residual_loss_backpropagates() -> None:
