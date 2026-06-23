@@ -61,7 +61,45 @@ eval step1:
   psnr_detail_score 25.286
 ```
 
-## 보는 기준
+## 결과
+
+step1000 eval 이후 중단했다. train-only detail loss는 정상적으로 non-zero였고
+mask도 기대값을 유지했지만, eval 방향은 목표와 반대였다.
+
+```text
+baseline guarded v2 best10000:
+  mean_psnr         26.5050
+  highpass_ratio    0.8084
+  missing           0.01897
+
+step500:
+  decoded_psnr      24.64
+  mean_psnr         26.52
+  detail_ratio      0.301
+  highpass_ratio    0.795
+  missing           0.01933
+  psnr_detail_score 25.238
+
+step1000:
+  decoded_psnr      24.64
+  mean_psnr         26.53
+  detail_ratio      0.302
+  highpass_ratio    0.794
+  missing           0.01939
+  psnr_detail_score 25.243
+```
+
+해석:
+
+- mean PSNR은 소폭 올랐지만, highpass ratio와 missing-detail metric은 악화했다.
+- 즉 이 loss는 Stage2 smoothing을 줄이지 못했고, 오히려 더 보수적인 평균 복원
+  방향으로 움직였다.
+- `prediction_missing` top20 mask 경로는 구현/로깅 검증에는 유용하지만, 이
+  weight/config를 더 오래 continuation하지 않는다.
+- 다음 Stage2 시도는 mask-weighted loss만 더하는 방식이 아니라 target 자체나
+  architecture/output parameterization을 바꿔야 한다.
+
+## 중단 기준
 
 - `eval/decoded_mean_psnr`가 guarded v2 best10000 기준 `26.5050` 근처를 유지해야 한다.
 - `eval/highpass_energy_ratio`가 `0.8084`보다 올라가도, `eval/missing_energy`와
@@ -71,5 +109,3 @@ eval step1:
   막힌 것이다.
 - step500/1000에서 `mean_psnr_detail_score`가 개선되지 않거나 grid가 더 거칠어지면
   조기 중단한다.
-
-현재 run은 6000 step까지 설정했지만, best가 초반에 고정되면 끝까지 돌리지 않는다.

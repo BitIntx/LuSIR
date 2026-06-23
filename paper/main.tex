@@ -149,10 +149,12 @@ showed that RealESRGAN did not beat the base on PSNR or highpass-L1 for
 any cached sample, so the v8 probe removed teacher supervision and used
 GT detail-need masks only during training. V8 stayed stable and selected
 step 500, but visible detail remained small and step2000 began to lose
-laplacian ratio, so it is not promoted. The active follow-up moves the
-GT-missing-detail signal into Stage 2 itself via a train-only masked
-decoded/highpass loss initialized from guarded-detail Stage 2 v2 step
-10000.
+laplacian ratio, so it is not promoted. The follow-up Stage 2 GT-masked
+detail probe moved the GT-missing-detail signal into Stage 2 itself via
+a train-only masked decoded/highpass loss initialized from
+guarded-detail Stage 2 v2 step 10000, but it was stopped at step1000
+after highpass ratio and missing-detail metrics worsened despite a small
+mean-PSNR increase.
 
 \texttt{paper/TECHNICAL\_REPORT.md} is the canonical report source.
 \texttt{paper/sr\_diffusion\_report.pdf} and \texttt{paper/main.tex} are
@@ -191,7 +193,7 @@ current runtime choices are:
 \NormalTok{public Colab default:}
 \NormalTok{  LR {-}\textgreater{} guarded{-}detail Stage 2 v2 step 10000 {-}\textgreater{} Stage 1 decoder}
 
-\NormalTok{active Stage 2 smoothing probe:}
+\NormalTok{Stage 2 GT{-}masked detail negative result:}
 \NormalTok{  train: current decoded prediction/GT {-}\textgreater{} GT missing{-}detail top20 training mask}
 \NormalTok{  eval:  LR {-}\textgreater{} GT{-}masked{-}detail Stage 2 v3 {-}\textgreater{} Stage 1 decoder}
 
@@ -1749,12 +1751,15 @@ Stage 2 continuation is not promoted. Candidate next steps are:
   bottleneck to attack is Stage 2 conditional-mean smoothing rather than
   decoder capacity;
 \item
-  the active Stage 2/base reconstruction experiment is
-  \texttt{configs/latent\_pretrain\_photo130k\_lsdir\_dual\_detail\_gtmasked\_v3\_probe.yaml}.
-  It starts from guarded-detail Stage 2 v2 step 10000 and adds a
-  train-only \texttt{prediction\_missing} top20 masked decoded/highpass
-  objective. The goal is to reduce conditional-mean smoothing before
-  another image-space detail branch is added;
+  do not continue
+  \texttt{configs/latent\_pretrain\_photo130k\_lsdir\_dual\_detail\_gtmasked\_v3\_probe.yaml}
+  in its current form. The train-only \texttt{prediction\_missing} top20
+  masked decoded/highpass objective increased mean PSNR slightly by
+  step1000, but highpass ratio fell from \texttt{0.8084} to
+  \texttt{0.794} and missing-detail energy rose from \texttt{0.01897} to
+  \texttt{0.01939}. The next Stage 2 attempt needs a changed target
+  parameterization or architecture, not another mask-weighted loss
+  continuation;
 \item
   select the generative path with LPIPS, DISTS, fixed visual review,
   high-frequency metrics, lowpass drift, and seed diversity instead of

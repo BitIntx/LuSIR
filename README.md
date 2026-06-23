@@ -139,10 +139,12 @@ ratio, so it is preserved as a diagnostic result rather than promoted. Eval and
 inference still used the learned noise-negative mask. See
 [`docs/TEACHER_PATCH_QUALITY_KO.md`](docs/TEACHER_PATCH_QUALITY_KO.md) and
 [`docs/DETAIL_BRANCH_V8_GTMASK_KO.md`](docs/DETAIL_BRANCH_V8_GTMASK_KO.md).
-The active follow-up is now a Stage2 GT-masked detail probe,
+The follow-up Stage2 GT-masked detail probe,
 `configs/latent_pretrain_photo130k_lsdir_dual_detail_gtmasked_v3_probe.yaml`,
-which starts from guarded-detail Stage2 v2 step 10000 and adds a train-only
-missing-detail weighted decoded/highpass loss. See
+starts from guarded-detail Stage2 v2 step 10000 and adds a train-only
+missing-detail weighted decoded/highpass loss. It was stopped at step1000:
+mean PSNR rose slightly, but highpass ratio and missing-detail metrics worsened,
+so it is not continued. See
 [`docs/STAGE2_GTMASKED_DETAIL_V3_KO.md`](docs/STAGE2_GTMASKED_DETAIL_V3_KO.md).
 
 The latest guarded-detail Stage 2 candidate

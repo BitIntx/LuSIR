@@ -1182,7 +1182,7 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
    `/home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v8_gtmask_training_probe/checkpoints/best_eval_detail.pt`
    이고 내부 step은 `500`이다. v8은 diagnostic으로 보존하되 승격하지 않고,
    같은 config를 더 오래 돌리지 않는다.
-4. 현재 active run은 Stage2 GT-masked detail v3 probe다.
+4. Stage2 GT-masked detail v3 probe도 step1000 eval 뒤 조기 중단했다.
    `configs/latent_pretrain_photo130k_lsdir_dual_detail_gtmasked_v3_probe.yaml`,
    W&B는 <https://wandb.ai/jwheo/LuSIR/runs/ch8ma1sk>, local log는
    `/home/ubuntu/scratch/sr-diffusion/latent_pretrain_photo130k_lsdir_dual_detail_gtmasked_v3_probe.log`다.
@@ -1190,8 +1190,12 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
    `prediction_missing` top20 mask로 `detail_weighted.decoded_weight 0.35`,
    `detail_weighted.highpass_weight 1.25`를 추가한다. smoke와 full run step1은
    `detail_mask=0.2400`, `detail_decoded=0.15427`, `detail_highpass=0.11050`로
-   정상이다. step500/1000에서 `eval/mean_psnr_detail_score`, mean PSNR,
-   highpass ratio, missing energy, sample grid를 보고 계속 여부를 결정한다.
+   정상이다. 하지만 guarded v2 best10000 기준 mean PSNR `26.5050`,
+   highpass ratio `0.8084`, missing `0.01897` 대비, step500은 mean PSNR
+   `26.52`로 조금 올랐지만 highpass ratio `0.795`, missing `0.01933`으로
+   악화했고 step1000도 mean PSNR `26.53`, highpass ratio `0.794`,
+   missing `0.01939`로 더 나빴다. 이 config는 구현 검증용으로 보존하되
+   continuation하지 않는다.
 5. 현재 Stage2 continuation은 원래 LR로 보존하되, 같은 objective의 장기
    continuation이 SwinIR gap이나 visible detail을 해결할 것으로 기대하지 않는다.
 6. latent residual v1, Stage2 latent residual adapter v1, signed-wavelet

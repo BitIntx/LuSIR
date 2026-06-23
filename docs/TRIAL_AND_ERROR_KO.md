@@ -2622,7 +2622,7 @@ Best checkpoint는
 - 같은 config를 더 오래 continuation하지 않는다. 다음은 detail branch
   continuation이 아니라 Stage2/base conditional-latent smoothing을 줄이는 방향이다.
 
-### 2026-06-23 Stage2 GT-masked detail v3 probe 시작
+### 2026-06-23 Stage2 GT-masked detail v3 probe 조기 중단
 
 detail branch 계열이 frozen base 위에서 visible texture breakthrough를 만들지
 못했으므로, 다음은 Stage2 LR-to-latent predictor 자체의 smoothing을 줄이는
@@ -2662,10 +2662,38 @@ eval step1:
   psnr_detail_score 25.286
 ```
 
-판단 기준:
+결과:
 
-- guarded v2 best10000의 mean PSNR `26.5050`, highpass ratio `0.8084`,
-  missing energy `0.01897`가 기준선이다.
-- highpass ratio만 오르고 mean PSNR/missing/grid가 악화하면 artifact성 detail로 본다.
-- step500/1000에서 `eval/mean_psnr_detail_score`와 sample grid를 보고 계속 여부를
-  결정한다.
+```text
+baseline guarded v2 best10000:
+  mean_psnr         26.5050
+  highpass_ratio    0.8084
+  missing           0.01897
+
+step500:
+  decoded_psnr      24.64
+  mean_psnr         26.52
+  detail_ratio      0.301
+  highpass_ratio    0.795
+  missing           0.01933
+  psnr_detail_score 25.238
+
+step1000:
+  decoded_psnr      24.64
+  mean_psnr         26.53
+  detail_ratio      0.302
+  highpass_ratio    0.794
+  missing           0.01939
+  psnr_detail_score 25.243
+```
+
+판정:
+
+- mean PSNR은 약간 올랐지만 highpass ratio와 missing-detail metric은 기준선보다
+  나빠졌다.
+- train-only detail mask loss는 정상 작동했지만, 이 formulation은 Stage2 smoothing을
+  줄이지 못하고 더 보수적인 평균 복원으로 움직였다.
+- step1000 eval 뒤 중단했다. 이 config는 구현 검증용으로 보존하되 continuation하지
+  않는다.
+- 다음 Stage2 실험은 mask-weighted loss만 더하는 방식이 아니라 target
+  parameterization이나 architecture를 바꾸는 방향이어야 한다.
