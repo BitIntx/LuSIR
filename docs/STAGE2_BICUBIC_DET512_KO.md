@@ -11,6 +11,7 @@ init:   checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt
 data:   benchmark_bicubic, train split first 512 samples
 run:    /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_bicubic_det512_probe
 log:    /home/ubuntu/scratch/sr-diffusion/latent_pretrain_photo130k_lsdir_dual_bicubic_det512_probe.log
+wandb:  https://wandb.ai/jwheo/LuSIR/runs/0wzx4xzy
 ```
 
 설계:
