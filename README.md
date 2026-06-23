@@ -206,8 +206,11 @@ A clean-bicubic Stage2 overfit diagnostic is now isolated in
 It fixes the first 64 train samples with deterministic crop/degradation and
 evaluates on the same 64 images. This is not a deployable candidate; it tests
 whether the current Stage2 structure/loss can memorize high-frequency detail at
-all when generalization is removed. The smoke baseline was `26.42` mean PSNR,
-`0.791` highpass ratio, and `0.01971` missing energy. See
+all when generalization is removed. It completed 3000 micro-steps and improved
+train64 from `26.4246` to `29.2477` mean PSNR, `0.7908` to `0.8812` highpass
+ratio, and `0.01971` to `0.01314` missing energy. This weakens the
+"architecture cannot represent detail" hypothesis and points the next work
+toward data/curriculum/regularization for generalizing that detail signal. See
 [`docs/STAGE2_BICUBIC_OVERFIT64_KO.md`](docs/STAGE2_BICUBIC_OVERFIT64_KO.md).
 
 The later Stage 2 detail-perceptual continuation from dual-context best98000

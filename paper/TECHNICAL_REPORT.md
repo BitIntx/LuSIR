@@ -24,7 +24,11 @@ increase. A clean-bicubic overfit64 diagnostic is now separated from deployable
 training: it fixes the first 64 train samples under deterministic bicubic
 degradation and evaluates on the same set to test whether the current Stage 2
 structure/loss can memorize high-frequency detail once generalization is
-removed.
+removed. This diagnostic completed 3000 micro-steps and improved train64 from
+`26.4246` to `29.2477` mean PSNR, `0.7908` to `0.8812` highpass ratio, and
+`0.01971` to `0.01314` missing-detail energy, so the active bottleneck is now
+better framed as generalizing the detail-preserving signal rather than proving
+basic representational capacity.
 
 `paper/TECHNICAL_REPORT.md` is the canonical report source.
 `paper/sr_diffusion_report.pdf` and `paper/main.tex` are generated from it with
@@ -1268,11 +1272,11 @@ Candidate next steps are:
   parameterization or architecture, not another mask-weighted loss continuation;
 - use
   `configs/latent_pretrain_photo130k_lsdir_dual_bicubic_overfit64_probe.yaml`
-  as a non-deployable upper-bound check. Its smoke baseline on train64 is
-  `26.42` mean PSNR, `0.791` highpass ratio, and `0.01971` missing energy. If
-  this fixed-set run cannot improve highpass ratio and missing energy, dataset
-  scale or longer continuation is unlikely to solve the active smoothing
-  bottleneck by itself;
+  only as a non-deployable upper-bound check. It completed successfully:
+  train64 mean PSNR rose from `26.4246` to `29.2477`, highpass ratio from
+  `0.7908` to `0.8812`, and missing energy from `0.01971` to `0.01314`.
+  Therefore the next Stage 2 work should focus on data/curriculum/regularization
+  that generalizes this detail signal, not another fixed-subset continuation;
 - select the generative path with LPIPS, DISTS, fixed visual review,
   high-frequency metrics, lowpass drift, and seed diversity instead of PSNR
   alone;

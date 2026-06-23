@@ -2739,3 +2739,29 @@ eval step1 on train64:
   복원으로 수렴한다.
 - train64에서도 detail metric을 개선하지 못하면 Stage2 target
   parameterization이나 architecture를 먼저 바꿔야 한다.
+
+완료 결과:
+
+| step | decoded PSNR | mean PSNR | highpass ratio | missing |
+| ---: | ---: | ---: | ---: | ---: |
+| 1 | `24.3048` | `26.4246` | `0.7908` | `0.01971` |
+| 500 | `25.1762` | `27.5347` | `0.8325` | `0.01682` |
+| 1000 | `25.7465` | `28.1343` | `0.8603` | `0.01520` |
+| 1500 | `26.1845` | `28.5935` | `0.8636` | `0.01448` |
+| 2000 | `26.4810` | `28.8921` | `0.8765` | `0.01370` |
+| 2500 | `26.6982` | `29.1026` | `0.8759` | `0.01349` |
+| 3000 | `26.8461` | `29.2477` | `0.8812` | `0.01314` |
+
+Best checkpoint는 step3000의
+`/home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_bicubic_overfit64_probe/checkpoints/best_eval_mean_psnr_detail.pt`다.
+
+판정:
+
+- 고정 train64에서는 PSNR뿐 아니라 highpass ratio와 missing-detail metric도 같이
+  개선됐다.
+- 따라서 현재 dual-context Stage2가 clean-bicubic detail을 표현 자체로 못 하는
+  구조는 아니다.
+- 병목은 일반 train/val 조건에서 high-frequency target을 안정적으로 일반화시키는
+  data/curriculum/regularization 문제로 좁혀진다.
+- 같은 overfit continuation은 하지 않는다. 다음은 fixed subset에서 확인한
+  detail-preserving signal을 larger split으로 옮기는 probe를 설계한다.

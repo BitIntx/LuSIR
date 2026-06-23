@@ -158,7 +158,13 @@ mean-PSNR increase. A clean-bicubic overfit64 diagnostic is now
 separated from deployable training: it fixes the first 64 train samples
 under deterministic bicubic degradation and evaluates on the same set to
 test whether the current Stage 2 structure/loss can memorize
-high-frequency detail once generalization is removed.
+high-frequency detail once generalization is removed. This diagnostic
+completed 3000 micro-steps and improved train64 from \texttt{26.4246} to
+\texttt{29.2477} mean PSNR, \texttt{0.7908} to \texttt{0.8812} highpass
+ratio, and \texttt{0.01971} to \texttt{0.01314} missing-detail energy,
+so the active bottleneck is now better framed as generalizing the
+detail-preserving signal rather than proving basic representational
+capacity.
 
 \texttt{paper/TECHNICAL\_REPORT.md} is the canonical report source.
 \texttt{paper/sr\_diffusion\_report.pdf} and \texttt{paper/main.tex} are
@@ -1767,12 +1773,12 @@ Stage 2 continuation is not promoted. Candidate next steps are:
 \item
   use
   \texttt{configs/latent\_pretrain\_photo130k\_lsdir\_dual\_bicubic\_overfit64\_probe.yaml}
-  as a non-deployable upper-bound check. Its smoke baseline on train64
-  is \texttt{26.42} mean PSNR, \texttt{0.791} highpass ratio, and
-  \texttt{0.01971} missing energy. If this fixed-set run cannot improve
-  highpass ratio and missing energy, dataset scale or longer
-  continuation is unlikely to solve the active smoothing bottleneck by
-  itself;
+  only as a non-deployable upper-bound check. It completed successfully:
+  train64 mean PSNR rose from \texttt{26.4246} to \texttt{29.2477},
+  highpass ratio from \texttt{0.7908} to \texttt{0.8812}, and missing
+  energy from \texttt{0.01971} to \texttt{0.01314}. Therefore the next
+  Stage 2 work should focus on data/curriculum/regularization that
+  generalizes this detail signal, not another fixed-subset continuation;
 \item
   select the generative path with LPIPS, DISTS, fixed visual review,
   high-frequency metrics, lowpass drift, and seed diversity instead of

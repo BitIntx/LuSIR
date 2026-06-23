@@ -48,3 +48,36 @@ eval step1:
 이 probe 결과가 좋더라도 그대로 public/default로 승격하지 않는다. 고정 64장
 overfit은 “가능한가”를 확인하는 진단이며, 다음 단계는 같은 판단 기준을 val set
 일반화로 옮기는 것이다.
+
+## 완료 결과
+
+3000 micro-step까지 정상 완료됐다. W&B run은
+<https://wandb.ai/jwheo/LuSIR/runs/12ui2qg0>이다.
+
+| step | decoded PSNR | mean PSNR | highpass ratio | missing | mean-PSNR detail score |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 24.3048 | 26.4246 | 0.7908 | 0.01971 | 28.0062 |
+| 500 | 25.1762 | 27.5347 | 0.8325 | 0.01682 | 29.1997 |
+| 1000 | 25.7465 | 28.1343 | 0.8603 | 0.01520 | 29.8549 |
+| 1500 | 26.1845 | 28.5935 | 0.8636 | 0.01448 | 30.3207 |
+| 2000 | 26.4810 | 28.8921 | 0.8765 | 0.01370 | 30.6451 |
+| 2500 | 26.6982 | 29.1026 | 0.8759 | 0.01349 | 30.8544 |
+| 3000 | 26.8461 | 29.2477 | 0.8812 | 0.01314 | 31.0100 |
+
+Best checkpoint:
+
+```text
+/home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_bicubic_overfit64_probe/checkpoints/best_eval_mean_psnr_detail.pt
+```
+
+판정:
+
+- 고정 train64에서는 PSNR, highpass ratio, missing energy가 모두 뚜렷하게
+  좋아졌다.
+- 따라서 현재 dual-context Stage2 구조가 clean-bicubic detail을 표현 자체로
+  못 하는 것은 아니다.
+- active bottleneck은 더 좁게 보면 구조 절대용량보다 일반 train/val 조건에서
+  high-frequency target을 안정적으로 일반화시키는 방법이다.
+- 다음 실험은 같은 64장 overfit continuation이 아니라, 고정 subset에서 확인된
+  detail-preserving signal을 larger train/val split으로 옮기는 data/curriculum
+  또는 regularization probe여야 한다.
