@@ -2468,3 +2468,30 @@ step1 train:
 - 5k probe에서는 `eval/sr_vs_base_psnr`, `eval/sr_vs_base_ssim`,
   `eval/sr_vs_base_highpass_ratio`, `eval/lowpass_drift_l1`,
   `eval/outside_mask_residual_l1`, 그리고 eval grid의 가짜 texture 여부를 함께 본다.
+
+조기 중단:
+
+step500 평가 후 중단했다. 시작점은 top20+floor inference 변경 덕분에
+PSNR/SSIM/highpass ratio가 모두 좋아졌지만, 학습이 진행되면서 highpass/laplacian
+detail 지표가 줄었다.
+
+```text
+step250:
+  sr_psnr delta      +0.0883 dB
+  mean_psnr delta    +0.1101 dB
+  SSIM delta         +0.00201
+  highpass ratio     +0.0008
+  laplacian ratio    -0.0141
+
+step500:
+  sr_psnr delta      +0.0821 dB
+  mean_psnr delta    +0.1044 dB
+  SSIM delta         +0.00158
+  highpass ratio     -0.0021
+  laplacian ratio    -0.0167
+```
+
+grid에서는 artifact 붕괴는 없지만 visible detail 개선도 거의 없었다. 이 run은
+implementation validation으로 보존하고 promotion하지 않는다. 단순히 teacher loss를
+키우거나 더 오래 돌리는 것보다 teacher-positive patch selection 품질을 다시 진단하고,
+GT-aligned detail을 별도 head/target으로 더 직접 예측하는 구조를 검토한다.

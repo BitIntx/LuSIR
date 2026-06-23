@@ -1146,16 +1146,17 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
 
 우선순위:
 
-1. 현재 진행 중인 visible-detail probe는
-   `configs/detail_branch_v7_teacher_filtered_hinge_probe.yaml`이다. W&B run은
-   <https://wandb.ai/jwheo/LuSIR/runs/4ysx4nk0>, local log는
+1. `configs/detail_branch_v7_teacher_filtered_hinge_probe.yaml`는 step500에서
+   조기 중단했다. W&B run은 <https://wandb.ai/jwheo/LuSIR/runs/4ysx4nk0>,
+   local log는
    `/home/ubuntu/scratch/sr-diffusion/detail_branch_v7_teacher_filtered_hinge_probe.log`다.
-   `tail -f /home/ubuntu/scratch/sr-diffusion/detail_branch_v7_teacher_filtered_hinge_probe.log`
-   로 본다. 이 probe는 masked detail v2에서 시작하고 RealESRGAN teacher를
-   GT highpass 기준 locally near/better patch에만 쓴다. hard top10 mask와
-   teacher-positive patch overlap이 너무 작아 top20 + floor 0.05로 완화했다.
-   promotion은 metric만으로 하지 말고 eval grid에서 가짜 texture/noise 확산을
-   반드시 본다. 세부 내용은 `docs/DETAIL_BRANCH_V7_TEACHER_FILTERED_KO.md`.
+   이 probe는 masked detail v2에서 시작하고 RealESRGAN teacher를 GT highpass 기준
+   locally near/better patch에만 쓰도록 구현했다. hard top10 mask와 teacher-positive
+   patch overlap이 너무 작아 top20 + floor 0.05로 완화했고, smoke에서는
+   `teacher_w`가 약 0.037까지 올라갔다. 하지만 step500에서 PSNR/SSIM은 양수여도
+   highpass ratio가 `-0.0021`, laplacian ratio가 `-0.0167`로 꺾였고 grid에서도
+   visible detail 개선이 거의 없어 중단했다. 같은 설정을 5k까지 이어 돌리지 않는다.
+   세부 내용은 `docs/DETAIL_BRANCH_V7_TEACHER_FILTERED_KO.md`.
 2. 현재 Stage2 continuation은 원래 LR로 보존하되, 같은 objective의 장기
    continuation이 SwinIR gap이나 visible detail을 해결할 것으로 기대하지 않는다.
 3. latent residual v1, Stage2 latent residual adapter v1, signed-wavelet

@@ -78,6 +78,39 @@ step1 train:
   - `train/teacher_hinge`가 계속 0이면 GT highpass 개선 압력이 사라진 것.
   - `train/teacher_guard`, `train/negative_residual`이 커지면 artifact 위험 증가.
 
-promotion은 metric만으로 결정하지 않는다. eval grid에서 fruit/fur/leaves/building
-edges 같은 고주파 영역이 RealESRGAN식 가짜 texture가 아니라 GT-aligned detail로
-보이는지 확인해야 한다.
+## 조기 중단
+
+본 run은 step `500` 평가 후 중단했다.
+
+```text
+step250:
+  sr_psnr delta      +0.0883 dB
+  mean_psnr delta    +0.1101 dB
+  SSIM delta         +0.00201
+  highpass ratio     +0.0008
+  laplacian ratio    -0.0141
+
+step500:
+  sr_psnr delta      +0.0821 dB
+  mean_psnr delta    +0.1044 dB
+  SSIM delta         +0.00158
+  highpass ratio     -0.0021
+  laplacian ratio    -0.0167
+  lowpass drift      0.000146
+  outside mask L1    0.000562
+```
+
+grid에서는 붕괴나 강한 artifact는 보이지 않았지만, visible detail 개선도 거의 없었다.
+오히려 step0의 top20+floor inference gain 이후 학습이 진행될수록 highpass/laplacian
+detail 지표가 줄었다. 이는 v6와 masked latent residual-shift v2에서 봤던
+"안전해지지만 디테일이 사라지는" 패턴에 가깝다.
+
+판정:
+
+- v7 teacher-filtered hinge objective는 구현/로깅/캐시 경로 검증에는 성공했다.
+- 그러나 현재 loss balance로는 promotion 가치가 없다.
+- RealESRGAN teacher가 전체적으로 GT highpass보다 나쁜 배치가 많고, 선택 patch도
+  학습을 지속하면 detail을 밀어 올리기보다 conservative residual로 수렴한다.
+- 다음 실험은 teacher loss를 더 키우는 단순 continuation이 아니라, teacher 후보의
+  patch selection 품질 자체를 재진단하거나 GT-aligned detail target을 별도 head로
+  더 직접 예측하는 구조로 가야 한다.
