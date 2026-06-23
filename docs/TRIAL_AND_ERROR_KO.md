@@ -2697,3 +2697,45 @@ step1000:
   않는다.
 - 다음 Stage2 실험은 mask-weighted loss만 더하는 방식이 아니라 target
   parameterization이나 architecture를 바꾸는 방향이어야 한다.
+
+### 2026-06-23 Stage2 clean-bicubic overfit64 upper-bound probe 시작
+
+GT-masked Stage2 v3가 일반 val100에서 더 보수적인 평균 복원으로 움직였기
+때문에, 곧바로 또 다른 long continuation을 돌리지 않고 일반화 변수를 제거한
+작은 overfit 진단을 시작했다.
+
+```text
+config: configs/latent_pretrain_photo130k_lsdir_dual_bicubic_overfit64_probe.yaml
+init:   checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt
+data:   benchmark_bicubic, deterministic first 64 train samples
+run:    /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_bicubic_overfit64_probe
+log:    /home/ubuntu/scratch/sr-diffusion/latent_pretrain_photo130k_lsdir_dual_bicubic_overfit64_probe.log
+wandb:  https://wandb.ai/jwheo/LuSIR/runs/12ui2qg0
+```
+
+같이 추가한 코드:
+
+- `ManifestImageDataset(max_items=...)`
+- Stage2 `make_dataset`의 `data.deterministic_train: true` 처리
+- 고정 train subset 동작을 검증하는 `tests/test_dataset.py` test
+
+4-step smoke는 정상이며 시작점은 다음과 같다.
+
+```text
+eval step1 on train64:
+  decoded_psnr      24.30
+  mean_psnr         26.42
+  detail_ratio      0.325
+  highpass_ratio    0.791
+  missing           0.01971
+  psnr_detail_score 24.954
+```
+
+판정:
+
+- train64에서 PSNR과 highpass ratio가 같이 오르고 missing이 내려가면 현 구조는
+  clean detail을 표현할 수 있고, 문제는 일반화/데이터/regularization 쪽이다.
+- PSNR만 오르고 highpass/missing이 악화하면 현재 loss는 overfit 조건에서도 평균
+  복원으로 수렴한다.
+- train64에서도 detail metric을 개선하지 못하면 Stage2 target
+  parameterization이나 architecture를 먼저 바꿔야 한다.

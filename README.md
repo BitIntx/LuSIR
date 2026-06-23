@@ -201,6 +201,15 @@ original LR, an evaluation-noise-level difference. The original `5e-6` LR is
 therefore retained, but another long same-objective continuation is not
 expected to close the full SwinIR gap or create visibly new texture.
 
+A clean-bicubic Stage2 overfit diagnostic is now isolated in
+`configs/latent_pretrain_photo130k_lsdir_dual_bicubic_overfit64_probe.yaml`.
+It fixes the first 64 train samples with deterministic crop/degradation and
+evaluates on the same 64 images. This is not a deployable candidate; it tests
+whether the current Stage2 structure/loss can memorize high-frequency detail at
+all when generalization is removed. The smoke baseline was `26.42` mean PSNR,
+`0.791` highpass ratio, and `0.01971` missing energy. See
+[`docs/STAGE2_BICUBIC_OVERFIT64_KO.md`](docs/STAGE2_BICUBIC_OVERFIT64_KO.md).
+
 The later Stage 2 detail-perceptual continuation from dual-context best98000
 also completed formal 219-image evaluation. Its latest step12000 checkpoint is
 nearly tied with dual best98000 (`27.8356` vs `27.8431` Y PSNR) and slightly

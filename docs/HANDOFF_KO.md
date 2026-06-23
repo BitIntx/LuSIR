@@ -10,7 +10,7 @@ Restoration**)입니다. GitHub repo id는 `BitIntx/LuSIR`, Hugging Face repo id
 `jwheo/LuSIR`입니다. W&B 기존 run URL, 로컬 scratch 경로, Python import
 namespace에는 아직 `sr-diffusion`/`sr_diffusion` 호환 이름이 남아 있습니다.
 
-## 2026-06-22 현재 상태
+## 2026-06-23 현재 상태
 
 ### 학습 단계와 실제 추론 경로
 
@@ -1196,6 +1196,17 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
    악화했고 step1000도 mean PSNR `26.53`, highpass ratio `0.794`,
    missing `0.01939`로 더 나빴다. 이 config는 구현 검증용으로 보존하되
    continuation하지 않는다.
+- 현재 진행 중인 원인분리 probe는 Stage2 clean-bicubic overfit64다.
+  `configs/latent_pretrain_photo130k_lsdir_dual_bicubic_overfit64_probe.yaml`
+  는 dual-context best98000에서 시작해 `benchmark_bicubic` first 64 train
+  sample을 deterministic crop/degradation으로 고정하고, 같은 64장에 eval을 건다.
+  새 데이터셋 옵션은 `max_items`와 `deterministic_train`이다. 4-step smoke는
+  정상이며 step1 train64 eval은 mean PSNR `26.42`, highpass ratio `0.791`,
+  missing `0.01971`이다. 목적은 일반화가 아니라 현재 Stage2 structure/loss가
+  clean detail을 외울 수 있는지 확인하는 upper-bound 진단이다. 문서는
+  `docs/STAGE2_BICUBIC_OVERFIT64_KO.md`, 로그는
+  `/home/ubuntu/scratch/sr-diffusion/latent_pretrain_photo130k_lsdir_dual_bicubic_overfit64_probe.log`
+  를 본다. W&B는 <https://wandb.ai/jwheo/LuSIR/runs/12ui2qg0>이다.
 5. 현재 Stage2 continuation은 원래 LR로 보존하되, 같은 objective의 장기
    continuation이 SwinIR gap이나 visible detail을 해결할 것으로 기대하지 않는다.
 6. latent residual v1, Stage2 latent residual adapter v1, signed-wavelet

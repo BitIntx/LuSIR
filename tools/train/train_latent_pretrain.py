@@ -362,6 +362,12 @@ def make_perceptual_model(loss_config: dict[str, Any], device: torch.device) -> 
 
 def make_dataset(config: dict[str, Any], split: str, seed: int, deterministic: bool | None = None) -> ManifestImageDataset:
     data_config = config["data"]
+    if (
+        deterministic is None
+        and split == data_config.get("split", "train")
+        and bool(data_config.get("deterministic_train", False))
+    ):
+        deterministic = True
     return ManifestImageDataset(
         manifest_path=data_config["manifest"],
         split=split,
@@ -376,6 +382,7 @@ def make_dataset(config: dict[str, Any], split: str, seed: int, deterministic: b
         texture_crop_downsample=data_config.get("texture_crop_downsample", 128),
         hr_color_jitter_prob=data_config.get("hr_color_jitter_prob", 0.0),
         hr_color_jitter=data_config.get("hr_color_jitter", (0.97, 1.03)),
+        max_items=data_config.get("max_items"),
     )
 
 

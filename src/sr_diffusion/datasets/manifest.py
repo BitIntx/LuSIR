@@ -131,6 +131,7 @@ class ManifestImageDataset(Dataset[dict[str, Any]]):
         texture_crop_downsample: int = 128,
         hr_color_jitter_prob: float = 0.0,
         hr_color_jitter: Any = (0.97, 1.03),
+        max_items: int | None = None,
     ) -> None:
         self.manifest_path = Path(manifest_path)
         self.split = split
@@ -146,6 +147,9 @@ class ManifestImageDataset(Dataset[dict[str, Any]]):
         self.texture_crop_downsample = int(texture_crop_downsample)
         self.hr_color_jitter_prob = float(hr_color_jitter_prob)
         self.hr_color_jitter = hr_color_jitter
+        self.max_items = None if max_items is None else int(max_items)
+        if self.max_items is not None and self.max_items <= 0:
+            raise ValueError(f"max_items must be positive when set, got {self.max_items}")
         self.entries = self._load_entries()
         self.degradation_preset = degradation_preset
         self.default_pipeline = DegradationPipeline.from_preset(degradation_preset, scale=scale)
@@ -171,6 +175,7 @@ class ManifestImageDataset(Dataset[dict[str, Any]]):
             texture_crop_downsample=data_config.get("texture_crop_downsample", 128),
             hr_color_jitter_prob=data_config.get("hr_color_jitter_prob", 0.0),
             hr_color_jitter=data_config.get("hr_color_jitter", (0.97, 1.03)),
+            max_items=data_config.get("max_items"),
         )
 
     def _load_entries(self) -> list[ManifestEntry]:
@@ -193,6 +198,8 @@ class ManifestImageDataset(Dataset[dict[str, Any]]):
                 if domain not in self.domains:
                     raise ValueError(f"Unknown domain '{domain}' for {image_path}")
                 entries.append(ManifestEntry(path=image_path, domain=domain, split=row["split"]))
+        if self.max_items is not None:
+            entries = entries[: self.max_items]
         return entries
 
     def __len__(self) -> int:

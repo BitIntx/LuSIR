@@ -20,7 +20,11 @@ The follow-up Stage 2 GT-masked detail probe moved the GT-missing-detail signal
 into Stage 2 itself via a train-only masked decoded/highpass loss initialized
 from guarded-detail Stage 2 v2 step 10000, but it was stopped at step1000 after
 highpass ratio and missing-detail metrics worsened despite a small mean-PSNR
-increase.
+increase. A clean-bicubic overfit64 diagnostic is now separated from deployable
+training: it fixes the first 64 train samples under deterministic bicubic
+degradation and evaluates on the same set to test whether the current Stage 2
+structure/loss can memorize high-frequency detail once generalization is
+removed.
 
 `paper/TECHNICAL_REPORT.md` is the canonical report source.
 `paper/sr_diffusion_report.pdf` and `paper/main.tex` are generated from it with
@@ -1262,6 +1266,13 @@ Candidate next steps are:
   highpass ratio fell from `0.8084` to `0.794` and missing-detail energy rose
   from `0.01897` to `0.01939`. The next Stage 2 attempt needs a changed target
   parameterization or architecture, not another mask-weighted loss continuation;
+- use
+  `configs/latent_pretrain_photo130k_lsdir_dual_bicubic_overfit64_probe.yaml`
+  as a non-deployable upper-bound check. Its smoke baseline on train64 is
+  `26.42` mean PSNR, `0.791` highpass ratio, and `0.01971` missing energy. If
+  this fixed-set run cannot improve highpass ratio and missing energy, dataset
+  scale or longer continuation is unlikely to solve the active smoothing
+  bottleneck by itself;
 - select the generative path with LPIPS, DISTS, fixed visual review,
   high-frequency metrics, lowpass drift, and seed diversity instead of PSNR
   alone;
