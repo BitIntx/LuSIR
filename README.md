@@ -212,6 +212,10 @@ ratio, and `0.01971` to `0.01314` missing energy. This weakens the
 "architecture cannot represent detail" hypothesis and points the next work
 toward data/curriculum/regularization for generalizing that detail signal. See
 [`docs/STAGE2_BICUBIC_OVERFIT64_KO.md`](docs/STAGE2_BICUBIC_OVERFIT64_KO.md).
+The follow-up deterministic512 subset-scale probe is
+`configs/latent_pretrain_photo130k_lsdir_dual_bicubic_det512_probe.yaml`; it
+tests whether the same high-frequency trend survives when the fixed clean
+subset grows from 64 to 512 images.
 
 The later Stage 2 detail-perceptual continuation from dual-context best98000
 also completed formal 219-image evaluation. Its latest step12000 checkpoint is

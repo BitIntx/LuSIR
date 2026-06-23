@@ -1210,6 +1210,12 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
   `docs/STAGE2_BICUBIC_OVERFIT64_KO.md`, 로그는
   `/home/ubuntu/scratch/sr-diffusion/latent_pretrain_photo130k_lsdir_dual_bicubic_overfit64_probe.log`
   를 본다. W&B는 <https://wandb.ai/jwheo/LuSIR/runs/12ui2qg0>이다.
+- 다음 subset-scale probe는
+  `configs/latent_pretrain_photo130k_lsdir_dual_bicubic_det512_probe.yaml`다.
+  dual-context best98000에서 다시 시작하고 `benchmark_bicubic` first 512 train
+  sample을 deterministic crop/degradation으로 고정한다. eval도 같은 train512에
+  걸리므로 deployable 성능이 아니라 일반화 전 단계의 upper-bound 진단이다.
+  설계 문서는 `docs/STAGE2_BICUBIC_DET512_KO.md`다.
 5. 현재 Stage2 continuation은 원래 LR로 보존하되, 같은 objective의 장기
    continuation이 SwinIR gap이나 visible detail을 해결할 것으로 기대하지 않는다.
 6. latent residual v1, Stage2 latent residual adapter v1, signed-wavelet

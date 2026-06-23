@@ -2765,3 +2765,26 @@ Best checkpoint는 step3000의
   data/curriculum/regularization 문제로 좁혀진다.
 - 같은 overfit continuation은 하지 않는다. 다음은 fixed subset에서 확인한
   detail-preserving signal을 larger split으로 옮기는 probe를 설계한다.
+
+### 2026-06-23 Stage2 clean-bicubic deterministic512 probe 시작
+
+overfit64가 성공 신호를 냈으므로 subset-scale을 512장으로 키운다. 목적은
+성능 후보 생성이 아니라, 고정 clean-bicubic train set이 커져도 PSNR과
+highpass/missing metric이 같이 좋아지는지 확인하는 것이다.
+
+```text
+config: configs/latent_pretrain_photo130k_lsdir_dual_bicubic_det512_probe.yaml
+init:   checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt
+data:   benchmark_bicubic, deterministic first 512 train samples
+run:    /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_bicubic_det512_probe
+log:    /home/ubuntu/scratch/sr-diffusion/latent_pretrain_photo130k_lsdir_dual_bicubic_det512_probe.log
+```
+
+주의:
+
+- overfit64 best에서 이어받지 않고 dual-context best98000에서 다시 시작한다.
+- eval도 train512에 걸리므로 metric은 deployable/generalization 성능이 아니다.
+- 디스크가 빠듯해서 overfit64의 중간 checkpoint `step_0000500`부터
+  `step_0002500`까지 삭제했고, best/latest/step3000과 모든 metric/sample은
+  남겼다.
+- det512 config는 `save_every: 6000`으로 중간 checkpoint를 만들지 않는다.
