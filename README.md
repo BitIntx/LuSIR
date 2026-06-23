@@ -215,7 +215,10 @@ toward data/curriculum/regularization for generalizing that detail signal. See
 The follow-up deterministic512 subset-scale probe is
 `configs/latent_pretrain_photo130k_lsdir_dual_bicubic_det512_probe.yaml`; it
 tests whether the same high-frequency trend survives when the fixed clean
-subset grows from 64 to 512 images.
+subset grows from 64 to 512 images. Its first 1000 micro-steps keep the same
+direction but much more slowly: train512 mean PSNR `26.95 -> 27.37`,
+highpass ratio `0.791 -> 0.806`, and missing energy `0.01743 -> 0.01639`.
+The run remains diagnostic and is not a deployable checkpoint.
 
 The later Stage 2 detail-perceptual continuation from dual-context best98000
 also completed formal 219-image evaluation. Its latest step12000 checkpoint is

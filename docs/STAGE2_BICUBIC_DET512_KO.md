@@ -34,3 +34,27 @@ wandb:  https://wandb.ai/jwheo/LuSIR/runs/0wzx4xzy
 - 다음 단계: 512에서도 detail metric이 유지되면 2048 deterministic subset 또는
   train512/heldout-val dual eval로 넘어간다. 512에서 바로 약해지면 data/crop
   curriculum과 loss regularization을 먼저 조정한다.
+
+## 중간 결과
+
+2026-06-23 기준 run은 계속 진행 중이며, step 1000까지는 붕괴 없이 같은 방향의
+개선을 보였다.
+
+| step | decoded PSNR | mean PSNR | detail ratio | highpass ratio | missing | PSNR detail score |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 25.20 | 26.95 | 0.326 | 0.791 | 0.01743 | 25.850 |
+| 500 | 25.33 | 27.14 | 0.325 | 0.800 | 0.01687 | 25.984 |
+| 1000 | 25.56 | 27.37 | 0.341 | 0.806 | 0.01639 | 26.242 |
+
+step 1과 step 1000 sample grid의 평균 절대 RGB 차이는 약 `0.0086`로, 눈으로
+보이는 변화는 아직 작다. 그러나 PSNR, highpass ratio, missing energy가 모두
+같은 방향으로 움직였기 때문에 "64장에서는 가능하지만 512장에서는 즉시 사라지는
+신호"는 아니다. 현재 판단은 다음과 같다.
+
+- det512는 overfit64보다 훨씬 느리다.
+- 그래도 subset을 키웠을 때 high-frequency 개선 방향은 유지된다.
+- 이 run은 그대로 step 6000까지 두고, 최종 표에서 highpass ratio가 `0.82` 이상
+  올라가는지와 missing이 계속 내려가는지를 본다.
+- step 6000에서도 highpass ratio가 `0.81` 근처에 머물면, 다음은 단순 장기
+  continuation이 아니라 train/heldout 분리와 crop/curriculum regularization
+  쪽으로 옮긴다.

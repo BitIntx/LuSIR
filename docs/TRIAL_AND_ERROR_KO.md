@@ -2789,3 +2789,20 @@ wandb:  https://wandb.ai/jwheo/LuSIR/runs/0wzx4xzy
   `step_0002500`까지 삭제했고, best/latest/step3000과 모든 metric/sample은
   남겼다.
 - det512 config는 `save_every: 6000`으로 중간 checkpoint를 만들지 않는다.
+
+step1000 중간 결과는 같은 방향의 약한 개선이다.
+
+| step | decoded PSNR | mean PSNR | detail ratio | highpass ratio | missing | PSNR detail score |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 25.20 | 26.95 | 0.326 | 0.791 | 0.01743 | 25.850 |
+| 500 | 25.33 | 27.14 | 0.325 | 0.800 | 0.01687 | 25.984 |
+| 1000 | 25.56 | 27.37 | 0.341 | 0.806 | 0.01639 | 26.242 |
+
+판정:
+
+- 512장에서도 PSNR/highpass/missing이 같은 방향으로 움직였으므로 overfit64의
+  detail-preserving signal이 즉시 사라진 것은 아니다.
+- 다만 눈으로 보는 변화는 아직 작고, step1 대비 step1000 pred grid의 평균
+  절대 RGB 차이는 약 `0.0086`이다.
+- overfit64보다 훨씬 느리므로, step6000에서 highpass ratio가 `0.82` 이상으로
+  올라가는지와 missing이 계속 내려가는지를 봐야 한다.
