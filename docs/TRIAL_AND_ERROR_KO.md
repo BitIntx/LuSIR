@@ -2495,3 +2495,107 @@ grid에서는 artifact 붕괴는 없지만 visible detail 개선도 거의 없�
 implementation validation으로 보존하고 promotion하지 않는다. 단순히 teacher loss를
 키우거나 더 오래 돌리는 것보다 teacher-positive patch selection 품질을 다시 진단하고,
 GT-aligned detail을 별도 head/target으로 더 직접 예측하는 구조를 검토한다.
+
+### 2026-06-23 RealESRGAN teacher patch-quality 진단
+
+v7을 더 돌리기 전에 teacher signal 자체를 진단했다.
+
+```text
+script:  tools/analysis/diagnose_teacher_patch_quality.py
+config:  configs/detail_branch_v7_teacher_filtered_hinge_probe.yaml
+limit:   teacher cache 첫 256 train samples
+summary: /home/ubuntu/scratch/sr-diffusion/runs/diagnose_teacher_patch_quality_v7_train256/summary.json
+grid:    /home/ubuntu/scratch/sr-diffusion/runs/diagnose_teacher_patch_quality_v7_train256/teacher_patch_quality_grid.png
+```
+
+핵심 결과:
+
+```text
+base PSNR mean:               26.1580
+teacher PSNR mean:            23.5984
+teacher - base PSNR:          -2.5596 dB
+teacher PSNR wins:            0 / 256
+teacher highpass-L1 wins:     0 / 256
+teacher selected area:        0.2036
+v7 effective teacher weight:  0.0177
+selected patch improvement:   -0.000632
+effective HP oracle gain:     +0.0131 dB
+```
+
+해석:
+
+- RealESRGAN teacher는 이 protocol에서 전역 fidelity뿐 아니라 highpass-L1도 base를
+  한 번도 이기지 못했다.
+- v7 filter는 약 20% 영역을 고르지만, 선택 영역의 평균 local highpass improvement도
+  음수다. margin이 "좋은 patch"가 아니라 "덜 나쁜 patch"를 통과시키고 있었다.
+- effective mask까지 곱하면 teacher signal은 약 1.8%만 남고, highpass oracle gain도
+  `+0.013 dB`라 visible breakthrough를 기대하기 어렵다.
+
+판정:
+
+- RealESRGAN teacher loss를 키우거나 v7을 더 오래 돌리지 않는다.
+- 다음은 teacher를 제거하고 학습시에만 GT detail-need mask를 써서 정확한 위치에서
+  residual/highpass target을 보게 하는 v8 probe로 진행한다.
+
+### 2026-06-23 detail branch v8 GT-mask training probe 시작
+
+```text
+config: configs/detail_branch_v8_gtmask_training_probe.yaml
+run:    /home/ubuntu/scratch/sr-diffusion/runs/detail_branch_v8_gtmask_training_probe
+wandb:  https://wandb.ai/jwheo/LuSIR/runs/099kwayk
+log:    /home/ubuntu/scratch/sr-diffusion/detail_branch_v8_gtmask_training_probe.log
+init:   checkpoints/detail_branch_v2_masked_photo130k_lsdir_best38000.pt
+```
+
+설계:
+
+- teacher는 완전히 끈다.
+- 학습시에만 `detail_need_components(base, GT)`로 만든 GT detail-need top20 binary
+  mask를 사용한다.
+- eval/inference는 기존 learned noise-negative top20 + floor `0.05` mask를 그대로
+  사용하므로 런타임 GT 누수는 없다.
+- 목적은 branch가 teacher 노이즈 대신 실제 missing-detail 위치에서
+  residual/highpass/laplacian target을 보게 만드는 것이다.
+
+4-step smoke:
+
+```text
+step1 train:
+  mask=0.2000
+  teacher_res=0
+  teacher_hp=0
+
+step4 eval:
+  sr_psnr delta      +0.1010 dB
+  mean_psnr delta    +0.1199 dB
+  SSIM delta         +0.00373
+  highpass ratio     +0.0126
+  laplacian ratio    +0.0024
+  lowpass drift      0.000200
+  outside mask L1    0.000480
+```
+
+첫 판단 지점은 step250/500이다. v7처럼 PSNR/SSIM만 유지되고 highpass/laplacian이
+음수로 꺾이면 조기 중단한다. 반대로 highpass/laplacian과 grid가 유지되면 3k까지 본다.
+
+중간 결과:
+
+```text
+step250:
+  sr_psnr delta      +0.1000 dB
+  mean_psnr delta    +0.1146 dB
+  SSIM delta         +0.00439
+  highpass ratio     +0.0177
+  laplacian ratio    +0.0040
+
+step500:
+  sr_psnr delta      +0.1000 dB
+  mean_psnr delta    +0.1194 dB
+  SSIM delta         +0.00431
+  highpass ratio     +0.0158
+  laplacian ratio    +0.0024
+```
+
+v7과 달리 step500에서도 highpass/laplacian이 양수로 유지된다. step500 grid에서
+artifact 붕괴는 보이지 않지만 visible detail 변화는 아직 작다. 현재 판정은
+"계속 볼 가치 있음"이며 3000 step까지 진행한다.

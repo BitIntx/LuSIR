@@ -24,7 +24,7 @@ from sr_diffusion.detail_adversarial import (
     discriminator_logistic_loss,
     generator_logistic_loss,
 )
-from sr_diffusion.detail_mask import DetailMaskPredictor, top_fraction_mask
+from sr_diffusion.detail_mask import DetailMaskPredictor, detail_need_components, top_fraction_mask
 from sr_diffusion.datasets import ManifestImageDataset
 from sr_diffusion.datasets.manifest import pil_to_tensor
 from sr_diffusion.losses import FrozenVGGFeatureLoss
@@ -281,6 +281,46 @@ def apply_detail_mask_policy(detail_mask: torch.Tensor | None, mask_cfg: dict[st
             raise ValueError(f"detail_mask.top_mode must be 'binary' or 'soft', got {top_mode!r}")
 
     return mask.to(dtype=detail_mask.dtype)
+
+
+def make_training_detail_mask(
+    base_sr: torch.Tensor,
+    hr: torch.Tensor,
+    learned_mask: torch.Tensor | None,
+    mask_cfg: dict[str, Any],
+) -> torch.Tensor | None:
+    source = str(mask_cfg.get("source", "learned"))
+    if source in {"learned", "predicted"}:
+        return learned_mask
+    if source in {"none", "disabled"}:
+        return None
+    if source != "gt_detail_need":
+        raise ValueError(f"training_detail_mask.source must be learned, none, or gt_detail_need, got {source!r}")
+    components = detail_need_components(
+        base_sr.detach().float(),
+        hr.float(),
+        highpass_kernel=int(mask_cfg.get("highpass_kernel", 15)),
+        patch_kernel=int(mask_cfg.get("patch_kernel", 9)),
+        score_quantile=float(mask_cfg.get("score_quantile", 0.95)),
+    )
+    mask = components["score"]
+    gamma = float(mask_cfg.get("gamma", 1.0))
+    if gamma != 1.0:
+        if gamma <= 0.0:
+            raise ValueError(f"training_detail_mask.gamma must be positive, got {gamma}")
+        mask = mask.pow(gamma)
+    top_fraction = mask_cfg.get("top_fraction")
+    if top_fraction is not None:
+        fraction = float(top_fraction)
+        selected = top_fraction_mask(mask, fraction).to(dtype=mask.dtype)
+        top_mode = str(mask_cfg.get("top_mode", "binary"))
+        if top_mode == "binary":
+            mask = selected
+        elif top_mode == "soft":
+            mask = mask * selected
+        else:
+            raise ValueError(f"training_detail_mask.top_mode must be 'binary' or 'soft', got {top_mode!r}")
+    return mask.to(dtype=base_sr.dtype)
 
 
 def save_checkpoint(
@@ -1292,6 +1332,12 @@ def main() -> None:
             else:
                 detail_mask = None
             detail_mask = apply_detail_mask_policy(detail_mask, detail_mask_cfg)
+            training_detail_mask = make_training_detail_mask(
+                base_sr=base_sr,
+                hr=hr,
+                learned_mask=detail_mask,
+                mask_cfg=config.get("training_detail_mask", {}),
+            )
         adversarial_active = discriminator is not None and step >= adversarial_start_step
         if discriminator is not None and adversarial_active:
             set_requires_grad(discriminator, False)
@@ -1304,7 +1350,7 @@ def main() -> None:
                 hr=hr,
                 domain_id=domain_id,
                 loss_cfg=loss_cfg,
-                detail_mask=detail_mask,
+                detail_mask=training_detail_mask,
                 detail_mask_floor=detail_mask_floor,
                 perceptual_model=perceptual_model,
                 discriminator=discriminator,
@@ -1365,6 +1411,14 @@ def main() -> None:
                 "train/teacher_residual_energy": float(loss_parts["teacher_residual_energy"].detach().cpu()),
                 "train/negative_residual": float(loss_parts["negative_residual"].detach().cpu()),
                 "train/negative_weight": float(loss_parts["negative_weight"].detach().cpu()),
+                "train/learned_detail_mask": (
+                    float(detail_mask.detach().float().mean().cpu()) if detail_mask is not None else 0.0
+                ),
+                "train/training_detail_mask": (
+                    float(training_detail_mask.detach().float().mean().cpu())
+                    if training_detail_mask is not None
+                    else 0.0
+                ),
                 "train/discriminator": float(discriminator_loss.detach().cpu()),
                 "train/adversarial_active": float(adversarial_active),
                 "train/lr": float(optimizer.param_groups[0]["lr"]),
@@ -1386,6 +1440,7 @@ def main() -> None:
                 f"teacher_w={train_metrics['train/teacher_weight']:.4f} "
                 f"teacher_imp={train_metrics['train/teacher_improvement']:+.5f} "
                 f"neg={train_metrics['train/negative_residual']:.5f} "
+                f"mask={train_metrics['train/training_detail_mask']:.4f} "
                 f"adv={train_metrics['train/adversarial']:.5f} "
                 f"disc={train_metrics['train/discriminator']:.5f} "
                 f"gate={train_metrics['train/gate']:.5f} "

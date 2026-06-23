@@ -11,7 +11,10 @@ no-GAN, noise-gated v6 detail branch, Stage 2 latent residual adapter, masked
 latent residual-shift, and teacher-filtered v7 detail probes are complete; none
 is promoted. V7 used RealESRGAN only on local highpass patches that were
 near/better than the base against GT, but step500 still regressed highpass and
-laplacian detail ratios.
+laplacian detail ratios. A 256-image teacher patch diagnostic then showed that
+RealESRGAN did not beat the base on PSNR or highpass-L1 for any cached sample,
+so the active v8 probe removes teacher supervision and uses GT detail-need masks
+only during training.
 
 `paper/TECHNICAL_REPORT.md` is the canonical report source.
 `paper/sr_diffusion_report.pdf` and `paper/main.tex` are generated from it with
@@ -52,6 +55,11 @@ current detail research candidate:
 teacher-filtered negative result:
   LR -> dual-context LSDIR Stage 2 -> Stage 1 decoder
      -> relaxed learned detail mask -> v7 teacher-filtered detail branch
+
+active GT-mask training probe:
+  train: base/GT -> GT detail-need top20 training mask
+  eval:  LR -> dual-context LSDIR Stage 2 -> Stage 1 decoder
+            -> learned detail mask -> v8 detail branch
 
 generative comparison:
   LR -> Stage 2 condition encoder -> Stage 3 OR Stage 4 diffusion U-Net

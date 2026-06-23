@@ -11,6 +11,7 @@ from tools.train.train_detail_branch import (
     gt_highpass_hinge_losses,
     init_model_from_checkpoint,
     load_checkpoint,
+    make_training_detail_mask,
     save_checkpoint,
     teacher_improvement_mask,
     training_loss,
@@ -100,6 +101,39 @@ def test_detail_mask_policy_supports_soft_top_fraction() -> None:
     masked = apply_detail_mask_policy(detail_mask, {"top_fraction": 0.5, "top_mode": "soft"})
 
     assert torch.allclose(masked, torch.tensor([[[[0.0, 0.4], [0.8, 0.0]]]]))
+
+
+def test_training_detail_mask_defaults_to_learned_mask() -> None:
+    learned = torch.rand(1, 1, 8, 8)
+    base = torch.rand(1, 3, 8, 8)
+    hr = torch.rand(1, 3, 8, 8)
+
+    mask = make_training_detail_mask(base, hr, learned, {})
+
+    assert mask is learned
+
+
+def test_training_detail_mask_can_use_gt_detail_need_top_fraction() -> None:
+    base = torch.full((1, 3, 24, 24), 0.5)
+    hr = base.clone()
+    hr[:, :, 8:16, 8:16] = (hr[:, :, 8:16, 8:16] + 0.08 * torch.randn(1, 3, 8, 8)).clamp(0.0, 1.0)
+
+    mask = make_training_detail_mask(
+        base,
+        hr,
+        learned_mask=None,
+        mask_cfg={
+            "source": "gt_detail_need",
+            "top_fraction": 0.25,
+            "top_mode": "binary",
+            "highpass_kernel": 5,
+            "patch_kernel": 3,
+        },
+    )
+
+    assert mask is not None
+    assert mask.shape == (1, 1, 24, 24)
+    assert torch.allclose(mask.mean(), torch.tensor(0.25), atol=1.0 / (24 * 24))
 
 
 def test_detail_branch_model_init_preserves_old_path_with_condition_latent(tmp_path) -> None:

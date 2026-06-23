@@ -144,7 +144,10 @@ Stage 2 latent residual adapter, masked latent residual-shift, and
 teacher-filtered v7 detail probes are complete; none is promoted. V7
 used RealESRGAN only on local highpass patches that were near/better
 than the base against GT, but step500 still regressed highpass and
-laplacian detail ratios.
+laplacian detail ratios. A 256-image teacher patch diagnostic then
+showed that RealESRGAN did not beat the base on PSNR or highpass-L1 for
+any cached sample, so the active v8 probe removes teacher supervision
+and uses GT detail-need masks only during training.
 
 \texttt{paper/TECHNICAL\_REPORT.md} is the canonical report source.
 \texttt{paper/sr\_diffusion\_report.pdf} and \texttt{paper/main.tex} are
@@ -193,6 +196,11 @@ current runtime choices are:
 \NormalTok{teacher{-}filtered negative result:}
 \NormalTok{  LR {-}\textgreater{} dual{-}context LSDIR Stage 2 {-}\textgreater{} Stage 1 decoder}
 \NormalTok{     {-}\textgreater{} relaxed learned detail mask {-}\textgreater{} v7 teacher{-}filtered detail branch}
+
+\NormalTok{active GT{-}mask training probe:}
+\NormalTok{  train: base/GT {-}\textgreater{} GT detail{-}need top20 training mask}
+\NormalTok{  eval:  LR {-}\textgreater{} dual{-}context LSDIR Stage 2 {-}\textgreater{} Stage 1 decoder}
+\NormalTok{            {-}\textgreater{} learned detail mask {-}\textgreater{} v8 detail branch}
 
 \NormalTok{generative comparison:}
 \NormalTok{  LR {-}\textgreater{} Stage 2 condition encoder {-}\textgreater{} Stage 3 OR Stage 4 diffusion U{-}Net}

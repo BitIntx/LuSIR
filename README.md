@@ -130,6 +130,13 @@ promoted: step500 still had positive PSNR/SSIM deltas, but highpass and
 laplacian ratios regressed and the eval grid showed no visible detail
 breakthrough. Notes are in
 [`docs/DETAIL_BRANCH_V7_TEACHER_FILTERED_KO.md`](docs/DETAIL_BRANCH_V7_TEACHER_FILTERED_KO.md).
+The follow-up teacher patch diagnostic found that RealESRGAN did not beat the
+base on PSNR or highpass-L1 for any of the first 256 cached training samples,
+so the active v8 probe removes teacher supervision and uses a GT detail-need
+mask only during training. Eval and inference still use the learned
+noise-negative mask. See
+[`docs/TEACHER_PATCH_QUALITY_KO.md`](docs/TEACHER_PATCH_QUALITY_KO.md) and
+[`docs/DETAIL_BRANCH_V8_GTMASK_KO.md`](docs/DETAIL_BRANCH_V8_GTMASK_KO.md).
 
 The latest guarded-detail Stage 2 candidate
 `latent_pretrain_photo130k_lsdir_dual_detail_guarded_v2` was continued for

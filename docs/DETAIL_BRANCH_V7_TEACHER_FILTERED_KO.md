@@ -114,3 +114,23 @@ detail 지표가 줄었다. 이는 v6와 masked latent residual-shift v2에서 �
 - 다음 실험은 teacher loss를 더 키우는 단순 continuation이 아니라, teacher 후보의
   patch selection 품질 자체를 재진단하거나 GT-aligned detail target을 별도 head로
   더 직접 예측하는 구조로 가야 한다.
+
+## Teacher patch-quality 진단
+
+후속 진단은 `tools/analysis/diagnose_teacher_patch_quality.py`로 수행했다.
+RealESRGAN teacher cache 첫 256장에서 teacher는 base를 한 번도 이기지 못했다.
+
+```text
+teacher - base PSNR mean:      -2.5596 dB
+teacher PSNR wins:             0 / 256
+teacher highpass-L1 wins:      0 / 256
+teacher-selected area:         0.2036
+v7 effective teacher weight:   0.0177
+selected patch improvement:    -0.000632
+effective HP oracle gain:      +0.0131 dB
+```
+
+결론은 명확하다. RealESRGAN teacher를 더 세게 쓰거나 v7을 오래 돌리는 것은
+우선하지 않는다. 상세 내용은 `docs/TEACHER_PATCH_QUALITY_KO.md`에 기록했다.
+다음 active follow-up은 teacher를 제거하고 학습시에만 GT detail-need mask를 쓰는
+`configs/detail_branch_v8_gtmask_training_probe.yaml`이다.
