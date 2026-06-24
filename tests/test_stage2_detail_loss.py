@@ -2,6 +2,7 @@ import torch
 from torch import nn
 
 from tools.train.train_latent_pretrain import (
+    add_eval_selection_metric,
     artifact_excess_loss,
     compute_stage2_loss,
     local_highpass_energy_hinge_losses,
@@ -16,6 +17,38 @@ class IdentityDecoder(nn.Module):
 class FeatureLoss(nn.Module):
     def forward(self, prediction: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         return torch.nn.functional.l1_loss(prediction, target)
+
+
+def test_eval_selection_metric_applies_weights_and_guardrails() -> None:
+    metrics = {
+        "eval/decoded_mean_psnr": 27.05,
+        "eval_mild/decoded_mean_psnr": 25.80,
+        "eval_photo_v2/decoded_mean_psnr": 23.10,
+    }
+    config = {
+        "selection": {
+            "name": "eval/robustness_score",
+            "terms": [
+                {"metric": "eval/decoded_mean_psnr", "weight": 0.5},
+                {"metric": "eval_mild/decoded_mean_psnr", "weight": 0.3},
+                {"metric": "eval_photo_v2/decoded_mean_psnr", "weight": 0.2},
+            ],
+            "guardrails": [
+                {"metric": "eval/decoded_mean_psnr", "min": 27.0},
+            ],
+        }
+    }
+
+    add_eval_selection_metric(metrics, config)
+
+    assert metrics["eval/selection_valid"] == 1.0
+    assert metrics["eval/robustness_score"] == metrics["eval/robustness_score_raw"]
+    assert abs(metrics["eval/robustness_score"] - 25.885) < 1e-6
+
+    metrics["eval/decoded_mean_psnr"] = 26.9
+    add_eval_selection_metric(metrics, config)
+    assert metrics["eval/selection_valid"] == 0.0
+    assert metrics["eval/robustness_score"] == -1.0e9
 
 
 def test_stage2_detail_loss_backpropagates_through_decoded_objectives() -> None:

@@ -258,6 +258,14 @@ All four degradation presets regressed by `0.010-0.063 dB`, and the visual
 outputs were indistinguishable from V3. The 148M checkpoint is diagnostic only
 and is not promoted. Run: <https://wandb.ai/jwheo/LuSIR/runs/4y21n40o>.
 
+The next Stage 2 probe returns to the selected `119.24M` V3 model and trains a
+mixed-degradation bridge rather than adding capacity. Training samples are
+`55%` benchmark bicubic, `20%` restrained photo detail, `15%` mild, `8%`
+photo-v2, and `2%` photo-v3 noise. Checkpoint selection uses a weighted score
+across clean and four degradation val100 sets, with explicit clean PSNR, SSIM,
+and excess-energy guardrails. This tests whether robustness can be recovered
+without giving back V3's clean-fidelity gain.
+
 The later Stage 2 detail-perceptual continuation from dual-context best98000
 also completed formal 219-image evaluation. Its latest step12000 checkpoint is
 nearly tied with dual best98000 (`27.8356` vs `27.8431` Y PSNR) and slightly

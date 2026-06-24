@@ -435,6 +435,22 @@ justified. The result rejects simple Stage 2 trunk capacity as the primary
 bottleneck and redirects the next experiment toward a mixed clean/real
 degradation curriculum.
 
+The follow-up returns to the selected `119.238M` V3 architecture and changes
+the training distribution instead of model capacity. The robustness bridge
+mix contains `55%` benchmark bicubic, `20%` restrained photo-detail
+degradation, `15%` mild, `8%` photo-v2, and `2%` photo-v3 noise. It starts
+from V3 step11500, uses a `2e-6` warmup-cosine learning rate, batch 8 without
+gradient accumulation, and runs for at most 6000 steps.
+
+Checkpoint selection uses a weighted PSNR score over clean (`45%`), mild
+(`15%`), photo-detail-mix (`15%`), photo-v2 (`12.5%`), and
+photo-v3-noise-mix (`12.5%`). A candidate is invalid unless clean mean PSNR is
+at least `27.02 dB`, clean SSIM at least `0.8260`, and clean excess energy at
+most `0.0075`. The trainer now supports a primary `eval.data` override so the
+clean benchmark remains independent of the mixed training preset. The initial
+CUDA smoke reproduces clean mean PSNR `27.0550`, obtains composite score
+`25.7430`, passes all guardrails, and the full 97-test suite passes.
+
 ## Stage 2 Detail-Perceptual Continuation Review
 
 A separate Stage 2 continuation started from dual-context best98000 and trained

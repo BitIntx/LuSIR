@@ -1286,6 +1286,17 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
   시각 차이는 구분하기 어렵다. 28.35M 추가 parameter의 가치가 없으므로
   checkpoint를 승격하지 않는다. 다음은 모델 확대가 아니라
   clean/real-degradation mixed curriculum을 우선한다.
+- 후속 mixed-degradation bridge v1은
+  `configs/latent_pretrain_photo130k_lsdir_dual_robustness_bridge_v1.yaml`
+  이다. 148M이 아니라 선택된 119.238M V3 best11500에서 시작한다. train
+  preset은 benchmark bicubic `55%`, photo detail `20%`, mild `15%`,
+  photo_v2 `8%`, photo_v3 noise `2%`다. LR `2e-6`, batch 8, grad accumulation
+  1, 최대 6000 step이다. checkpoint는 clean `45%`, mild/detail-mix 각
+  `15%`, photo_v2/v3 각 `12.5%`의 weighted PSNR score로 고르되 clean
+  mean PSNR `27.02`, SSIM `0.8260`, excess `0.0075` guardrail을 통과해야
+  한다. primary eval에 별도 `eval.data` override를 추가해 train mix와
+  clean-bicubic 평가가 섞이지 않게 했다. CUDA 3-step smoke와 전체
+  `97 tests`를 통과했다.
 5. 현재 Stage2 continuation은 원래 LR로 보존하되, 같은 objective의 장기
    continuation이 SwinIR gap이나 visible detail을 해결할 것으로 기대하지 않는다.
 6. latent residual v1, Stage2 latent residual adapter v1, signed-wavelet

@@ -774,6 +774,37 @@ def format_optimizer_lrs(optimizer: torch.optim.Optimizer) -> str:
     )
 
 
+def add_eval_selection_metric(metrics: dict[str, float], eval_config: dict[str, Any]) -> None:
+    selection = eval_config.get("selection") or {}
+    if not selection:
+        return
+    name = str(selection.get("name", "eval/selection_score"))
+    terms = selection.get("terms") or []
+    if not terms:
+        raise ValueError("eval.selection.terms must contain at least one weighted metric")
+    score = 0.0
+    for term in terms:
+        metric_name = str(term["metric"])
+        if metric_name not in metrics:
+            raise KeyError(f"eval.selection metric not found: {metric_name}")
+        score += float(term.get("weight", 1.0)) * float(metrics[metric_name])
+
+    valid = True
+    for guardrail in selection.get("guardrails") or []:
+        metric_name = str(guardrail["metric"])
+        if metric_name not in metrics:
+            raise KeyError(f"eval.selection guardrail metric not found: {metric_name}")
+        value = float(metrics[metric_name])
+        if "min" in guardrail and value < float(guardrail["min"]):
+            valid = False
+        if "max" in guardrail and value > float(guardrail["max"]):
+            valid = False
+
+    metrics[f"{name}_raw"] = score
+    metrics["eval/selection_valid"] = float(valid)
+    metrics[name] = score if valid else float(selection.get("invalid_value", -1.0e9))
+
+
 def evaluate(
     model: LRToLatentPredictor,
     vae: AutoencoderKL,
@@ -996,7 +1027,13 @@ def main() -> None:
     if best_metric_mode not in {"min", "max"}:
         raise ValueError(f"Unsupported eval.best_mode: {best_metric_mode}")
     if eval_enabled and is_main_process(rank):
-        eval_dataset = make_dataset(config, split=str(eval_cfg.get("split", "val")), seed=seed, deterministic=True)
+        eval_dataset = make_dataset(
+            config,
+            split=str(eval_cfg.get("split", "val")),
+            seed=seed,
+            deterministic=True,
+            data_overrides=eval_cfg.get("data", {}),
+        )
         limit = int(eval_cfg.get("limit", 0))
         if limit > 0 and limit < len(eval_dataset):
             from torch.utils.data import Subset
@@ -1014,7 +1051,8 @@ def main() -> None:
             "eval="
             f"split={eval_cfg.get('split', 'val')} "
             f"limit={eval_cfg.get('limit', 0)} "
-            f"batch_size={eval_cfg.get('batch_size', train_cfg.get('batch_size', 1))}",
+            f"batch_size={eval_cfg.get('batch_size', train_cfg.get('batch_size', 1))} "
+            f"degradation={eval_cfg.get('data', {}).get('degradation_preset', config['data'].get('degradation_preset'))}",
             rank,
         )
         for additional_cfg in eval_cfg.get("additional", []) or []:
@@ -1256,6 +1294,7 @@ def main() -> None:
                             f"missing={additional_metrics['eval/missing_energy']:.5f} "
                             f"excess={additional_metrics['eval/excess_energy']:.5f}"
                         )
+                    add_eval_selection_metric(combined_metrics, eval_cfg)
                     (eval_dir / f"step_{step:07d}_metrics.json").write_text(
                         json.dumps({"step": step, "metrics": combined_metrics}, indent=2, sort_keys=True) + "\n",
                         encoding="utf-8",
@@ -1273,7 +1312,7 @@ def main() -> None:
                         f"psnr_detail_score={metrics['eval/psnr_detail_score']:.3f}"
                     )
                     wandb_log(run, combined_metrics, step=step)
-                    metric_value = float(metrics[best_metric_name])
+                    metric_value = float(combined_metrics[best_metric_name])
                     is_better = metric_value < best_eval if best_metric_mode == "min" else metric_value > best_eval
                     if is_better:
                         best_eval = metric_value

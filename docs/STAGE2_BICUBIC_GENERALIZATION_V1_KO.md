@@ -258,3 +258,41 @@ metrics/formal_x4_benchmark_stage2_trunk148m_summary.json
 metrics/formal_x4_benchmark_stage2_trunk148m_metrics.csv
 samples/stage2_trunk148m_contact_sheet.jpg
 ```
+
+## Mixed-degradation robustness bridge v1
+
+148M 확장에서 실질 이득이 없었으므로 V3 best11500의 `119.238M` 구조로
+돌아간다. 목표는 clean-bicubic fidelity를 유지한 채 V3에서 잃은 실제 열화
+robustness를 일부 회복하는 것이다.
+
+```text
+config: configs/latent_pretrain_photo130k_lsdir_dual_robustness_bridge_v1.yaml
+init:   V3 best11500
+steps:  6000
+batch:  8, grad accumulation 1
+LR:     2e-6 warmup cosine
+```
+
+train degradation mix:
+
+| preset | weight |
+| --- | ---: |
+| benchmark_bicubic | 55% |
+| photo_detail | 20% |
+| mild | 15% |
+| photo_v2 | 8% |
+| photo_v3_noise | 2% |
+
+checkpoint selection은 clean 단일 PSNR이 아니라 clean `45%`, mild와
+photo-detail-mix 각 `15%`, photo-v2와 photo-v3-noise-mix 각 `12.5%`의
+weighted mean PSNR을 사용한다. 단 다음 guardrail을 모두 통과해야 한다.
+
+- clean mean PSNR `>= 27.02`
+- clean SSIM `>= 0.8260`
+- clean excess energy `<= 0.0075`
+
+trainer는 이제 primary eval에도 `eval.data` override를 지원한다. 따라서 학습
+preset이 mixed여도 primary val100은 항상 `benchmark_bicubic`이고, 네 실제
+열화 평가는 별도 namespace에 기록된다. CUDA 3-step smoke에서 초기 clean
+mean PSNR `27.0550`, composite score `25.7430`, guardrail valid를 확인했고
+전체 test suite는 `97 passed`다.

@@ -2968,3 +2968,23 @@ GT의 미세 질감과의 차이는 그대로다. 따라서 이번 실험은 par
 가설을 기각한다. 같은 trunk를 더 깊거나 넓게 만드는 실험은 중단하고,
 data/objective에서 clean fidelity와 degradation robustness를 함께 유지하는
 방향으로 이동한다.
+
+### 2026-06-24 Stage2 mixed-degradation robustness bridge v1
+
+단순 trunk 확대가 실패했으므로 V3 best11500의 119.238M 구조에서 data
+curriculum을 바꾼다. 새 `photo_robustness_bridge_v1` preset은 benchmark
+bicubic `55%`, photo detail `20%`, mild `15%`, photo_v2 `8%`,
+photo_v3 noise `2%`다. clean이 과반이라 V3 fidelity를 고정점으로 유지하면서
+나머지 45%로 실제 열화 대응을 다시 학습한다.
+
+clean 단일 best selection은 strong preset 회귀를 숨기므로 trainer에 weighted
+selection metric과 guardrail을 추가했다. composite는 clean `45%`,
+mild/detail-mix 각 `15%`, v2/v3 각 `12.5%`이며 clean PSNR `27.02`,
+SSIM `0.8260`, excess `0.0075` 조건을 모두 통과해야 유효하다. primary
+eval에 `eval.data` override도 추가해 mixed train preset이 clean 평가에
+잘못 적용되는 문제를 smoke에서 발견하고 수정했다.
+
+수정 후 CUDA smoke 초기값은 clean mean PSNR `27.0550`, composite
+`25.7430`, selection valid `1.0`이며 eval 전후 backward를 통과했다.
+전체 test suite는 `97 passed`다. 최대 6000 step에서 strong preset 회복량과
+clean 손실을 함께 본다.

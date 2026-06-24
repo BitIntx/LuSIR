@@ -142,3 +142,32 @@ def test_stage2_make_dataset_supports_fixed_subset_train_probe(tmp_path: Path) -
     second = dataset[0]
     assert first["hr"].equal(second["hr"])
     assert first["lr"].equal(second["lr"])
+
+
+def test_stage2_make_dataset_applies_data_overrides(tmp_path: Path) -> None:
+    images = tmp_path / "images"
+    images.mkdir()
+    Image.new("RGB", (64, 64), (120, 80, 40)).save(images / "sample.png")
+    manifest = tmp_path / "manifest.csv"
+    with manifest.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=["path", "domain", "split"])
+        writer.writeheader()
+        writer.writerow({"path": "images/sample.png", "domain": "photo", "split": "val"})
+
+    dataset = make_dataset(
+        {
+            "data": {
+                "manifest": str(manifest),
+                "hr_size": 64,
+                "scale": 4,
+                "domains": {"photo": 0, "anime": 1},
+                "degradation_preset": "mild",
+            }
+        },
+        split="val",
+        seed=0,
+        deterministic=True,
+        data_overrides={"degradation_preset": "benchmark_bicubic"},
+    )
+
+    assert dataset.degradation_preset == "benchmark_bicubic"
