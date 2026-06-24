@@ -2874,3 +2874,7 @@ fixed train512:  mean PSNR 26.95, SSIM 0.80988, highpass 0.791,
 
 장기 run은 12000 step으로 잡되 val highpass L1/excess가 지속 악화하거나
 train512만 오르고 val100이 떨어지면 조기 중단한다.
+
+실제 run은 <https://wandb.ai/jwheo/LuSIR/runs/yr815agn>에서 시작했다.
+L40S batch 8은 약 `37.8 / 46.1 GiB`를 사용하며 eval/checkpoint를 제외한
+학습 구간은 약 `1.13 step/s`다.

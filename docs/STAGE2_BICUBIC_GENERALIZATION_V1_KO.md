@@ -9,6 +9,7 @@ V1의 목적은 fixed-subset memorization이 아니라 detail signal의 전이 �
 config: configs/latent_pretrain_photo130k_lsdir_dual_bicubic_generalization_v1.yaml
 init:   checkpoints/stage2_photo130k_lsdir_dual_multiscale_best98000.pt
 data:   benchmark_bicubic, full photo130k+LSDIR train split
+wandb:  https://wandb.ai/jwheo/LuSIR/runs/yr815agn
 ```
 
 설계:
@@ -35,3 +36,18 @@ data:   benchmark_bicubic, full photo130k+LSDIR train split
 - train512와 val100 간 PSNR gap이 벌어지고 fixed grid에 ripple/grid texture가
   나타나면 조기 중단한다.
 - 이 run은 Stage2 연구 probe이며 결과 확인 전 public/HF/Colab에 승격하지 않는다.
+
+## 실행 상태
+
+2026-06-24에 장기 run을 시작했다. step1 dual eval은 기존 best98000 기준을
+재현했다.
+
+```text
+held-out val100: mean PSNR 26.92, SSIM 0.82143, highpass ratio 0.824,
+                    highpass L1 0.03113, missing 0.01799, excess 0.00678
+fixed train512:  mean PSNR 26.95, SSIM 0.80987, highpass ratio 0.791,
+                    highpass L1 0.02935, missing 0.01743, excess 0.00539
+```
+
+L40S에서 batch 8은 약 `37.8 / 46.1 GiB`를 사용하고, eval/checkpoint 구간을
+제외한 학습 속도는 약 `1.13 step/s`다.

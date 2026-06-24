@@ -1234,7 +1234,9 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
   highpass energy에는 새 `artifact_excess` soft-hinge loss를 적용한다. batch 8,
   grad accumulation 1, LR `5e-6`, 최대 12000 step이며 numbered checkpoint는
   만들지 않고 best/latest만 남긴다. 설계와 중단 기준은
-  `docs/STAGE2_BICUBIC_GENERALIZATION_V1_KO.md`를 따른다.
+  `docs/STAGE2_BICUBIC_GENERALIZATION_V1_KO.md`를 따른다. 장기 run은
+  2026-06-24 시작했고 W&B는
+  <https://wandb.ai/jwheo/LuSIR/runs/yr815agn>이다.
 5. 현재 Stage2 continuation은 원래 LR로 보존하되, 같은 objective의 장기
    continuation이 SwinIR gap이나 visible detail을 해결할 것으로 기대하지 않는다.
 6. latent residual v1, Stage2 latent residual adapter v1, signed-wavelet
