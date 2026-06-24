@@ -668,6 +668,39 @@ VRAM. A clean gain below \texttt{0.05\ dB}, or renewed
 degradation-preset regression, is evidence that capacity is not the
 primary bottleneck.
 
+The probe completed 4000 steps and selected step3500. Held-out
+clean-bicubic val100 mean PSNR improved by only \texttt{0.00364\ dB}.
+All robustness evaluations regressed: \texttt{-0.02011\ dB} on
+\texttt{mild}, \texttt{-0.01005\ dB} on \texttt{photo\_detail\_mix},
+\texttt{-0.05466\ dB} on \texttt{photo\_v2}, and \texttt{-0.06268\ dB}
+on \texttt{photo\_v3\_noise\_mix}.
+
+The formal 219-image benchmark confirms that the small clean gain is not
+practically meaningful:
+
+\begin{longtable}[]{@{}lrrrr@{}}
+\toprule\noalign{}
+Candidate & Mean Y PSNR & Mean Y SSIM & Mean RGB PSNR & Mean RGB SSIM \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Generalization V3 step11500 & \texttt{27.99167} & \texttt{0.802953} &
+\texttt{26.47050} & \texttt{0.779686} \\
+148M trunk step3500 & \textbf{\texttt{27.99716}} &
+\textbf{\texttt{0.803327}} & \textbf{\texttt{26.47654}} &
+\textbf{\texttt{0.780054}} \\
+\end{longtable}
+
+The Y-PSNR gain is \texttt{0.00549\ dB} with only \texttt{114/219}
+per-image wins. DIV2K improves by \texttt{0.00189\ dB} while winning
+only \texttt{44/100} images. Fixed grids and the formal contact sheet
+show no distinguishable visual improvement. The additional 28.35M
+parameters and higher memory cost are therefore not justified. The
+result rejects simple Stage 2 trunk capacity as the primary bottleneck
+and redirects the next experiment toward a mixed clean/real degradation
+curriculum.
+
 \hypertarget{stage-2-detail-perceptual-continuation-review}{%
 \section{Stage 2 Detail-Perceptual Continuation
 Review}\label{stage-2-detail-perceptual-continuation-review}}

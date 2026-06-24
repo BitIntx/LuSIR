@@ -1,0 +1,44 @@
+{
+  "status": "complete",
+  "config": "configs/latent_pretrain_photo130k_lsdir_dual_bicubic_trunk148m_probe.yaml",
+  "wandb": "https://wandb.ai/jwheo/LuSIR/runs/4y21n40o",
+  "model": {
+    "baseline_parameters": 119238352,
+    "probe_parameters": 147586768,
+    "scale": 1.237746580457316,
+    "blocks": "16 -> 40",
+    "initialization": "V3 best11500 with identity-initialized added blocks"
+  },
+  "training": {
+    "finished_steps": 4000,
+    "batch_size": 6,
+    "grad_accum_steps": 1,
+    "steady_steps_per_second": 1.11,
+    "gpu": "NVIDIA L40S"
+  },
+  "selected_checkpoint": {
+    "step": 3500,
+    "path": "/home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_bicubic_trunk148m_probe/checkpoints/best_eval_mean_psnr.pt"
+  },
+  "val100_delta_vs_initial": {
+    "clean_bicubic_mean_psnr": 0.0036435699462882285,
+    "clean_bicubic_ssim": 0.0004980230331420898,
+    "mild_mean_psnr": -0.020109024047854085,
+    "photo_detail_mix_mean_psnr": -0.010045166015626883,
+    "photo_v2_mean_psnr": -0.05465782165527022,
+    "photo_v3_noise_mix_mean_psnr": -0.06267883300781207
+  },
+  "formal_219_delta_vs_v3_best11500": {
+    "mean_y_psnr": 0.005492524024571788,
+    "mean_y_ssim": 0.0003740695567616418,
+    "mean_rgb_psnr": 0.006036817502310443,
+    "mean_rgb_ssim": 0.0003675128451727302,
+    "y_psnr_wins": 114,
+    "y_psnr_losses": 105,
+    "div2k_y_psnr_delta": 0.0018946596854192426,
+    "set5_y_psnr_delta": 0.025157172822347196,
+    "set14_y_psnr_delta": 0.0037644278496191685,
+    "urban100_y_psnr_delta": 0.008349089388323349
+  },
+  "decision": "Do not promote. The 23.8% parameter increase produced only a 0.0055 dB formal Y-PSNR gain, no visible improvement, and small regressions on all four degradation presets."
+}

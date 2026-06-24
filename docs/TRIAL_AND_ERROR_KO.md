@@ -2954,3 +2954,17 @@ L40S에서는 batch 8이 첫 decoder backward에서 OOM, batch 7이 full eval �
 실제 run은 <https://wandb.ai/jwheo/LuSIR/runs/4y21n40o>에서 시작했다.
 초기 eval 이후 step25-50 구간은 약 `1.11 step/s`, VRAM
 `40.4/46.1GB`, GPU utilization `100%`, 약 `318W`로 병목 없이 진행됐다.
+
+run은 4000 step을 완료했고 best checkpoint는 step3500이다. clean val100
+mean PSNR은 `27.05473 -> 27.05837`, 즉 `+0.00364 dB`만 올랐다.
+formal 219-image에서도 V3 대비 Y PSNR `+0.00549 dB`, Y SSIM
+`+0.000374`였고 Y-PSNR wins는 `114/219`였다. DIV2K wins는 `44/100`이라
+측정 편차에 가까운 수준이다. 반면 실제 열화 val100은 `mild -0.02011`,
+`photo_detail_mix -0.01005`, `photo_v2 -0.05466`,
+`photo_v3_noise_mix -0.06268 dB`로 모두 후퇴했다.
+
+고정 grid와 formal contact sheet에서도 V3와 148M의 차이는 구분하기 어렵고
+GT의 미세 질감과의 차이는 그대로다. 따라서 이번 실험은 parameter 부족
+가설을 기각한다. 같은 trunk를 더 깊거나 넓게 만드는 실험은 중단하고,
+data/objective에서 clean fidelity와 degradation robustness를 함께 유지하는
+방향으로 이동한다.

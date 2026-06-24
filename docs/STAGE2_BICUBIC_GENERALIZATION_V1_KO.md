@@ -217,3 +217,44 @@ L40S smoke 결과:
   후퇴하면 public 후보로 보지 않는다.
 - clean 개선이 `+0.02 dB` 미만에서 정체하면 parameter 부족이 주 병목이
   아니라고 판정하고 조기 중단한다.
+
+### 148M probe 최종 결과
+
+4000 step을 정상 완료했고 clean val100 mean PSNR 최고점인 step3500을
+선택했다.
+
+| candidate | clean PSNR | clean SSIM | mild delta | detail-mix delta | photo_v2 delta | v3-noise delta |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| init V3 best11500 | 27.05473 | 0.82669 | 0 | 0 | 0 | 0 |
+| 148M best3500 | 27.05837 | 0.82719 | -0.02011 | -0.01005 | -0.05466 | -0.06268 |
+
+clean val100 이득은 `+0.00364 dB`로 목표 `+0.05 dB`의 약 7%에 불과하다.
+highpass ratio는 `0.83366 -> 0.83905`, missing은
+`0.017266 -> 0.017102`로 움직였지만 excess도
+`0.007007 -> 0.007144`로 증가했다.
+
+정식 219-image 결과:
+
+| candidate | mean Y PSNR | mean Y SSIM | mean RGB PSNR | mean RGB SSIM |
+| --- | ---: | ---: | ---: | ---: |
+| V3 best11500 | 27.99167 | 0.802953 | 26.47050 | 0.779686 |
+| 148M best3500 | **27.99716** | **0.803327** | **26.47654** | **0.780054** |
+
+평균 delta는 Y PSNR `+0.00549 dB`, Y SSIM `+0.000374`이며 Y-PSNR
+승률은 `114/219`다. DIV2K는 `+0.00189 dB`, wins `44/100`으로 사실상
+동률이다. contact sheet와 fixed grid에서도 차이를 구분하기 어렵다.
+
+판정:
+
+- `119.24M` Stage2의 주 병목은 parameter 수가 아니다.
+- 28.35M parameter와 더 높은 VRAM/추론 비용을 정당화할 이득이 없다.
+- 148M checkpoint를 HF/Colab/public 기본값으로 승격하지 않는다.
+- 다음 실험은 V3의 clean fidelity를 보존하면서 mild/strong 열화를 섞는
+  robustness curriculum이어야 한다.
+
+```text
+metrics/stage2_bicubic_trunk148m_probe_summary.json
+metrics/formal_x4_benchmark_stage2_trunk148m_summary.json
+metrics/formal_x4_benchmark_stage2_trunk148m_metrics.csv
+samples/stage2_trunk148m_contact_sheet.jpg
+```

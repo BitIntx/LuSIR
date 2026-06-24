@@ -1279,7 +1279,13 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
   2026-06-24 시작했고 W&B는
   <https://wandb.ai/jwheo/LuSIR/runs/4y21n40o>다. 초기 eval 이후 안정 구간은
   약 `1.11 step/s`, VRAM `40.4/46.1GB`, GPU utilization `100%`, 약
-  `318W`다.
+  `318W`다. 4000 step을 정상 완료했고 best는 step3500이다. clean val100
+  mean PSNR은 초기 대비 `+0.00364 dB`에 그쳤고 네 실제 열화 preset은
+  `-0.0100~-0.0627 dB` 후퇴했다. formal 219-image benchmark도 V3 대비
+  Y PSNR `+0.00549 dB`, Y SSIM `+0.000374`, Y-PSNR wins `114/219`뿐이며
+  시각 차이는 구분하기 어렵다. 28.35M 추가 parameter의 가치가 없으므로
+  checkpoint를 승격하지 않는다. 다음은 모델 확대가 아니라
+  clean/real-degradation mixed curriculum을 우선한다.
 5. 현재 Stage2 continuation은 원래 LR로 보존하되, 같은 objective의 장기
    continuation이 SwinIR gap이나 visible detail을 해결할 것으로 기대하지 않는다.
 6. latent residual v1, Stage2 latent residual adapter v1, signed-wavelet

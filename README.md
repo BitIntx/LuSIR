@@ -251,9 +251,12 @@ from 16 to 40 blocks, increasing Stage 2 from `119.24M` to `147.59M`
 parameters (`1.238x`). Blocks 16-39 use zero-initialized residual outputs, so
 partial initialization from V3 step11500 preserves the original prediction
 exactly. The 4000-step probe evaluates clean bicubic and four real-degradation
-presets together. It is promoted only if the extra capacity improves clean
-fidelity without repeating V3's robustness regression. The active run is
-tracked at <https://wandb.ai/jwheo/LuSIR/runs/4y21n40o>.
+presets together. The run completed and selected step3500, but the extra
+capacity was not worthwhile: formal 219-image Y PSNR improved by only
+`+0.00549 dB`, Y SSIM by `+0.000374`, and Y-PSNR wins were `114/219`.
+All four degradation presets regressed by `0.010-0.063 dB`, and the visual
+outputs were indistinguishable from V3. The 148M checkpoint is diagnostic only
+and is not promoted. Run: <https://wandb.ai/jwheo/LuSIR/runs/4y21n40o>.
 
 The later Stage 2 detail-perceptual continuation from dual-context best98000
 also completed formal 219-image evaluation. Its latest step12000 checkpoint is

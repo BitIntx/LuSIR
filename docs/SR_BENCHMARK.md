@@ -218,6 +218,29 @@ metrics/stage2_bicubic_generalization_v3_cross_preset_summary.json
 samples/stage2_bicubic_generalization_v3_contact_sheet.jpg
 ```
 
+## 2026-06-24 Stage2 148M Trunk Probe
+
+V3 best11500의 full-resolution residual trunk를 16개에서 40개 block으로
+확장한 `147.59M` parameter probe의 best step3500을 평가했다.
+
+| Candidate | Mean Y PSNR | Mean Y SSIM | Mean RGB PSNR | Mean RGB SSIM |
+| --- | ---: | ---: | ---: | ---: |
+| Generalization V3 best11500 | 27.99167 | 0.802953 | 26.47050 | 0.779686 |
+| Trunk 148M best3500 | **27.99716** | **0.803327** | **26.47654** | **0.780054** |
+
+Y PSNR 이득은 `+0.00549 dB`이고 per-image wins는 `114/219`다. dataset별
+delta는 DIV2K `+0.00189`, Set5 `+0.02516`, Set14 `+0.00376`,
+Urban100 `+0.00835 dB`다. 방향은 평균적으로 양수지만 시각적으로 구분되지
+않고 네 degradation preset은 모두 후퇴했다. 따라서 모델 확대의 유효한
+근거로 보지 않고 승격하지 않는다.
+
+```text
+metrics/formal_x4_benchmark_stage2_trunk148m_summary.json
+metrics/formal_x4_benchmark_stage2_trunk148m_metrics.csv
+metrics/stage2_bicubic_trunk148m_probe_summary.json
+samples/stage2_trunk148m_contact_sheet.jpg
+```
+
 ## 2026-06-15 Guarded Stage2 TTA Sweep
 
 Colab default인 guarded-detail Stage2 v2 step10000에 대해 같은 219개 full image에서
