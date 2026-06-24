@@ -377,6 +377,14 @@ uses excess weight `1.5` and missing weight `0.8`, interpolated between the V1
 under-detail and V2 over-detail boundaries. All other training and evaluation
 settings remain fixed.
 
+At step500, V3 is the first variant to improve every held-out guardrail
+together. Mean PSNR increases from `26.91987` to `27.00503 dB`, SSIM from
+`0.82145` to `0.82422`, while highpass ratio remains effectively unchanged
+(`0.82463` to `0.82375`). Highpass L1, missing energy, and excess energy all
+decrease slightly. The fixed grid shows no obvious smoothing, ripple pattern,
+or oversharpening. This is an interim result; the run continues and is not yet
+promoted.
+
 ## Stage 2 Detail-Perceptual Continuation Review
 
 A separate Stage 2 continuation started from dual-context best98000 and trained

@@ -236,6 +236,11 @@ PSNR by `0.066 dB` and reduced excess energy, but SSIM fell by `0.00265`,
 highpass ratio fell from `0.824` to `0.779`, and missing energy increased.
 The V2 config adds a target-aligned missing-detail hinge while reducing the
 excess penalty, so smoothing and artifact growth are constrained separately.
+V2 over-corrected, while the interpolated V3 balance (`excess=1.5`,
+`missing=0.8`) passes the first held-out checkpoint at step500: mean PSNR
+`+0.0852 dB`, SSIM `+0.00277`, with slightly lower highpass L1, missing energy,
+and excess energy while preserving the original highpass ratio. The run is
+continuing and is not yet promoted.
 
 The later Stage 2 detail-perceptual continuation from dual-context best98000
 also completed formal 219-image evaluation. Its latest step12000 checkpoint is

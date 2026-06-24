@@ -2907,3 +2907,10 @@ highpass ratio는 `0.88370/0.90093`, excess는 `0.00860/0.00915`까지
 V3는 excess `1.5`, missing `0.8`이며 그 외 조건은 V2와 같다. 목표는 초기
 highpass ratio `0.825` 부근을 유지하면서 PSNR/SSIM/highpass L1을 개선하는
 것이다. W&B는 <https://wandb.ai/jwheo/LuSIR/runs/2cospx1j>다.
+
+V3 step500은 첫 동시 개선 지점이다. held-out val100에서 mean PSNR
+`26.91987 -> 27.00503`, SSIM `0.82145 -> 0.82422`로 올랐고 highpass
+ratio는 `0.82463 -> 0.82375`로 유지됐다. highpass L1, missing, excess도
+각각 `0.03113 -> 0.03090`, `0.01798 -> 0.01774`,
+`0.00679 -> 0.00674`로 모두 소폭 개선됐다. fixed grid에도 뚜렷한 artifact가
+없어 V3는 계속 학습한다.

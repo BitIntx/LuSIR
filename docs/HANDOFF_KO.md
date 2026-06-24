@@ -1254,7 +1254,10 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
   `configs/latent_pretrain_photo130k_lsdir_dual_bicubic_generalization_v3.yaml`
   이다. V1/V2 사이를 보간한 excess weight `1.5`, target-aligned missing
   weight `0.8`을 사용하며 나머지 조건은 동일하다. W&B는
-  <https://wandb.ai/jwheo/LuSIR/runs/2cospx1j>다.
+  <https://wandb.ai/jwheo/LuSIR/runs/2cospx1j>다. step500 held-out val100은
+  mean PSNR `+0.08517 dB`, SSIM `+0.00277`, highpass ratio 유지,
+  highpass L1 `-0.000227`, missing `-0.000239`, excess `-0.000041`로 첫
+  전 지표 동시 개선을 보였다. grid artifact도 없어 run을 계속한다.
 5. 현재 Stage2 continuation은 원래 LR로 보존하되, 같은 objective의 장기
    continuation이 SwinIR gap이나 visible detail을 해결할 것으로 기대하지 않는다.
 6. latent residual v1, Stage2 latent residual adapter v1, signed-wavelet

@@ -104,3 +104,26 @@ step500 highpass ratio를 경계로 선형 보간해 excess weight
 `1.5`, missing weight `0.8`을 사용한다. 데이터, 모델, LR, scheduler,
 dual eval은 모두 동일하다. 목표는 highpass ratio를 초기 `0.825` 근처에
 유지하면서 PSNR/SSIM 또는 highpass L1을 개선하는 것이다.
+
+### V3 step500 중간 결과
+
+V3는 첫 trained eval에서 모든 주요 held-out guardrail을 동시에 통과했다.
+
+| step | val mean PSNR | val SSIM | highpass ratio | highpass L1 | missing | excess |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 26.91987 | 0.82145 | 0.82463 | 0.03113 | 0.01798 | 0.00679 |
+| 500 | 27.00503 | 0.82422 | 0.82375 | 0.03090 | 0.01774 | 0.00674 |
+
+delta:
+
+- mean PSNR `+0.08517 dB`
+- SSIM `+0.00277`
+- highpass ratio `-0.00088`로 사실상 유지
+- highpass L1 `-0.000227`
+- missing `-0.000239`
+- excess `-0.000041`
+
+fixed train512도 mean PSNR `26.9494 -> 26.9864`, SSIM
+`0.80989 -> 0.81336`으로 개선됐다. fixed grid에서 뚜렷한 smoothing,
+ripple/grid artifact, 과한 sharpening은 보이지 않았다. V3는 계속 학습하되
+이 결과는 중간값이며 아직 public/HF/Colab에 승격하지 않는다.
