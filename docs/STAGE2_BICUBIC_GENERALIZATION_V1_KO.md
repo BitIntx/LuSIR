@@ -99,7 +99,8 @@ target-aligned missing hinge는 SSIM과 missing energy를 개선했지만 weight
 
 V3 config는
 `configs/latent_pretrain_photo130k_lsdir_dual_bicubic_generalization_v3.yaml`
-이다. V1/V2의 step500 highpass ratio를 경계로 선형 보간해 excess weight
+이다. W&B는 <https://wandb.ai/jwheo/LuSIR/runs/2cospx1j>다. V1/V2의
+step500 highpass ratio를 경계로 선형 보간해 excess weight
 `1.5`, missing weight `0.8`을 사용한다. 데이터, 모델, LR, scheduler,
 dual eval은 모두 동일하다. 목표는 highpass ratio를 초기 `0.825` 근처에
 유지하면서 PSNR/SSIM 또는 highpass L1을 개선하는 것이다.

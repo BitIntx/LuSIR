@@ -2906,4 +2906,4 @@ highpass ratio는 `0.88370/0.90093`, excess는 `0.00860/0.00915`까지
 
 V3는 excess `1.5`, missing `0.8`이며 그 외 조건은 V2와 같다. 목표는 초기
 highpass ratio `0.825` 부근을 유지하면서 PSNR/SSIM/highpass L1을 개선하는
-것이다.
+것이다. W&B는 <https://wandb.ai/jwheo/LuSIR/runs/2cospx1j>다.
