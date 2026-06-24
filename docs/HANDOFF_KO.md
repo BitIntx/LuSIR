@@ -1266,6 +1266,16 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
   보존하며 public HF/Colab 기본값은 교체하지 않는다. 다음 후보는 V3를
   base로 삼되 clean/real degradation을 함께 학습하는 짧은 robustness
   curriculum이어야 한다.
+- 용량 부족 여부를 분리하기 위한 후속 probe는
+  `configs/latent_pretrain_photo130k_lsdir_dual_bicubic_trunk148m_probe.yaml`
+  이다. V3 best11500에서 시작해 full-resolution residual trunk만
+  `16 -> 40` blocks로 늘리고 총 parameter를 `119.238M -> 147.587M`
+  (`1.238x`)로 확장한다. 새 blocks 16-39의 residual output은 zero-init이라
+  partial init 직후 V3 출력과 bit-exact하게 같다. L40S에서 batch 8/7은
+  OOM 또는 eval 이후 OOM이므로 grad accumulation 없는 batch 6을 사용한다.
+  smoke는 VRAM 약 `39.2/46.1GB`, train utilization `98~100%`로 통과했다.
+  최대 4000 step이며 clean val100과 `mild`, `photo_detail_mix`, `photo_v2`,
+  `photo_v3_noise_mix` val100을 500 step마다 함께 평가한다.
 5. 현재 Stage2 continuation은 원래 LR로 보존하되, 같은 objective의 장기
    continuation이 SwinIR gap이나 visible detail을 해결할 것으로 기대하지 않는다.
 6. latent residual v1, Stage2 latent residual adapter v1, signed-wavelet

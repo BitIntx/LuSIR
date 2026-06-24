@@ -652,6 +652,22 @@ clean and progressively stronger degradations while retaining both
 formal clean metrics and all four cross-preset evaluations as
 guardrails.
 
+To test whether residual clean-fidelity error is capacity limited, the
+next probe expands only the full-resolution residual trunk from 16 to 40
+blocks. This raises Stage 2 capacity from \texttt{119.238M} to
+\texttt{147.587M} parameters (\texttt{1.238x}) while leaving both
+multiscale context branches unchanged. The new blocks use
+zero-initialized second convolutions, so partial initialization from V3
+step11500 reproduces the original output exactly before training. The
+4000-step probe evaluates clean bicubic plus \texttt{mild},
+\texttt{photo\_detail\_mix}, \texttt{photo\_v2}, and
+\texttt{photo\_v3\_noise\_mix} every 500 steps. On one L40S, batch 6
+without gradient accumulation is the largest stable configuration across
+training and all evaluations, using approximately \texttt{39.2/46.1GB}
+VRAM. A clean gain below \texttt{0.05\ dB}, or renewed
+degradation-preset regression, is evidence that capacity is not the
+primary bottleneck.
+
 \hypertarget{stage-2-detail-perceptual-continuation-review}{%
 \section{Stage 2 Detail-Perceptual Continuation
 Review}\label{stage-2-detail-perceptual-continuation-review}}

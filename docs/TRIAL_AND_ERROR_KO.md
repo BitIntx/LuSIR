@@ -2930,3 +2930,23 @@ base fidelity를 실제로 높였지만, 그 과정에서 denoise/compression ro
 않는다. 다음 probe는 V3에서 clean 비중을 유지한 채 mild에서 strong 순서로
 열화를 섞는 짧은 robustness curriculum이어야 하며, clean formal 수치와 네
 cross-preset 수치를 동시에 guardrail로 둔다.
+
+### 2026-06-24 Stage2 148M trunk capacity probe
+
+현재 Stage2 `119.238M`이 절대적으로 작은 모델은 아니지만, 2배 미만의 제한적
+확장이 남은 clean fidelity에 의미가 있는지 확인한다. context branch는 이미
+`55.50M -> 119.24M` 확장에서 작은 개선만 냈으므로 더 넓히지 않고,
+full-resolution residual trunk를 `16 -> 40` blocks로 늘려 `147.587M`
+parameter로 만든다.
+
+새 blocks는 residual output convolution을 zero-init한다. V3 best11500
+checkpoint를 partial load한 실제 128x128 LR forward에서 기존과 확장 출력의
+max/mean absolute difference가 모두 `0.0`임을 확인했다. matched parameter는
+`119,238,352 / 147,586,768 = 80.79%`다.
+
+L40S에서는 batch 8이 첫 decoder backward에서 OOM, batch 7이 full eval 이후
+다음 backward에서 OOM이었다. batch 6은 eval 전후 3 update를 통과했고 VRAM
+약 `39.2GB`, train utilization `98~100%`였다. grad accumulation은 사용하지
+않는다. 4000-step 동안 clean과 네 real-degradation preset을 500 step마다
+동시에 기록한다. 이 probe가 clean `+0.05 dB`와 robustness 유지에 실패하면
+다음 우선순위는 추가 parameter가 아니라 mixed-degradation curriculum이다.

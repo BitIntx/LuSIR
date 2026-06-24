@@ -13,12 +13,15 @@ def _norm(channels: int, groups: int) -> nn.GroupNorm:
 
 
 class ResidualBlock(nn.Module):
-    def __init__(self, channels: int, groups: int = 32):
+    def __init__(self, channels: int, groups: int = 32, zero_init_output: bool = False):
         super().__init__()
         self.norm1 = _norm(channels, groups)
         self.conv1 = nn.Conv2d(channels, channels, kernel_size=3, padding=1)
         self.norm2 = _norm(channels, groups)
         self.conv2 = nn.Conv2d(channels, channels, kernel_size=3, padding=1)
+        if zero_init_output:
+            nn.init.zeros_(self.conv2.weight)
+            nn.init.zeros_(self.conv2.bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         residual = x
@@ -201,6 +204,7 @@ class LRToLatentPredictor(nn.Module):
         attention_heads: int = 8,
         attention_window_size: int = 8,
         attention_mlp_ratio: float = 2.0,
+        identity_init_blocks_from: int | None = None,
     ) -> None:
         super().__init__()
         supported_architectures = {
@@ -211,9 +215,25 @@ class LRToLatentPredictor(nn.Module):
         }
         if architecture not in supported_architectures:
             raise ValueError(f"Unsupported LRToLatentPredictor architecture: {architecture}")
+        if identity_init_blocks_from is not None and not 0 <= int(identity_init_blocks_from) <= int(num_blocks):
+            raise ValueError(
+                "identity_init_blocks_from must be between 0 and num_blocks, "
+                f"got {identity_init_blocks_from} for num_blocks={num_blocks}"
+            )
         self.input = nn.Conv2d(in_channels, base_channels, kernel_size=3, padding=1)
         self.domain_embedding = nn.Embedding(num_domains, base_channels)
-        self.blocks = nn.Sequential(*[ResidualBlock(base_channels, groups=norm_groups) for _ in range(num_blocks)])
+        self.blocks = nn.Sequential(
+            *[
+                ResidualBlock(
+                    base_channels,
+                    groups=norm_groups,
+                    zero_init_output=(
+                        identity_init_blocks_from is not None and index >= int(identity_init_blocks_from)
+                    ),
+                )
+                for index in range(num_blocks)
+            ]
+        )
         uses_attention = architecture == "dual_multiscale_attention" or int(attention_blocks) > 0
         self.attention = (
             nn.Sequential(
@@ -280,6 +300,7 @@ class LRToLatentPredictor(nn.Module):
             attention_heads=config.get("attention_heads", 8),
             attention_window_size=config.get("attention_window_size", 8),
             attention_mlp_ratio=config.get("attention_mlp_ratio", 2.0),
+            identity_init_blocks_from=config.get("identity_init_blocks_from"),
         )
 
     def forward(self, lr: torch.Tensor, domain_id: torch.Tensor | None = None) -> torch.Tensor:

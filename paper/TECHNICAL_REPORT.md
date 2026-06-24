@@ -400,6 +400,19 @@ HF or Colab default. A follow-up must mix clean and progressively stronger
 degradations while retaining both formal clean metrics and all four
 cross-preset evaluations as guardrails.
 
+To test whether residual clean-fidelity error is capacity limited, the next
+probe expands only the full-resolution residual trunk from 16 to 40 blocks.
+This raises Stage 2 capacity from `119.238M` to `147.587M` parameters
+(`1.238x`) while leaving both multiscale context branches unchanged. The new
+blocks use zero-initialized second convolutions, so partial initialization from
+V3 step11500 reproduces the original output exactly before training. The
+4000-step probe evaluates clean bicubic plus `mild`, `photo_detail_mix`,
+`photo_v2`, and `photo_v3_noise_mix` every 500 steps. On one L40S, batch 6
+without gradient accumulation is the largest stable configuration across
+training and all evaluations, using approximately `39.2/46.1GB` VRAM. A clean
+gain below `0.05 dB`, or renewed degradation-preset regression, is evidence
+that capacity is not the primary bottleneck.
+
 ## Stage 2 Detail-Perceptual Continuation Review
 
 A separate Stage 2 continuation started from dual-context best98000 and trained

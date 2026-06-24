@@ -176,3 +176,39 @@ metrics/formal_x4_benchmark_stage2_bicubic_generalization_v3_metrics.csv
 metrics/stage2_bicubic_generalization_v3_cross_preset_summary.json
 samples/stage2_bicubic_generalization_v3_contact_sheet.jpg
 ```
+
+## 148M high-resolution trunk probe
+
+V3에서 확인된 clean fidelity 개선이 모델 용량에 막힌 것인지 분리하기 위해
+full-resolution residual trunk만 제한적으로 확장한다.
+
+```text
+config: configs/latent_pretrain_photo130k_lsdir_dual_bicubic_trunk148m_probe.yaml
+init:   V3 best11500
+blocks: 16 -> 40
+params: 119.238M -> 147.587M (1.238x)
+steps:  4000
+```
+
+추가 blocks 16-39는 두 번째 convolution을 zero-init한다. 기존 16개 block과
+context branch를 partial load하면 확장 모델의 첫 출력은 V3 best11500과
+bit-exact하게 같다. 따라서 초기 metric 변화 없이 추가 용량 자체의 학습 효과를
+볼 수 있다.
+
+L40S smoke 결과:
+
+- batch 8: decoder backward OOM
+- batch 7: 첫 update는 통과하지만 5개 eval 이후 다음 backward OOM
+- batch 6: eval 전후 3 update 통과
+- batch 6 VRAM: 약 `39.2 / 46.1GB`
+- 학습 구간 GPU utilization: `98~100%`
+- 전체 test suite: `94 passed`
+
+판정 기준:
+
+- clean-bicubic mean PSNR이 2000-4000 step 내 최소 `+0.05 dB` 개선돼야 한다.
+- SSIM/highpass L1과 fixed grid가 함께 유지돼야 한다.
+- 네 real-degradation preset 중 하나라도 지속적으로 `-0.10 dB` 이상
+  후퇴하면 public 후보로 보지 않는다.
+- clean 개선이 `+0.02 dB` 미만에서 정체하면 parameter 부족이 주 병목이
+  아니라고 판정하고 조기 중단한다.

@@ -1,0 +1,154 @@
+project:
+  name: latent_pretrain_photo130k_lsdir_dual_bicubic_trunk148m_probe
+  output_dir: /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_bicubic_trunk148m_probe
+
+logging:
+  wandb:
+    enabled: true
+    project: LuSIR
+    name: latent_pretrain_photo130k_lsdir_dual_bicubic_trunk148m_probe
+    mode: online
+    dir: /home/ubuntu/scratch/sr-diffusion/wandb
+    tags: [stage2, latent-pretrain, dual-multiscale-context, lsdir, benchmark-bicubic, trunk-scale, 148m, probe]
+    group: stage2
+    job_type: latent-pretrain
+    watch: false
+  samples:
+    enabled: true
+    split: val
+    fallback_split: train
+    count: 8
+    indices: [0, 1, 2, 3, 4, 5, 6, 7]
+
+seed: 1337
+
+autoencoder:
+  config: configs/autoencoder_photo10k.yaml
+  checkpoint: /home/ubuntu/scratch/sr-diffusion/runs/autoencoder_photo10k_b16_eval_online/checkpoints/best_eval_recon.pt
+
+initialization:
+  checkpoint: /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_bicubic_generalization_v3/checkpoints/best_eval_mean_psnr.pt
+  partial: true
+
+data:
+  manifest: /home/ubuntu/scratch/sr-diffusion/data/manifest_photo130k_lsdir.csv
+  split: train
+  hr_size: 512
+  scale: 4
+  degradation_preset: benchmark_bicubic
+  hflip_prob: 0.5
+  texture_crop_retries: 4
+  texture_crop_downsample: 128
+  hr_color_jitter_prob: 0.15
+  hr_color_jitter: [0.98, 1.02]
+  domains:
+    photo: 0
+    anime: 1
+  num_workers: 4
+
+model:
+  type: lr_to_latent_predictor
+  architecture: dual_multiscale_context
+  in_channels: 3
+  latent_channels: 16
+  base_channels: 256
+  num_blocks: 40
+  identity_init_blocks_from: 16
+  norm_groups: 32
+  num_domains: 2
+  context_channels: [320, 448]
+  context_blocks: [4, 6]
+  context_scale: 1.0
+  extra_context_channels: [384, 512]
+  extra_context_blocks: [6, 8]
+  extra_context_scale: 1.0
+
+loss:
+  latent: charbonnier
+  latent_weight: 0.20
+  decoded_weight: 1.5
+  edge_weight: 0.75
+  highpass_weight: 1.5
+  highpass_magnitude_weight: 0.25
+  artifact_excess_weight: 1.5
+  artifact_missing_weight: 0.8
+  artifact_excess:
+    highpass_kernel: 15
+    patch_kernel: 9
+    margin: 0.002
+    missing_margin: 0.002
+    temperature: 0.006
+  perceptual_weight: 0.0
+  detail_score_weight: 2.0
+  detail_eval:
+    highpass_kernel: 15
+    patch_kernel: 9
+    score_quantile: 0.95
+    top_fraction: 0.10
+  charbonnier_eps: 0.001
+
+train:
+  device: auto
+  dtype: bf16
+  batch_size: 6
+  max_steps: 4000
+  lr: 0.000005
+  weight_decay: 0.0
+  grad_accum_steps: 1
+  log_every: 25
+  save_every: 4000
+  save_step_checkpoints: false
+  save_latest: true
+  sample_every: 500
+  scheduler:
+    type: warmup_cosine
+    warmup_updates: 100
+    min_lr_ratio: 0.2
+
+eval:
+  enabled: true
+  split: val
+  limit: 100
+  batch_size: 6
+  num_workers: 4
+  every: 500
+  run_at_start: true
+  best_metric: eval/decoded_mean_psnr
+  best_mode: max
+  best_checkpoint: best_eval_mean_psnr.pt
+  additional:
+    - name: mild
+      split: val
+      limit: 100
+      batch_size: 6
+      num_workers: 4
+      deterministic: true
+      data:
+        degradation_preset: mild
+    - name: photo_detail_mix
+      split: val
+      limit: 100
+      batch_size: 6
+      num_workers: 4
+      deterministic: true
+      data:
+        degradation_preset: photo_detail_mix
+    - name: photo_v2
+      split: val
+      limit: 100
+      batch_size: 6
+      num_workers: 4
+      deterministic: true
+      data:
+        degradation_preset: photo_v2
+    - name: photo_v3_noise_mix
+      split: val
+      limit: 100
+      batch_size: 6
+      num_workers: 4
+      deterministic: true
+      data:
+        degradation_preset: photo_v3_noise_mix
+
+inference:
+  checkpoint: /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_bicubic_trunk148m_probe/checkpoints/best_eval_mean_psnr.pt

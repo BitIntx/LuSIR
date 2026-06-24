@@ -63,6 +63,46 @@ def test_multiscale_context_partial_init_preserves_flat_output() -> None:
     assert stats["matched_tensors"] == len(flat.state_dict())
 
 
+def test_identity_initialized_trunk_expansion_preserves_output() -> None:
+    torch.manual_seed(321)
+    base_config = {
+        "latent_channels": 8,
+        "base_channels": 32,
+        "num_blocks": 2,
+        "norm_groups": 8,
+    }
+    base = LRToLatentPredictor.from_config(base_config).eval()
+    expanded = LRToLatentPredictor.from_config(
+        {
+            **base_config,
+            "num_blocks": 5,
+            "identity_init_blocks_from": 2,
+        }
+    ).eval()
+    stats = load_matching_weights(expanded, base.state_dict())
+    lr = torch.randn(2, 3, 32, 32)
+    domain_id = torch.tensor([0, 1])
+
+    with torch.no_grad():
+        expected = base(lr, domain_id)
+        actual = expanded(lr, domain_id)
+
+    torch.testing.assert_close(actual, expected, atol=0.0, rtol=0.0)
+    assert stats["matched_tensors"] == len(base.state_dict())
+    for block in expanded.blocks[2:]:
+        assert torch.count_nonzero(block.conv2.weight) == 0
+        assert torch.count_nonzero(block.conv2.bias) == 0
+
+
+def test_identity_init_block_index_is_validated() -> None:
+    try:
+        LRToLatentPredictor(num_blocks=2, identity_init_blocks_from=3)
+    except ValueError as error:
+        assert "identity_init_blocks_from" in str(error)
+    else:
+        raise AssertionError("Expected invalid identity_init_blocks_from to raise ValueError")
+
+
 def test_latent_residual_refiner_zero_init_preserves_base_output() -> None:
     torch.manual_seed(7)
     base_config = {

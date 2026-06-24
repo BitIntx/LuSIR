@@ -246,6 +246,14 @@ real-degradation val100 presets. V3 is therefore retained as the strongest
 standalone clean-bicubic Stage 2 research checkpoint, but it does not replace
 the public HF/Colab default.
 
+The follow-up capacity probe expands only the full-resolution residual trunk
+from 16 to 40 blocks, increasing Stage 2 from `119.24M` to `147.59M`
+parameters (`1.238x`). Blocks 16-39 use zero-initialized residual outputs, so
+partial initialization from V3 step11500 preserves the original prediction
+exactly. The 4000-step probe evaluates clean bicubic and four real-degradation
+presets together. It is promoted only if the extra capacity improves clean
+fidelity without repeating V3's robustness regression.
+
 The later Stage 2 detail-perceptual continuation from dual-context best98000
 also completed formal 219-image evaluation. Its latest step12000 checkpoint is
 nearly tied with dual best98000 (`27.8356` vs `27.8431` Y PSNR) and slightly
