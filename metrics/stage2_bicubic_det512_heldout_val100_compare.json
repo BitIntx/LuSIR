@@ -1,0 +1,33 @@
+{
+  "checkpoint": "/home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_bicubic_det512_probe/checkpoints/best_eval_mean_psnr_detail.pt",
+  "config": "configs/latent_pretrain_photo130k_lsdir_dual_bicubic_det512_probe.yaml",
+  "degradation": "benchmark_bicubic",
+  "evaluation": "deterministic held-out val100",
+  "initial_best98000": {
+    "decoded_mean_psnr": 26.919825668334962,
+    "decoded_ssim": 0.8214281630516053,
+    "excess_energy": 0.0067794017307460305,
+    "highpass_energy_ratio": 0.8244342803955078,
+    "highpass_l1": 0.031129755675792695,
+    "missing_energy": 0.017989779487252236
+  },
+  "det512_step6000": {
+    "decoded_mean_psnr": 26.248786315917968,
+    "decoded_ssim": 0.8058208751678467,
+    "excess_energy": 0.008771342933177948,
+    "highpass_energy_ratio": 0.8601181817054748,
+    "highpass_l1": 0.033656776547431946,
+    "missing_energy": 0.017418831065297128
+  },
+  "delta_step6000_minus_initial": {
+    "decoded_mean_psnr": -0.671039352416994,
+    "decoded_ssim": -0.0156072878837586,
+    "excess_energy": 0.0019919412024319175,
+    "highpass_energy_ratio": 0.035683901309967,
+    "highpass_l1": 0.002527020871639251,
+    "missing_energy": -0.0005709484219551083
+  },
+  "promotion": "rejected",
+  "reason": "Train-subset metrics improved, but held-out PSNR/SSIM regressed and highpass error/excess energy increased with visible repeated texture artifacts.",
+  "wandb": "https://wandb.ai/jwheo/LuSIR/runs/0wzx4xzy"
+}

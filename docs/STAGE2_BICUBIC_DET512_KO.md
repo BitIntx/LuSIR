@@ -35,26 +35,44 @@ wandb:  https://wandb.ai/jwheo/LuSIR/runs/0wzx4xzy
   train512/heldout-val dual eval로 넘어간다. 512에서 바로 약해지면 data/crop
   curriculum과 loss regularization을 먼저 조정한다.
 
-## 중간 결과
+## 최종 결과
 
-2026-06-23 기준 run은 계속 진행 중이며, step 1000까지는 붕괴 없이 같은 방향의
-개선을 보였다.
+run은 2026-06-24에 step 6000까지 정상 완료됐다. 같은 train512에서는 모든
+주요 지표가 끝까지 개선됐다.
 
 | step | decoded PSNR | mean PSNR | detail ratio | highpass ratio | missing | PSNR detail score |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | 1 | 25.20 | 26.95 | 0.326 | 0.791 | 0.01743 | 25.850 |
 | 500 | 25.33 | 27.14 | 0.325 | 0.800 | 0.01687 | 25.984 |
 | 1000 | 25.56 | 27.37 | 0.341 | 0.806 | 0.01639 | 26.242 |
+| 2000 | 25.91 | 27.77 | 0.397 | 0.825 | 0.01537 | 26.706 |
+| 3000 | 26.14 | 28.01 | 0.418 | 0.833 | 0.01490 | 26.971 |
+| 4000 | 26.30 | 28.20 | 0.431 | 0.839 | 0.01448 | 27.163 |
+| 5000 | 26.42 | 28.32 | 0.441 | 0.840 | 0.01432 | 27.297 |
+| 6000 | 26.50 | 28.40 | 0.453 | 0.845 | 0.01410 | 27.400 |
 
-step 1과 step 1000 sample grid의 평균 절대 RGB 차이는 약 `0.0086`로, 눈으로
-보이는 변화는 아직 작다. 그러나 PSNR, highpass ratio, missing energy가 모두
-같은 방향으로 움직였기 때문에 "64장에서는 가능하지만 512장에서는 즉시 사라지는
-신호"는 아니다. 현재 판단은 다음과 같다.
+그러나 같은 checkpoint를 학습에 사용하지 않은 deterministic clean-bicubic
+val100에 평가하면 반대 결과가 나온다.
 
-- det512는 overfit64보다 훨씬 느리다.
-- 그래도 subset을 키웠을 때 high-frequency 개선 방향은 유지된다.
-- 이 run은 그대로 step 6000까지 두고, 최종 표에서 highpass ratio가 `0.82` 이상
-  올라가는지와 missing이 계속 내려가는지를 본다.
-- step 6000에서도 highpass ratio가 `0.81` 근처에 머물면, 다음은 단순 장기
-  continuation이 아니라 train/heldout 분리와 crop/curriculum regularization
-  쪽으로 옮긴다.
+| candidate | mean PSNR | SSIM | highpass ratio | highpass L1 | missing | excess |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| init best98000 | 26.9198 | 0.82143 | 0.8244 | 0.03113 | 0.01799 | 0.00678 |
+| det512 step6000 | 26.2488 | 0.80582 | 0.8601 | 0.03366 | 0.01742 | 0.00877 |
+| delta | -0.6710 | -0.01561 | +0.0357 | +0.00253 | -0.00057 | +0.00199 |
+
+시각적으로도 train512 prediction은 step1보다 윤곽과 미세 대비가 강해졌지만,
+나뭇잎, 잔디, 얼룩말 주변에 반복 격자와 잔물결 질감이 생겼다. 이는 GT-aligned
+detail 복원보다 고정 subset의 고주파 패턴에 맞춘 결과와 일치한다.
+
+최종 판단:
+
+- 64장에서 512장으로 subset을 키워도 current Stage2가 clean detail을 외우는
+  표현 능력은 유지된다.
+- 하지만 그 신호는 held-out val100에 전이되지 않는다. PSNR/SSIM이 크게
+  떨어지고 highpass L1 및 excess energy가 악화했다.
+- highpass ratio 단독 상승은 성공 기준으로 쓸 수 없다. highpass error,
+  excess energy, held-out PSNR/SSIM, fixed grid를 함께 봐야 한다.
+- 이 checkpoint는 public/HF/Colab 후보로 승격하지 않고 진단용으로만 보존한다.
+- 다음 Stage2 실험은 더 큰 fixed-subset memorization이 아니라 stochastic
+  crop/degradation, held-out dual eval, artifact-negative regularization을
+  포함한 일반화 실험이어야 한다.

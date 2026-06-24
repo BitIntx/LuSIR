@@ -1216,10 +1216,15 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
   sample을 deterministic crop/degradation으로 고정한다. eval도 같은 train512에
   걸리므로 deployable 성능이 아니라 일반화 전 단계의 upper-bound 진단이다.
   설계 문서는 `docs/STAGE2_BICUBIC_DET512_KO.md`다. W&B는
-  <https://wandb.ai/jwheo/LuSIR/runs/0wzx4xzy>이다. step1000 중간 결과는
-  mean PSNR `26.95 -> 27.37`, highpass ratio `0.791 -> 0.806`, missing
-  `0.01743 -> 0.01639`로 같은 방향이지만 overfit64보다 훨씬 느리다. run은
-  step6000까지 계속 돌려서 highpass ratio가 `0.82` 이상으로 올라가는지 본다.
+  <https://wandb.ai/jwheo/LuSIR/runs/0wzx4xzy>이다. step6000까지 완료됐고
+  train512 mean PSNR `26.95 -> 28.40`, highpass ratio `0.791 -> 0.845`,
+  missing `0.01743 -> 0.01410`으로 개선됐다. 그러나 held-out clean-bicubic
+  val100에서는 init best98000 대비 mean PSNR `-0.6710 dB`, SSIM
+  `-0.01561`, highpass L1 `+0.00253`, excess energy `+0.00199`였다.
+  grid에도 반복 격자/잔물결 texture가 생겼다. 표현 가능성은 재확인했지만
+  일반화에는 실패했으므로 checkpoint를 승격하지 않는다. 다음은 fixed subset을
+  더 키우는 실험보다 stochastic crop/degradation + held-out dual eval +
+  artifact-negative regularization을 우선한다.
 5. 현재 Stage2 continuation은 원래 LR로 보존하되, 같은 objective의 장기
    continuation이 SwinIR gap이나 visible detail을 해결할 것으로 기대하지 않는다.
 6. latent residual v1, Stage2 latent residual adapter v1, signed-wavelet

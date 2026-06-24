@@ -2804,5 +2804,40 @@ step1000 중간 결과는 같은 방향의 약한 개선이다.
   detail-preserving signal이 즉시 사라진 것은 아니다.
 - 다만 눈으로 보는 변화는 아직 작고, step1 대비 step1000 pred grid의 평균
   절대 RGB 차이는 약 `0.0086`이다.
-- overfit64보다 훨씬 느리므로, step6000에서 highpass ratio가 `0.82` 이상으로
-  올라가는지와 missing이 계속 내려가는지를 봐야 한다.
+
+### 2026-06-24 deterministic512 완료 및 held-out 실패
+
+run은 step6000까지 정상 종료했다. 같은 train512에서는 mean PSNR
+`26.95 -> 28.40`, highpass ratio `0.791 -> 0.845`, missing energy
+`0.01743 -> 0.01410`으로 끝까지 개선됐다.
+
+| step | decoded PSNR | mean PSNR | detail ratio | highpass ratio | missing |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 25.20 | 26.95 | 0.326 | 0.791 | 0.01743 |
+| 2000 | 25.91 | 27.77 | 0.397 | 0.825 | 0.01537 |
+| 4000 | 26.30 | 28.20 | 0.431 | 0.839 | 0.01448 |
+| 6000 | 26.50 | 28.40 | 0.453 | 0.845 | 0.01410 |
+
+동일 checkpoint를 학습에 쓰지 않은 deterministic clean-bicubic val100에
+평가하자 일반화 실패가 명확했다.
+
+| candidate | mean PSNR | SSIM | highpass ratio | highpass L1 | missing | excess |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| init best98000 | 26.9198 | 0.82143 | 0.8244 | 0.03113 | 0.01799 | 0.00678 |
+| det512 step6000 | 26.2488 | 0.80582 | 0.8601 | 0.03366 | 0.01742 | 0.00877 |
+
+train fixed grid에서도 step6000은 step1보다 미세 대비가 강하지만 나뭇잎,
+잔디, 얼룩말 주변에 반복 격자와 잔물결 texture가 보인다. highpass ratio
+상승과 missing 감소만 보면 성공처럼 보이지만, held-out PSNR/SSIM 하락과
+highpass L1/excess 증가를 같이 보면 GT-aligned 복원보다 subset-specific
+artifact를 학습한 것이다.
+
+판정:
+
+- current Stage2는 clean detail을 표현할 용량이 있다.
+- 실제 병목은 그 디테일 신호를 새로운 이미지에 전이하면서 artifact를 억제하는
+  data/curriculum/regularization이다.
+- det512 step6000은 public/HF/Colab 후보로 승격하지 않는다.
+- 다음에는 2048장 fixed memorization을 바로 돌리지 않는다. stochastic crop과
+  약한 augmentation을 복원하고, train/held-out을 동시에 평가하며,
+  excess/highpass-error를 직접 guardrail로 둔다.

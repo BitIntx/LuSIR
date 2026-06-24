@@ -161,10 +161,14 @@ test whether the current Stage 2 structure/loss can memorize
 high-frequency detail once generalization is removed. This diagnostic
 completed 3000 micro-steps and improved train64 from \texttt{26.4246} to
 \texttt{29.2477} mean PSNR, \texttt{0.7908} to \texttt{0.8812} highpass
-ratio, and \texttt{0.01971} to \texttt{0.01314} missing-detail energy,
-so the active bottleneck is now better framed as generalizing the
-detail-preserving signal rather than proving basic representational
-capacity.
+ratio, and \texttt{0.01971} to \texttt{0.01314} missing-detail energy. A
+follow-up deterministic512 probe retained the same favorable
+train-subset trend but failed on held-out clean-bicubic val100: mean
+PSNR fell by \texttt{0.6710\ dB}, SSIM by \texttt{0.01561}, while
+highpass error and excess energy increased. Its grids developed repeated
+ripple/grid texture. The active bottleneck is therefore generalizing a
+detail-preserving signal without creating high-frequency artifacts,
+rather than proving basic representational capacity.
 
 \texttt{paper/TECHNICAL\_REPORT.md} is the canonical report source.
 \texttt{paper/sr\_diffusion\_report.pdf} and \texttt{paper/main.tex} are
@@ -508,6 +512,67 @@ scarcity is rejected as the main bottleneck.
 The result also clarifies the objective boundary. Same-objective Stage 2
 continuation can refine deterministic fidelity, but it is unlikely to
 produce the visibly new fine texture expected from a generative model.
+
+\hypertarget{stage-2-deterministic-subset-capacity-diagnostic}{%
+\section{Stage 2 Deterministic-Subset Capacity
+Diagnostic}\label{stage-2-deterministic-subset-capacity-diagnostic}}
+
+Two clean-bicubic diagnostics removed stochastic degradation and
+evaluated on the same samples used for training. They are upper-bound
+capacity tests, not deployable model evaluations.
+
+The first fixed 64-image run completed 3000 micro-steps. Mean PSNR
+improved from \texttt{26.4246} to \texttt{29.2477}, highpass energy
+ratio from \texttt{0.7908} to \texttt{0.8812}, and missing energy from
+\texttt{0.01971} to \texttt{0.01314}. This demonstrates that the current
+dual-context Stage 2 and Stage 1 decoder can represent substantially
+more clean detail when generalization is removed.
+
+The follow-up run restarted from dual-context best98000 and expanded the
+fixed subset to 512 images:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{config: configs/latent\_pretrain\_photo130k\_lsdir\_dual\_bicubic\_det512\_probe.yaml}
+\NormalTok{W\&B:   https://wandb.ai/jwheo/LuSIR/runs/0wzx4xzy}
+\NormalTok{steps: 6000}
+\end{Highlighting}
+\end{Shaded}
+
+On the same train512 subset, mean PSNR improved from \texttt{26.95} to
+\texttt{28.40}, highpass ratio from \texttt{0.791} to \texttt{0.845},
+and missing energy from \texttt{0.01743} to \texttt{0.01410}. However,
+an additional deterministic clean-bicubic evaluation on held-out val100
+reversed the conclusion:
+
+\begin{longtable}[]{@{}lrrrrrr@{}}
+\toprule\noalign{}
+Candidate & Mean PSNR & SSIM & Highpass ratio & Highpass L1 & Missing &
+Excess \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Initial best98000 & \texttt{26.9198} & \texttt{0.82143} &
+\texttt{0.8244} & \texttt{0.03113} & \texttt{0.01799} &
+\texttt{0.00678} \\
+Det512 step6000 & \texttt{26.2488} & \texttt{0.80582} & \texttt{0.8601}
+& \texttt{0.03366} & \texttt{0.01742} & \texttt{0.00877} \\
+\end{longtable}
+
+The higher held-out highpass ratio is not a quality gain: highpass L1
+and excess energy also increase, while PSNR and SSIM regress. Fixed
+visual grids show repeated ripple/grid texture around foliage, grass,
+and zebra patterns. The checkpoint therefore memorizes subset-specific
+high-frequency structure rather than learning a transferable detail
+prior.
+
+These diagnostics separate capacity from generalization. Further
+fixed-subset scaling is not prioritized. The next Stage 2 experiment
+should restore stochastic crops and restrained augmentation, report
+train and held-out metrics together, and use highpass error/excess
+energy plus visual artifact checks as guardrails rather than optimizing
+highpass energy ratio alone.
 
 \hypertarget{stage-2-detail-perceptual-continuation-review}{%
 \section{Stage 2 Detail-Perceptual Continuation

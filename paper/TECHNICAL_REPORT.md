@@ -26,9 +26,13 @@ degradation and evaluates on the same set to test whether the current Stage 2
 structure/loss can memorize high-frequency detail once generalization is
 removed. This diagnostic completed 3000 micro-steps and improved train64 from
 `26.4246` to `29.2477` mean PSNR, `0.7908` to `0.8812` highpass ratio, and
-`0.01971` to `0.01314` missing-detail energy, so the active bottleneck is now
-better framed as generalizing the detail-preserving signal rather than proving
-basic representational capacity.
+`0.01971` to `0.01314` missing-detail energy. A follow-up deterministic512
+probe retained the same favorable train-subset trend but failed on held-out
+clean-bicubic val100: mean PSNR fell by `0.6710 dB`, SSIM by `0.01561`, while
+highpass error and excess energy increased. Its grids developed repeated
+ripple/grid texture. The active bottleneck is therefore generalizing a
+detail-preserving signal without creating high-frequency artifacts, rather
+than proving basic representational capacity.
 
 `paper/TECHNICAL_REPORT.md` is the canonical report source.
 `paper/sr_diffusion_report.pdf` and `paper/main.tex` are generated from it with
@@ -291,6 +295,49 @@ the main bottleneck.
 The result also clarifies the objective boundary. Same-objective Stage 2
 continuation can refine deterministic fidelity, but it is unlikely to produce
 the visibly new fine texture expected from a generative model.
+
+## Stage 2 Deterministic-Subset Capacity Diagnostic
+
+Two clean-bicubic diagnostics removed stochastic degradation and evaluated on
+the same samples used for training. They are upper-bound capacity tests, not
+deployable model evaluations.
+
+The first fixed 64-image run completed 3000 micro-steps. Mean PSNR improved
+from `26.4246` to `29.2477`, highpass energy ratio from `0.7908` to `0.8812`,
+and missing energy from `0.01971` to `0.01314`. This demonstrates that the
+current dual-context Stage 2 and Stage 1 decoder can represent substantially
+more clean detail when generalization is removed.
+
+The follow-up run restarted from dual-context best98000 and expanded the fixed
+subset to 512 images:
+
+```text
+config: configs/latent_pretrain_photo130k_lsdir_dual_bicubic_det512_probe.yaml
+W&B:   https://wandb.ai/jwheo/LuSIR/runs/0wzx4xzy
+steps: 6000
+```
+
+On the same train512 subset, mean PSNR improved from `26.95` to `28.40`,
+highpass ratio from `0.791` to `0.845`, and missing energy from `0.01743` to
+`0.01410`. However, an additional deterministic clean-bicubic evaluation on
+held-out val100 reversed the conclusion:
+
+| Candidate | Mean PSNR | SSIM | Highpass ratio | Highpass L1 | Missing | Excess |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Initial best98000 | `26.9198` | `0.82143` | `0.8244` | `0.03113` | `0.01799` | `0.00678` |
+| Det512 step6000 | `26.2488` | `0.80582` | `0.8601` | `0.03366` | `0.01742` | `0.00877` |
+
+The higher held-out highpass ratio is not a quality gain: highpass L1 and
+excess energy also increase, while PSNR and SSIM regress. Fixed visual grids
+show repeated ripple/grid texture around foliage, grass, and zebra patterns.
+The checkpoint therefore memorizes subset-specific high-frequency structure
+rather than learning a transferable detail prior.
+
+These diagnostics separate capacity from generalization. Further fixed-subset
+scaling is not prioritized. The next Stage 2 experiment should restore
+stochastic crops and restrained augmentation, report train and held-out metrics
+together, and use highpass error/excess energy plus visual artifact checks as
+guardrails rather than optimizing highpass energy ratio alone.
 
 ## Stage 2 Detail-Perceptual Continuation Review
 
