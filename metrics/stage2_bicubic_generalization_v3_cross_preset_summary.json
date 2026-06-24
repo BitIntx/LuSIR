@@ -1,0 +1,41 @@
+{
+  "status": "complete",
+  "config": "configs/latent_pretrain_photo130k_lsdir_dual_bicubic_generalization_v3.yaml",
+  "wandb": "https://wandb.ai/jwheo/LuSIR/runs/2cospx1j",
+  "selected_checkpoint": {
+    "path": "/home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_bicubic_generalization_v3/checkpoints/best_eval_mean_psnr.pt",
+    "step": 11500,
+    "selection": "best held-out clean-bicubic val100 mean PSNR"
+  },
+  "clean_bicubic_formal_219": {
+    "dual_best98000_mean_y_psnr": 27.84313534490121,
+    "generalization_v3_mean_y_psnr": 27.991669504055814,
+    "delta_y_psnr": 0.14853415915460443,
+    "dual_best98000_mean_y_ssim": 0.7974194884077751,
+    "generalization_v3_mean_y_ssim": 0.8029533066413604,
+    "delta_y_ssim": 0.005533818233585295
+  },
+  "cross_preset_val100": {
+    "mild": {
+      "dual_best98000_psnr": 24.358273160472017,
+      "generalization_v3_psnr": 24.14580583100012,
+      "delta_psnr": -0.21246732947189528
+    },
+    "photo_detail_mix": {
+      "dual_best98000_psnr": 24.619740766207123,
+      "generalization_v3_psnr": 24.34487926555625,
+      "delta_psnr": -0.27486150065087145
+    },
+    "photo_v2": {
+      "dual_best98000_psnr": 22.772621240031494,
+      "generalization_v3_psnr": 21.80820857913121,
+      "delta_psnr": -0.9644126609002832
+    },
+    "photo_v3_noise_mix": {
+      "dual_best98000_psnr": 22.404442481393833,
+      "generalization_v3_psnr": 21.623667050901304,
+      "delta_psnr": -0.780775430492529
+    }
+  },
+  "decision": "Preserve as a clean-bicubic research checkpoint. Do not replace the public HF or Colab default because robustness regresses on every tested real-degradation preset."
+}

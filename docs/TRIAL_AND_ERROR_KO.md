@@ -2914,3 +2914,19 @@ ratio는 `0.82463 -> 0.82375`로 유지됐다. highpass L1, missing, excess도
 각각 `0.03113 -> 0.03090`, `0.01798 -> 0.01774`,
 `0.00679 -> 0.00674`로 모두 소폭 개선됐다. fixed grid에도 뚜렷한 artifact가
 없어 V3는 계속 학습한다.
+
+V3는 12000 step을 정상 완료했고 clean-bicubic val100 mean PSNR 최고점인
+step11500을 선택했다. init 대비 mean PSNR은 `+0.13496 dB`, SSIM은
+`+0.00520`, highpass L1은 `-0.000397`, missing은 `-0.000700`이었다.
+219-image formal clean-bicubic benchmark에서도 dual best98000 대비 Y PSNR
+`+0.14853 dB`, Y SSIM `+0.00553`이며 네 dataset 모두 개선됐다. fixed grid와
+formal contact sheet에 det512에서 보였던 ripple/grid artifact는 없었다.
+
+하지만 같은 checkpoint를 실제 열화 preset으로 바꾸어 평가하면
+`mild -0.2125 dB`, `photo_detail_mix -0.2749 dB`, `photo_v2 -0.9644 dB`,
+`photo_v3_noise_mix -0.7808 dB`로 모두 퇴행했다. clean-bicubic objective가
+base fidelity를 실제로 높였지만, 그 과정에서 denoise/compression robustness를
+잃은 것이다. 따라서 V3를 실패로 폐기하지는 않되 public 기본값으로 승격하지
+않는다. 다음 probe는 V3에서 clean 비중을 유지한 채 mild에서 strong 순서로
+열화를 섞는 짧은 robustness curriculum이어야 하며, clean formal 수치와 네
+cross-preset 수치를 동시에 guardrail로 둔다.

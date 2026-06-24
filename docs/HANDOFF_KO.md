@@ -1254,10 +1254,18 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
   `configs/latent_pretrain_photo130k_lsdir_dual_bicubic_generalization_v3.yaml`
   이다. V1/V2 사이를 보간한 excess weight `1.5`, target-aligned missing
   weight `0.8`을 사용하며 나머지 조건은 동일하다. W&B는
-  <https://wandb.ai/jwheo/LuSIR/runs/2cospx1j>다. step500 held-out val100은
-  mean PSNR `+0.08517 dB`, SSIM `+0.00277`, highpass ratio 유지,
-  highpass L1 `-0.000227`, missing `-0.000239`, excess `-0.000041`로 첫
-  전 지표 동시 개선을 보였다. grid artifact도 없어 run을 계속한다.
+  <https://wandb.ai/jwheo/LuSIR/runs/2cospx1j>다. 12000 step을 정상 완료했고
+  selected checkpoint는 step11500이다. held-out clean-bicubic val100에서
+  mean PSNR `+0.13496 dB`, SSIM `+0.00520`, highpass L1 `-0.000397`,
+  missing `-0.000700`이며 grid artifact는 보이지 않았다. formal 219-image
+  benchmark에서도 dual best98000 대비 Y PSNR `+0.14853 dB`, Y SSIM
+  `+0.00553`으로 네 dataset 모두 개선됐다.
+- 다만 V3는 실제 열화 val100에서 dual best98000보다 모두 낮았다:
+  `mild -0.2125 dB`, `photo_detail_mix -0.2749 dB`, `photo_v2 -0.9644 dB`,
+  `photo_v3_noise_mix -0.7808 dB`. clean-bicubic 전용 연구 checkpoint로
+  보존하며 public HF/Colab 기본값은 교체하지 않는다. 다음 후보는 V3를
+  base로 삼되 clean/real degradation을 함께 학습하는 짧은 robustness
+  curriculum이어야 한다.
 5. 현재 Stage2 continuation은 원래 LR로 보존하되, 같은 objective의 장기
    continuation이 SwinIR gap이나 visible detail을 해결할 것으로 기대하지 않는다.
 6. latent residual v1, Stage2 latent residual adapter v1, signed-wavelet

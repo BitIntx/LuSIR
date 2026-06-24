@@ -196,6 +196,28 @@ metrics/formal_x4_benchmark_detail_v2_masked_summary.json
 metrics/formal_x4_benchmark_detail_v2_masked_metrics.csv
 ```
 
+## 2026-06-24 Stage2 Clean-Bicubic Generalization V3
+
+Stage2 dual-context best98000에서 시작한 clean-bicubic generalization V3의
+step11500을 같은 219-image protocol로 평가했다.
+
+| Candidate | Mean Y PSNR | Mean Y SSIM | Mean RGB PSNR | Mean RGB SSIM |
+| --- | ---: | ---: | ---: | ---: |
+| Dual-context best98000 | `27.84314` | `0.79742` | `26.31306` | `0.77340` |
+| Generalization V3 best11500 | **`27.99167`** | **`0.80295`** | **`26.47050`** | **`0.77969`** |
+
+V3는 DIV2K, Set5, Set14, Urban100 모두에서 dual best98000보다 높은 Y PSNR을
+기록했고 전체 평균은 `+0.14853 dB`다. 이는 clean-bicubic Stage2/base
+개선으로는 유효하다. 다만 실제 열화 val100 네 preset에서는
+`-0.2125~-0.9644 dB` 퇴행했으므로 public 기본 checkpoint로 승격하지 않는다.
+
+```text
+metrics/formal_x4_benchmark_stage2_bicubic_generalization_v3_summary.json
+metrics/formal_x4_benchmark_stage2_bicubic_generalization_v3_metrics.csv
+metrics/stage2_bicubic_generalization_v3_cross_preset_summary.json
+samples/stage2_bicubic_generalization_v3_contact_sheet.jpg
+```
+
 ## 2026-06-15 Guarded Stage2 TTA Sweep
 
 Colab default인 guarded-detail Stage2 v2 step10000에 대해 같은 219개 full image에서

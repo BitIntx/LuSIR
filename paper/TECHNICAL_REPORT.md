@@ -377,13 +377,28 @@ uses excess weight `1.5` and missing weight `0.8`, interpolated between the V1
 under-detail and V2 over-detail boundaries. All other training and evaluation
 settings remain fixed.
 
-At step500, V3 is the first variant to improve every held-out guardrail
-together. Mean PSNR increases from `26.91987` to `27.00503 dB`, SSIM from
-`0.82145` to `0.82422`, while highpass ratio remains effectively unchanged
-(`0.82463` to `0.82375`). Highpass L1, missing energy, and excess energy all
-decrease slightly. The fixed grid shows no obvious smoothing, ripple pattern,
-or oversharpening. This is an interim result; the run continues and is not yet
-promoted.
+V3 completed 12000 steps and selected step11500 by held-out clean-bicubic
+val100 mean PSNR. Relative to the initial dual-context checkpoint, mean PSNR
+increases from `26.91987` to `27.05483 dB`, SSIM from `0.82145` to `0.82665`,
+highpass L1 decreases from `0.031130` to `0.030733`, and missing energy
+decreases from `0.017983` to `0.017283`. The selected grid shows no obvious
+ripple pattern or oversharpening.
+
+The gain transfers to the formal 219-image clean-bicubic benchmark:
+
+| Candidate | Mean Y PSNR | Mean Y SSIM | Mean RGB PSNR | Mean RGB SSIM |
+| --- | ---: | ---: | ---: | ---: |
+| Dual-context step98000 | `27.84314` | `0.79742` | `26.31306` | `0.77340` |
+| Generalization V3 step11500 | **`27.99167`** | **`0.80295`** | **`26.47050`** | **`0.77969`** |
+
+This result does not transfer to real-degradation robustness. Relative to
+step98000, decoded PSNR regresses by `0.2125 dB` on `mild`, `0.2749 dB` on
+`photo_detail_mix`, `0.9644 dB` on `photo_v2`, and `0.7808 dB` on
+`photo_v3_noise_mix`. V3 is therefore preserved as the strongest standalone
+clean-bicubic Stage 2 research checkpoint, but it does not replace the public
+HF or Colab default. A follow-up must mix clean and progressively stronger
+degradations while retaining both formal clean metrics and all four
+cross-preset evaluations as guardrails.
 
 ## Stage 2 Detail-Perceptual Continuation Review
 

@@ -127,3 +127,52 @@ fixed train512도 mean PSNR `26.9494 -> 26.9864`, SSIM
 `0.80989 -> 0.81336`으로 개선됐다. fixed grid에서 뚜렷한 smoothing,
 ripple/grid artifact, 과한 sharpening은 보이지 않았다. V3는 계속 학습하되
 이 결과는 중간값이며 아직 public/HF/Colab에 승격하지 않는다.
+
+## V3 최종 결과
+
+V3는 12000 step을 정상 완료했다. held-out clean-bicubic val100 mean PSNR
+최고점인 step11500을 선택했다.
+
+| candidate | mean PSNR | SSIM | highpass ratio | highpass L1 | missing | excess |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| init best98000 | 26.91987 | 0.82145 | 0.82463 | 0.031130 | 0.017983 | 0.006785 |
+| V3 best11500 | **27.05483** | **0.82665** | 0.83316 | **0.030733** | **0.017283** | 0.006992 |
+| V3 final12000 | 27.05443 | **0.82689** | 0.83706 | 0.030738 | **0.017181** | 0.007084 |
+
+best11500은 init 대비 mean PSNR `+0.13496 dB`, SSIM `+0.00520`,
+highpass L1 `-0.000397`, missing `-0.000700`이다. final12000은 detail
+energy가 조금 더 높지만 excess도 더 커서 best11500을 유지한다.
+
+같은 219-image formal clean-bicubic protocol에서도 개선은 재현됐다.
+
+| candidate | mean Y PSNR | mean Y SSIM | mean RGB PSNR | mean RGB SSIM |
+| --- | ---: | ---: | ---: | ---: |
+| dual best98000 | 27.84314 | 0.79742 | 26.31306 | 0.77340 |
+| V3 best11500 | **27.99167** | **0.80295** | **26.47050** | **0.77969** |
+
+그러나 real-degradation val100에서는 robustness가 명확히 퇴행했다.
+
+| preset | dual best98000 | V3 best11500 | delta |
+| --- | ---: | ---: | ---: |
+| mild | 24.3583 | 24.1458 | -0.2125 |
+| photo_detail_mix | 24.6197 | 24.3449 | -0.2749 |
+| photo_v2 | 22.7726 | 21.8082 | -0.9644 |
+| photo_v3_noise_mix | 22.4044 | 21.6237 | -0.7808 |
+
+판정:
+
+- V3는 clean-bicubic Stage2/base 일반화에는 성공했다.
+- clean fidelity와 실제 열화 robustness는 현재 objective에서 상충한다.
+- V3는 clean-bicubic 연구 checkpoint로 보존한다.
+- public HF/Colab 기본 checkpoint는 교체하지 않는다.
+- 다음 실험은 V3에서 시작해 clean sample을 유지하면서 mild/real degradation을
+  점진적으로 섞는 짧은 robustness curriculum으로 제한한다.
+
+산출물:
+
+```text
+metrics/formal_x4_benchmark_stage2_bicubic_generalization_v3_summary.json
+metrics/formal_x4_benchmark_stage2_bicubic_generalization_v3_metrics.csv
+metrics/stage2_bicubic_generalization_v3_cross_preset_summary.json
+samples/stage2_bicubic_generalization_v3_contact_sheet.jpg
+```
