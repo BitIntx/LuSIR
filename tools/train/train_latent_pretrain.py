@@ -215,18 +215,22 @@ def masked_charbonnier_loss(
     return (per_pixel * weight).sum() / weight.sum().clamp_min(1e-8)
 
 
-def artifact_excess_loss(
+def local_highpass_energy_hinge_losses(
     prediction: torch.Tensor,
     target: torch.Tensor,
     *,
     highpass_kernel: int = 15,
     patch_kernel: int = 9,
-    margin: float = 0.002,
+    excess_margin: float = 0.002,
+    missing_margin: float = 0.002,
     temperature: float = 0.006,
-) -> tuple[torch.Tensor, torch.Tensor]:
-    """Penalize local highpass energy that exceeds the target evidence."""
-    prediction_detail = metric_highpass(denormalize(prediction), highpass_kernel).abs().mean(dim=1, keepdim=True)
-    target_detail = metric_highpass(denormalize(target).detach(), highpass_kernel).abs().mean(dim=1, keepdim=True)
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Return soft hinges for unsupported excess and missing local detail."""
+    prediction_highpass = metric_highpass(denormalize(prediction), highpass_kernel)
+    target_highpass = metric_highpass(denormalize(target).detach(), highpass_kernel)
+    prediction_detail = prediction_highpass.abs().mean(dim=1, keepdim=True)
+    target_detail = target_highpass.abs().mean(dim=1, keepdim=True)
+    prediction_aligned_detail = (prediction_highpass * target_highpass.sign()).mean(dim=1, keepdim=True)
     patch_kernel = int(patch_kernel)
     if patch_kernel > 1:
         if patch_kernel % 2 == 0:
@@ -242,10 +246,40 @@ def artifact_excess_loss(
             kernel_size=patch_kernel,
             stride=1,
         )
+        prediction_aligned_detail = F.avg_pool2d(
+            F.pad(prediction_aligned_detail, (padding, padding, padding, padding), mode="reflect"),
+            kernel_size=patch_kernel,
+            stride=1,
+        )
     temperature = max(float(temperature), 1e-8)
-    excess = F.softplus((prediction_detail - target_detail - float(margin)) / temperature) * temperature
-    active_fraction = (prediction_detail > target_detail + float(margin)).float().mean()
-    return excess.mean(), active_fraction
+    excess = F.softplus((prediction_detail - target_detail - float(excess_margin)) / temperature) * temperature
+    missing = (
+        F.softplus((target_detail - prediction_aligned_detail - float(missing_margin)) / temperature) * temperature
+    )
+    excess_active = (prediction_detail > target_detail + float(excess_margin)).float().mean()
+    missing_active = (target_detail > prediction_aligned_detail + float(missing_margin)).float().mean()
+    return excess.mean(), missing.mean(), excess_active, missing_active
+
+
+def artifact_excess_loss(
+    prediction: torch.Tensor,
+    target: torch.Tensor,
+    *,
+    highpass_kernel: int = 15,
+    patch_kernel: int = 9,
+    margin: float = 0.002,
+    temperature: float = 0.006,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    excess, _, excess_active, _ = local_highpass_energy_hinge_losses(
+        prediction,
+        target,
+        highpass_kernel=highpass_kernel,
+        patch_kernel=patch_kernel,
+        excess_margin=margin,
+        missing_margin=margin,
+        temperature=temperature,
+    )
+    return excess, excess_active
 
 
 def make_stage2_detail_training_mask(
@@ -295,6 +329,7 @@ def compute_stage2_loss(
     highpass_magnitude_weight = float(loss_config.get("highpass_magnitude_weight", 0.0))
     perceptual_weight = float(loss_config.get("perceptual_weight", 0.0))
     artifact_excess_weight = float(loss_config.get("artifact_excess_weight", 0.0))
+    artifact_missing_weight = float(loss_config.get("artifact_missing_weight", 0.0))
     detail_weighted_config = loss_config.get("detail_weighted", {}) or {}
     detail_decoded_weight = float(detail_weighted_config.get("decoded_weight", 0.0))
     detail_highpass_weight = float(detail_weighted_config.get("highpass_weight", 0.0))
@@ -305,6 +340,7 @@ def compute_stage2_loss(
         or highpass_magnitude_weight > 0.0
         or perceptual_weight > 0.0
         or artifact_excess_weight > 0.0
+        or artifact_missing_weight > 0.0
         or detail_decoded_weight > 0.0
         or detail_highpass_weight > 0.0
     ):
@@ -325,19 +361,26 @@ def compute_stage2_loss(
             perceptual = perceptual_model(decoded, target_image)
         else:
             perceptual = prediction.new_zeros(())
-        if artifact_excess_weight > 0.0:
+        if artifact_excess_weight > 0.0 or artifact_missing_weight > 0.0:
             artifact_config = loss_config.get("artifact_excess", {}) or {}
-            artifact_excess, artifact_excess_active = artifact_excess_loss(
-                decoded,
-                target_image,
-                highpass_kernel=int(artifact_config.get("highpass_kernel", 15)),
-                patch_kernel=int(artifact_config.get("patch_kernel", 9)),
-                margin=float(artifact_config.get("margin", 0.002)),
-                temperature=float(artifact_config.get("temperature", 0.006)),
+            artifact_excess, artifact_missing, artifact_excess_active, artifact_missing_active = (
+                local_highpass_energy_hinge_losses(
+                    decoded,
+                    target_image,
+                    highpass_kernel=int(artifact_config.get("highpass_kernel", 15)),
+                    patch_kernel=int(artifact_config.get("patch_kernel", 9)),
+                    excess_margin=float(artifact_config.get("margin", 0.002)),
+                    missing_margin=float(
+                        artifact_config.get("missing_margin", artifact_config.get("margin", 0.002))
+                    ),
+                    temperature=float(artifact_config.get("temperature", 0.006)),
+                )
             )
         else:
             artifact_excess = prediction.new_zeros(())
+            artifact_missing = prediction.new_zeros(())
             artifact_excess_active = prediction.new_zeros(())
+            artifact_missing_active = prediction.new_zeros(())
         if detail_decoded_weight > 0.0 or detail_highpass_weight > 0.0:
             detail_mask = make_stage2_detail_training_mask(
                 decoded,
@@ -363,7 +406,9 @@ def compute_stage2_loss(
         highpass_magnitude = prediction.new_zeros(())
         perceptual = prediction.new_zeros(())
         artifact_excess = prediction.new_zeros(())
+        artifact_missing = prediction.new_zeros(())
         artifact_excess_active = prediction.new_zeros(())
+        artifact_missing_active = prediction.new_zeros(())
         detail_mask = prediction.new_empty(0)
         detail_decoded = prediction.new_zeros(())
         detail_highpass = prediction.new_zeros(())
@@ -376,6 +421,7 @@ def compute_stage2_loss(
         + highpass_magnitude_weight * highpass_magnitude
         + perceptual_weight * perceptual
         + artifact_excess_weight * artifact_excess
+        + artifact_missing_weight * artifact_missing
         + detail_decoded_weight * detail_decoded
         + detail_highpass_weight * detail_highpass
     )
@@ -387,7 +433,9 @@ def compute_stage2_loss(
         "highpass_magnitude": highpass_magnitude,
         "perceptual": perceptual,
         "artifact_excess": artifact_excess,
+        "artifact_missing": artifact_missing,
         "artifact_excess_active": artifact_excess_active,
+        "artifact_missing_active": artifact_missing_active,
         "detail_decoded": detail_decoded,
         "detail_highpass": detail_highpass,
         "detail_mask_mean": detail_mask_mean,
@@ -1131,6 +1179,8 @@ def main() -> None:
                     f"perceptual={float(loss_components['perceptual'].detach().cpu()):.5f} "
                     f"artifact_excess={float(loss_components['artifact_excess'].detach().cpu()):.5f} "
                     f"artifact_active={float(loss_components['artifact_excess_active'].detach().cpu()):.4f} "
+                    f"artifact_missing={float(loss_components['artifact_missing'].detach().cpu()):.5f} "
+                    f"missing_active={float(loss_components['artifact_missing_active'].detach().cpu()):.4f} "
                     f"detail_decoded={float(loss_components['detail_decoded'].detach().cpu()):.5f} "
                     f"detail_highpass={float(loss_components['detail_highpass'].detach().cpu()):.5f} "
                     f"detail_mask={float(loss_components['detail_mask_mean'].detach().cpu()):.4f} "
@@ -1147,7 +1197,9 @@ def main() -> None:
                     "train/highpass_magnitude": float(loss_components["highpass_magnitude"].detach().cpu()),
                     "train/perceptual": float(loss_components["perceptual"].detach().cpu()),
                     "train/artifact_excess": float(loss_components["artifact_excess"].detach().cpu()),
+                    "train/artifact_missing": float(loss_components["artifact_missing"].detach().cpu()),
                     "train/artifact_excess_active": float(loss_components["artifact_excess_active"].detach().cpu()),
+                    "train/artifact_missing_active": float(loss_components["artifact_missing_active"].detach().cpu()),
                     "train/detail_decoded": float(loss_components["detail_decoded"].detach().cpu()),
                     "train/detail_highpass": float(loss_components["detail_highpass"].detach().cpu()),
                     "train/detail_mask_mean": float(loss_components["detail_mask_mean"].detach().cpu()),

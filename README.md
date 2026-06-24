@@ -231,6 +231,11 @@ only on held-out val100 mean PSNR, logs a fixed train512 probe in parallel, and
 adds a differentiable penalty for local highpass energy unsupported by the GT.
 This is a research run, not a public checkpoint candidate until held-out
 PSNR/SSIM and artifact guardrails pass.
+V1 was stopped after its first trained eval: step500 improved held-out mean
+PSNR by `0.066 dB` and reduced excess energy, but SSIM fell by `0.00265`,
+highpass ratio fell from `0.824` to `0.779`, and missing energy increased.
+The V2 config adds a target-aligned missing-detail hinge while reducing the
+excess penalty, so smoothing and artifact growth are constrained separately.
 
 The later Stage 2 detail-perceptual continuation from dual-context best98000
 also completed formal 219-image evaluation. Its latest step12000 checkpoint is

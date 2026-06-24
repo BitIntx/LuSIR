@@ -1,7 +1,11 @@
 import torch
 from torch import nn
 
-from tools.train.train_latent_pretrain import artifact_excess_loss, compute_stage2_loss
+from tools.train.train_latent_pretrain import (
+    artifact_excess_loss,
+    compute_stage2_loss,
+    local_highpass_energy_hinge_losses,
+)
 
 
 class IdentityDecoder(nn.Module):
@@ -170,3 +174,25 @@ def test_stage2_artifact_excess_objective_backpropagates() -> None:
     assert float(prediction.grad.abs().sum()) > 0.0
     assert float(components["artifact_excess"].detach()) > 0.0
     assert float(components["artifact_excess_active"].detach()) > 0.0
+
+
+def test_stage2_artifact_missing_objective_penalizes_oversmoothing() -> None:
+    target = torch.zeros(1, 3, 16, 16)
+    target[:, :, ::2, ::2] = 0.5
+    prediction = torch.zeros_like(target, requires_grad=True)
+
+    excess, missing, excess_active, missing_active = local_highpass_energy_hinge_losses(
+        prediction,
+        target,
+        highpass_kernel=3,
+        patch_kernel=3,
+        excess_margin=0.0,
+        missing_margin=0.0,
+        temperature=0.01,
+    )
+    missing.backward()
+
+    assert float(missing.detach()) > float(excess.detach())
+    assert float(missing_active.detach()) > float(excess_active.detach())
+    assert prediction.grad is not None
+    assert float(prediction.grad.abs().sum()) > 0.0

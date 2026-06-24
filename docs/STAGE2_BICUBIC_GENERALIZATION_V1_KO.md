@@ -51,3 +51,33 @@ fixed train512:  mean PSNR 26.95, SSIM 0.80987, highpass ratio 0.791,
 
 L40S에서 batch 8은 약 `37.8 / 46.1 GiB`를 사용하고, eval/checkpoint 구간을
 제외한 학습 속도는 약 `1.13 step/s`다.
+
+## V1 조기 중단
+
+V1은 첫 trained eval인 step500에서 중단했다.
+
+| step | val mean PSNR | val SSIM | highpass ratio | highpass L1 | missing | excess |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 26.91998 | 0.82143 | 0.82445 | 0.03113 | 0.01799 | 0.00678 |
+| 500 | 26.98610 | 0.81879 | 0.77892 | 0.03100 | 0.01935 | 0.00555 |
+
+PSNR은 `+0.0661 dB`, highpass L1과 excess는 소폭 개선됐지만 SSIM은
+`-0.00265`, highpass ratio는 `-0.04554`, missing은 `+0.00137` 악화했다.
+고정 grid 차이는 작았으나 metric은 artifact 억제와 함께 실제 detail까지
+줄어든 smooth bias를 명확히 보였다. 따라서 12000 step까지 계속하지 않았다.
+
+## V2
+
+후속 config는
+`configs/latent_pretrain_photo130k_lsdir_dual_bicubic_generalization_v2.yaml`
+이다. 데이터, 모델, LR, dual eval은 V1과 같고 손실만 최소 변경한다.
+
+- excess hinge weight: `2.0 -> 1.0`
+- target-aligned missing hinge weight: `0.0 -> 2.0`
+- missing hinge는 GT highpass 부호로 prediction을 projection하므로 prediction
+  highpass가 0이어도 올바른 방향의 gradient가 생긴다.
+- excess는 absolute local energy로 계속 측정해 GT 근거보다 강한 texture를 막는다.
+
+2-step CUDA smoke에서 missing loss는 `0.02434`, active fraction은 `0.8841`로
+실제 활성화됐고 전체 손실 기여도는 약 15%였다. V2도 step500에서 val PSNR,
+SSIM, highpass ratio, missing, excess가 함께 움직이지 않으면 즉시 조정한다.

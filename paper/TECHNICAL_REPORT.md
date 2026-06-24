@@ -352,6 +352,20 @@ gradient accumulation and retains only best/latest checkpoints. Promotion
 requires held-out PSNR/SSIM stability together with non-increasing highpass
 error and excess energy.
 
+V1 was stopped after the first trained evaluation. At step500, held-out mean
+PSNR improved by `0.0661 dB` and excess energy decreased from `0.00678` to
+`0.00555`, but SSIM fell by `0.00265`, highpass ratio fell from `0.82445` to
+`0.77892`, and missing energy increased from `0.01799` to `0.01935`. This is a
+smoother distortion-oriented solution, not a detail-generalization success.
+
+V2 keeps the data, model, learning rate, and dual evaluation unchanged. It
+reduces the excess-hinge weight from `2.0` to `1.0` and adds a
+target-aligned missing-detail hinge at weight `2.0`. The missing term projects
+predicted highpass onto the GT highpass sign, providing a non-zero,
+phase-correct gradient even when the current prediction is smooth. The excess
+term still uses absolute local energy, preserving a separate guard against
+unsupported texture.
+
 ## Stage 2 Detail-Perceptual Continuation Review
 
 A separate Stage 2 continuation started from dual-context best98000 and trained

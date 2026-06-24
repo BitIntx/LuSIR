@@ -1236,7 +1236,16 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
   만들지 않고 best/latest만 남긴다. 설계와 중단 기준은
   `docs/STAGE2_BICUBIC_GENERALIZATION_V1_KO.md`를 따른다. 장기 run은
   2026-06-24 시작했고 W&B는
-  <https://wandb.ai/jwheo/LuSIR/runs/yr815agn>이다.
+  <https://wandb.ai/jwheo/LuSIR/runs/yr815agn>이다. V1은 step500에서 val mean
+  PSNR `+0.0661 dB`, excess 감소를 보였지만 SSIM `-0.00265`, highpass ratio
+  `0.824 -> 0.779`, missing `0.01799 -> 0.01935`로 smooth bias가 확인돼
+  step575 부근에서 중단했다.
+- 후속 V2는
+  `configs/latent_pretrain_photo130k_lsdir_dual_bicubic_generalization_v2.yaml`
+  이다. V1과 같은 데이터/모델/eval을 유지하고 excess hinge weight를 `1.0`으로
+  낮추며 GT highpass 부호를 따르는 target-aligned missing hinge weight `2.0`을
+  추가한다. V2 smoke는 정상 통과했고 missing loss가 실제 non-zero gradient를
+  만드는 것을 단위 테스트와 CUDA에서 확인했다.
 5. 현재 Stage2 continuation은 원래 LR로 보존하되, 같은 objective의 장기
    continuation이 SwinIR gap이나 visible detail을 해결할 것으로 기대하지 않는다.
 6. latent residual v1, Stage2 latent residual adapter v1, signed-wavelet

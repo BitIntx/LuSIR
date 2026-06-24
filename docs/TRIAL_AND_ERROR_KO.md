@@ -2878,3 +2878,20 @@ train512만 오르고 val100이 떨어지면 조기 중단한다.
 실제 run은 <https://wandb.ai/jwheo/LuSIR/runs/yr815agn>에서 시작했다.
 L40S batch 8은 약 `37.8 / 46.1 GiB`를 사용하며 eval/checkpoint를 제외한
 학습 구간은 약 `1.13 step/s`다.
+
+V1은 첫 trained eval인 step500에서 조기 중단했다.
+
+| step | val mean PSNR | SSIM | highpass ratio | highpass L1 | missing | excess |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 26.91998 | 0.82143 | 0.82445 | 0.03113 | 0.01799 | 0.00678 |
+| 500 | 26.98610 | 0.81879 | 0.77892 | 0.03100 | 0.01935 | 0.00555 |
+
+artifact excess hinge는 가짜 고주파와 excess를 줄였지만 실제 highpass energy와
+SSIM도 같이 낮췄다. PSNR만 오른 smooth solution이므로 계속하지 않는다.
+
+후속 V2는 absolute-energy excess hinge를 약화하고 target-aligned missing
+hinge를 추가한다. 단순 `abs(pred_highpass)` missing loss는 prediction이 0일 때
+gradient도 0이므로 사용하지 않는다. 대신
+`pred_highpass * sign(target_highpass)` projection을 써서 올바른 GT phase
+방향으로 gradient가 생기게 했다. 관련 단위 테스트와 2-step CUDA smoke를
+통과했다.
