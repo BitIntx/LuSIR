@@ -1245,7 +1245,8 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
   이다. V1과 같은 데이터/모델/eval을 유지하고 excess hinge weight를 `1.0`으로
   낮추며 GT highpass 부호를 따르는 target-aligned missing hinge weight `2.0`을
   추가한다. V2 smoke는 정상 통과했고 missing loss가 실제 non-zero gradient를
-  만드는 것을 단위 테스트와 CUDA에서 확인했다.
+  만드는 것을 단위 테스트와 CUDA에서 확인했다. 장기 run W&B는
+  <https://wandb.ai/jwheo/LuSIR/runs/9b0lgtbf>다.
 5. 현재 Stage2 continuation은 원래 LR로 보존하되, 같은 objective의 장기
    continuation이 SwinIR gap이나 visible detail을 해결할 것으로 기대하지 않는다.
 6. latent residual v1, Stage2 latent residual adapter v1, signed-wavelet

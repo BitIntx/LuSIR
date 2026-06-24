@@ -2894,4 +2894,5 @@ hinge를 추가한다. 단순 `abs(pred_highpass)` missing loss는 prediction이
 gradient도 0이므로 사용하지 않는다. 대신
 `pred_highpass * sign(target_highpass)` projection을 써서 올바른 GT phase
 방향으로 gradient가 생기게 했다. 관련 단위 테스트와 2-step CUDA smoke를
-통과했다.
+통과했다. V2 장기 run은
+<https://wandb.ai/jwheo/LuSIR/runs/9b0lgtbf>에서 시작했다.

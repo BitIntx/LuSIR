@@ -70,7 +70,8 @@ PSNR은 `+0.0661 dB`, highpass L1과 excess는 소폭 개선됐지만 SSIM은
 
 후속 config는
 `configs/latent_pretrain_photo130k_lsdir_dual_bicubic_generalization_v2.yaml`
-이다. 데이터, 모델, LR, dual eval은 V1과 같고 손실만 최소 변경한다.
+이다. W&B는 <https://wandb.ai/jwheo/LuSIR/runs/9b0lgtbf>다. 데이터, 모델,
+LR, dual eval은 V1과 같고 손실만 최소 변경한다.
 
 - excess hinge weight: `2.0 -> 1.0`
 - target-aligned missing hinge weight: `0.0 -> 2.0`
