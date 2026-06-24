@@ -2841,3 +2841,36 @@ artifact를 학습한 것이다.
 - 다음에는 2048장 fixed memorization을 바로 돌리지 않는다. stochastic crop과
   약한 augmentation을 복원하고, train/held-out을 동시에 평가하며,
   excess/highpass-error를 직접 guardrail로 둔다.
+
+### 2026-06-24 Stage2 clean-bicubic generalization v1 준비
+
+det512의 일반화 실패를 직접 겨냥해
+`configs/latent_pretrain_photo130k_lsdir_dual_bicubic_generalization_v1.yaml`
+을 추가했다.
+
+변경점:
+
+- full photo130k+LSDIR train split과 stochastic crop을 다시 사용한다.
+- hflip, texture-aware crop retry, 약한 color jitter만 사용하고 회전은 넣지 않는다.
+- det512의 강한 highpass loss balance를 완화하고 LR은 검증된 `5e-6`으로 복귀한다.
+- GT보다 강한 local highpass energy를 soft hinge로 벌주는
+  `artifact_excess_weight: 2.0`을 Stage2 trainer에 추가했다.
+- held-out val100을 primary eval/checkpoint selection으로 사용한다.
+- deterministic train512를 같은 eval step에 `eval_train512/*`로 기록한다.
+- highpass ratio 단독 상승이 아니라 val PSNR/SSIM, highpass L1, missing,
+  excess와 fixed grid를 함께 판정한다.
+
+2-step CUDA smoke는 batch 8에서 정상 통과했다. GPU는 약
+`37.8 / 46.1 GiB`, utilization `100%`였고 초기 artifact excess loss는
+`0.00142`, active fraction은 `0.0328`이었다. 보조 eval은 기존 기준값을
+정확히 재현했다.
+
+```text
+held-out val100: mean PSNR 26.92, SSIM 0.82143, highpass 0.824,
+                    highpass L1 0.03113, missing 0.01799, excess 0.00678
+fixed train512:  mean PSNR 26.95, SSIM 0.80988, highpass 0.791,
+                    highpass L1 0.02935, missing 0.01743, excess 0.00539
+```
+
+장기 run은 12000 step으로 잡되 val highpass L1/excess가 지속 악화하거나
+train512만 오르고 val100이 떨어지면 조기 중단한다.

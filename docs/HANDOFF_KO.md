@@ -1225,6 +1225,16 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
   일반화에는 실패했으므로 checkpoint를 승격하지 않는다. 다음은 fixed subset을
   더 키우는 실험보다 stochastic crop/degradation + held-out dual eval +
   artifact-negative regularization을 우선한다.
+- 후속 일반화 probe는
+  `configs/latent_pretrain_photo130k_lsdir_dual_bicubic_generalization_v1.yaml`
+  이다. best98000에서 다시 시작하고 full train split의 stochastic crop,
+  hflip, texture crop retry, 약한 color jitter를 사용한다. primary eval과
+  checkpoint 선택은 held-out clean-bicubic val100 mean PSNR이며, 같은 시점에
+  deterministic train512를 `eval_train512/*`로 기록한다. GT보다 강한 local
+  highpass energy에는 새 `artifact_excess` soft-hinge loss를 적용한다. batch 8,
+  grad accumulation 1, LR `5e-6`, 최대 12000 step이며 numbered checkpoint는
+  만들지 않고 best/latest만 남긴다. 설계와 중단 기준은
+  `docs/STAGE2_BICUBIC_GENERALIZATION_V1_KO.md`를 따른다.
 5. 현재 Stage2 continuation은 원래 LR로 보존하되, 같은 objective의 장기
    continuation이 SwinIR gap이나 visible detail을 해결할 것으로 기대하지 않는다.
 6. latent residual v1, Stage2 latent residual adapter v1, signed-wavelet

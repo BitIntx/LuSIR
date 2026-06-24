@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from tools.train.train_latent_pretrain import compute_stage2_loss
+from tools.train.train_latent_pretrain import artifact_excess_loss, compute_stage2_loss
 
 
 class IdentityDecoder(nn.Module):
@@ -119,3 +119,54 @@ def test_stage2_detail_weighted_loss_backpropagates() -> None:
     assert 0.05 <= float(components["detail_mask_mean"]) <= 0.30
     assert float(components["detail_decoded"].detach()) > 0.0
     assert float(components["detail_highpass"].detach()) > 0.0
+
+
+def test_stage2_artifact_excess_loss_penalizes_unsupported_texture() -> None:
+    target = torch.zeros(1, 3, 16, 16)
+    prediction = target.clone()
+    prediction[:, :, ::2, ::2] = 0.5
+    prediction.requires_grad_()
+
+    loss, active_fraction = artifact_excess_loss(
+        prediction,
+        target,
+        highpass_kernel=3,
+        patch_kernel=3,
+        margin=0.0,
+        temperature=0.01,
+    )
+    loss.backward()
+
+    assert float(loss.detach()) > 0.0
+    assert float(active_fraction.detach()) > 0.0
+    assert prediction.grad is not None
+    assert float(prediction.grad.abs().sum()) > 0.0
+
+
+def test_stage2_artifact_excess_objective_backpropagates() -> None:
+    prediction = torch.zeros(1, 3, 16, 16, requires_grad=True)
+    prediction.data[:, :, ::2, ::2] = 0.5
+    target = torch.zeros_like(prediction)
+    loss, components = compute_stage2_loss(
+        prediction,
+        target,
+        target,
+        target,
+        IdentityDecoder(),
+        {
+            "latent_weight": 0.0,
+            "artifact_excess_weight": 2.0,
+            "artifact_excess": {
+                "highpass_kernel": 3,
+                "patch_kernel": 3,
+                "margin": 0.0,
+                "temperature": 0.01,
+            },
+        },
+    )
+    loss.backward()
+
+    assert prediction.grad is not None
+    assert float(prediction.grad.abs().sum()) > 0.0
+    assert float(components["artifact_excess"].detach()) > 0.0
+    assert float(components["artifact_excess_active"].detach()) > 0.0

@@ -339,6 +339,19 @@ stochastic crops and restrained augmentation, report train and held-out metrics
 together, and use highpass error/excess energy plus visual artifact checks as
 guardrails rather than optimizing highpass energy ratio alone.
 
+The follow-up configuration is
+`configs/latent_pretrain_photo130k_lsdir_dual_bicubic_generalization_v1.yaml`.
+It restarts from best98000, restores full-split stochastic crops, horizontal
+flips, texture-aware crop selection, and restrained color jitter, while using
+held-out deterministic val100 as the primary evaluation and checkpoint
+selection set. A fixed deterministic train512 set is evaluated in parallel to
+expose train/validation divergence. The trainer now also supports an
+`artifact_excess` soft-hinge loss that penalizes local predicted highpass
+energy above the GT evidence. The 12000-step probe uses batch 8 without
+gradient accumulation and retains only best/latest checkpoints. Promotion
+requires held-out PSNR/SSIM stability together with non-increasing highpass
+error and excess energy.
+
 ## Stage 2 Detail-Perceptual Continuation Review
 
 A separate Stage 2 continuation started from dual-context best98000 and trained

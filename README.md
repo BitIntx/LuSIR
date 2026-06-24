@@ -224,6 +224,13 @@ increased. Fixed grids also developed repeated ripple/grid texture. The result
 confirms representational capacity but exposes a detail-generalization and
 artifact-control bottleneck; the checkpoint is diagnostic only. See
 [`docs/STAGE2_BICUBIC_DET512_KO.md`](docs/STAGE2_BICUBIC_DET512_KO.md).
+The follow-up generalization probe is
+`configs/latent_pretrain_photo130k_lsdir_dual_bicubic_generalization_v1.yaml`.
+It restores stochastic crops and restrained augmentation, selects checkpoints
+only on held-out val100 mean PSNR, logs a fixed train512 probe in parallel, and
+adds a differentiable penalty for local highpass energy unsupported by the GT.
+This is a research run, not a public checkpoint candidate until held-out
+PSNR/SSIM and artifact guardrails pass.
 
 The later Stage 2 detail-perceptual continuation from dual-context best98000
 also completed formal 219-image evaluation. Its latest step12000 checkpoint is

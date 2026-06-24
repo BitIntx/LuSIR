@@ -215,6 +215,39 @@ def masked_charbonnier_loss(
     return (per_pixel * weight).sum() / weight.sum().clamp_min(1e-8)
 
 
+def artifact_excess_loss(
+    prediction: torch.Tensor,
+    target: torch.Tensor,
+    *,
+    highpass_kernel: int = 15,
+    patch_kernel: int = 9,
+    margin: float = 0.002,
+    temperature: float = 0.006,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Penalize local highpass energy that exceeds the target evidence."""
+    prediction_detail = metric_highpass(denormalize(prediction), highpass_kernel).abs().mean(dim=1, keepdim=True)
+    target_detail = metric_highpass(denormalize(target).detach(), highpass_kernel).abs().mean(dim=1, keepdim=True)
+    patch_kernel = int(patch_kernel)
+    if patch_kernel > 1:
+        if patch_kernel % 2 == 0:
+            raise ValueError(f"artifact_excess.patch_kernel must be odd, got {patch_kernel}")
+        padding = patch_kernel // 2
+        prediction_detail = F.avg_pool2d(
+            F.pad(prediction_detail, (padding, padding, padding, padding), mode="reflect"),
+            kernel_size=patch_kernel,
+            stride=1,
+        )
+        target_detail = F.avg_pool2d(
+            F.pad(target_detail, (padding, padding, padding, padding), mode="reflect"),
+            kernel_size=patch_kernel,
+            stride=1,
+        )
+    temperature = max(float(temperature), 1e-8)
+    excess = F.softplus((prediction_detail - target_detail - float(margin)) / temperature) * temperature
+    active_fraction = (prediction_detail > target_detail + float(margin)).float().mean()
+    return excess.mean(), active_fraction
+
+
 def make_stage2_detail_training_mask(
     decoded: torch.Tensor,
     target: torch.Tensor,
@@ -261,6 +294,7 @@ def compute_stage2_loss(
     highpass_weight = float(loss_config.get("highpass_weight", 0.0))
     highpass_magnitude_weight = float(loss_config.get("highpass_magnitude_weight", 0.0))
     perceptual_weight = float(loss_config.get("perceptual_weight", 0.0))
+    artifact_excess_weight = float(loss_config.get("artifact_excess_weight", 0.0))
     detail_weighted_config = loss_config.get("detail_weighted", {}) or {}
     detail_decoded_weight = float(detail_weighted_config.get("decoded_weight", 0.0))
     detail_highpass_weight = float(detail_weighted_config.get("highpass_weight", 0.0))
@@ -270,6 +304,7 @@ def compute_stage2_loss(
         or highpass_weight > 0.0
         or highpass_magnitude_weight > 0.0
         or perceptual_weight > 0.0
+        or artifact_excess_weight > 0.0
         or detail_decoded_weight > 0.0
         or detail_highpass_weight > 0.0
     ):
@@ -290,6 +325,19 @@ def compute_stage2_loss(
             perceptual = perceptual_model(decoded, target_image)
         else:
             perceptual = prediction.new_zeros(())
+        if artifact_excess_weight > 0.0:
+            artifact_config = loss_config.get("artifact_excess", {}) or {}
+            artifact_excess, artifact_excess_active = artifact_excess_loss(
+                decoded,
+                target_image,
+                highpass_kernel=int(artifact_config.get("highpass_kernel", 15)),
+                patch_kernel=int(artifact_config.get("patch_kernel", 9)),
+                margin=float(artifact_config.get("margin", 0.002)),
+                temperature=float(artifact_config.get("temperature", 0.006)),
+            )
+        else:
+            artifact_excess = prediction.new_zeros(())
+            artifact_excess_active = prediction.new_zeros(())
         if detail_decoded_weight > 0.0 or detail_highpass_weight > 0.0:
             detail_mask = make_stage2_detail_training_mask(
                 decoded,
@@ -314,6 +362,8 @@ def compute_stage2_loss(
         highpass = prediction.new_zeros(())
         highpass_magnitude = prediction.new_zeros(())
         perceptual = prediction.new_zeros(())
+        artifact_excess = prediction.new_zeros(())
+        artifact_excess_active = prediction.new_zeros(())
         detail_mask = prediction.new_empty(0)
         detail_decoded = prediction.new_zeros(())
         detail_highpass = prediction.new_zeros(())
@@ -325,6 +375,7 @@ def compute_stage2_loss(
         + highpass_weight * highpass
         + highpass_magnitude_weight * highpass_magnitude
         + perceptual_weight * perceptual
+        + artifact_excess_weight * artifact_excess
         + detail_decoded_weight * detail_decoded
         + detail_highpass_weight * detail_highpass
     )
@@ -335,6 +386,8 @@ def compute_stage2_loss(
         "highpass": highpass,
         "highpass_magnitude": highpass_magnitude,
         "perceptual": perceptual,
+        "artifact_excess": artifact_excess,
+        "artifact_excess_active": artifact_excess_active,
         "detail_decoded": detail_decoded,
         "detail_highpass": detail_highpass,
         "detail_mask_mean": detail_mask_mean,
@@ -360,8 +413,16 @@ def make_perceptual_model(loss_config: dict[str, Any], device: torch.device) -> 
     return model
 
 
-def make_dataset(config: dict[str, Any], split: str, seed: int, deterministic: bool | None = None) -> ManifestImageDataset:
-    data_config = config["data"]
+def make_dataset(
+    config: dict[str, Any],
+    split: str,
+    seed: int,
+    deterministic: bool | None = None,
+    data_overrides: dict[str, Any] | None = None,
+) -> ManifestImageDataset:
+    data_config = dict(config["data"])
+    if data_overrides:
+        data_config.update(data_overrides)
     if (
         deterministic is None
         and split == data_config.get("split", "train")
@@ -878,6 +939,7 @@ def main() -> None:
     eval_cfg = config.get("eval", {})
     eval_enabled = bool(eval_cfg.get("enabled", False))
     eval_loader = None
+    additional_eval_loaders: list[tuple[str, DataLoader]] = []
     eval_every = int(eval_cfg.get("every", 1000))
     eval_run_at_start = bool(eval_cfg.get("run_at_start", True))
     best_metric_name = str(eval_cfg.get("best_metric", "eval/latent_loss"))
@@ -907,6 +969,39 @@ def main() -> None:
             f"batch_size={eval_cfg.get('batch_size', train_cfg.get('batch_size', 1))}",
             rank,
         )
+        for additional_cfg in eval_cfg.get("additional", []) or []:
+            name = str(additional_cfg["name"]).strip()
+            if not name or "/" in name:
+                raise ValueError(f"eval.additional name must be a non-empty path-safe label, got {name!r}")
+            additional_dataset = make_dataset(
+                config,
+                split=str(additional_cfg.get("split", "train")),
+                seed=seed,
+                deterministic=bool(additional_cfg.get("deterministic", True)),
+                data_overrides=additional_cfg.get("data", {}),
+            )
+            additional_limit = int(additional_cfg.get("limit", 0))
+            if additional_limit > 0 and additional_limit < len(additional_dataset):
+                from torch.utils.data import Subset
+
+                additional_dataset = Subset(additional_dataset, list(range(additional_limit)))
+            additional_loader = DataLoader(
+                additional_dataset,
+                batch_size=int(additional_cfg.get("batch_size", eval_cfg.get("batch_size", 1))),
+                shuffle=False,
+                num_workers=int(additional_cfg.get("num_workers", eval_cfg.get("num_workers", 0))),
+                pin_memory=device.type == "cuda",
+                drop_last=False,
+            )
+            additional_eval_loaders.append((name, additional_loader))
+            print_main(
+                "eval_additional="
+                f"name={name} "
+                f"split={additional_cfg.get('split', 'train')} "
+                f"limit={additional_cfg.get('limit', 0)} "
+                f"batch_size={additional_cfg.get('batch_size', eval_cfg.get('batch_size', 1))}",
+                rank,
+            )
 
     vae = load_autoencoder(config, device=device)
     perceptual_model = make_perceptual_model(loss_config, device=device)
@@ -1034,6 +1129,8 @@ def main() -> None:
                     f"highpass={float(loss_components['highpass'].detach().cpu()):.5f} "
                     f"highpass_mag={float(loss_components['highpass_magnitude'].detach().cpu()):.5f} "
                     f"perceptual={float(loss_components['perceptual'].detach().cpu()):.5f} "
+                    f"artifact_excess={float(loss_components['artifact_excess'].detach().cpu()):.5f} "
+                    f"artifact_active={float(loss_components['artifact_excess_active'].detach().cpu()):.4f} "
                     f"detail_decoded={float(loss_components['detail_decoded'].detach().cpu()):.5f} "
                     f"detail_highpass={float(loss_components['detail_highpass'].detach().cpu()):.5f} "
                     f"detail_mask={float(loss_components['detail_mask_mean'].detach().cpu()):.4f} "
@@ -1049,6 +1146,8 @@ def main() -> None:
                     "train/highpass": float(loss_components["highpass"].detach().cpu()),
                     "train/highpass_magnitude": float(loss_components["highpass_magnitude"].detach().cpu()),
                     "train/perceptual": float(loss_components["perceptual"].detach().cpu()),
+                    "train/artifact_excess": float(loss_components["artifact_excess"].detach().cpu()),
+                    "train/artifact_excess_active": float(loss_components["artifact_excess_active"].detach().cpu()),
                     "train/detail_decoded": float(loss_components["detail_decoded"].detach().cpu()),
                     "train/detail_highpass": float(loss_components["detail_highpass"].detach().cpu()),
                     "train/detail_mask_mean": float(loss_components["detail_mask_mean"].detach().cpu()),
@@ -1080,8 +1179,33 @@ def main() -> None:
                         loss_config,
                         perceptual_model,
                     )
+                    combined_metrics = dict(metrics)
+                    for name, additional_loader in additional_eval_loaders:
+                        additional_metrics = evaluate(
+                            unwrap_model(model),
+                            vae,
+                            additional_loader,
+                            device,
+                            dtype_name,
+                            loss_config,
+                            perceptual_model,
+                        )
+                        prefixed_metrics = {
+                            key.replace("eval/", f"eval_{name}/", 1): value
+                            for key, value in additional_metrics.items()
+                        }
+                        combined_metrics.update(prefixed_metrics)
+                        print(
+                            f"eval_additional step={step} name={name} "
+                            f"mean_psnr={additional_metrics['eval/decoded_mean_psnr']:.2f} "
+                            f"ssim={additional_metrics['eval/decoded_ssim']:.5f} "
+                            f"highpass_ratio={additional_metrics['eval/highpass_energy_ratio']:.3f} "
+                            f"highpass_l1={additional_metrics['eval/highpass_l1']:.5f} "
+                            f"missing={additional_metrics['eval/missing_energy']:.5f} "
+                            f"excess={additional_metrics['eval/excess_energy']:.5f}"
+                        )
                     (eval_dir / f"step_{step:07d}_metrics.json").write_text(
-                        json.dumps({"step": step, "metrics": metrics}, indent=2, sort_keys=True) + "\n",
+                        json.dumps({"step": step, "metrics": combined_metrics}, indent=2, sort_keys=True) + "\n",
                         encoding="utf-8",
                     )
                     print(
@@ -1090,11 +1214,13 @@ def main() -> None:
                         f"mean_psnr={metrics['eval/decoded_mean_psnr']:.2f} "
                         f"detail_ratio={metrics['eval/laplacian_energy_ratio']:.3f} "
                         f"highpass_ratio={metrics['eval/highpass_energy_ratio']:.3f} "
+                        f"highpass_l1={metrics['eval/highpass_l1']:.5f} "
                         f"missing={metrics['eval/missing_energy']:.5f} "
+                        f"excess={metrics['eval/excess_energy']:.5f} "
                         f"perceptual={metrics['eval/perceptual']:.5f} "
                         f"psnr_detail_score={metrics['eval/psnr_detail_score']:.3f}"
                     )
-                    wandb_log(run, metrics, step=step)
+                    wandb_log(run, combined_metrics, step=step)
                     metric_value = float(metrics[best_metric_name])
                     is_better = metric_value < best_eval if best_metric_mode == "min" else metric_value > best_eval
                     if is_better:
@@ -1153,8 +1279,16 @@ def main() -> None:
             if step % save_every == 0 or step == max_steps:
                 barrier(distributed)
                 if is_main_process(rank):
-                    save_checkpoint(checkpoints_dir / f"step_{step:07d}.pt", unwrap_model(model), optimizer, step, config)
-                    save_checkpoint(checkpoints_dir / "latest.pt", unwrap_model(model), optimizer, step, config)
+                    if bool(train_cfg.get("save_step_checkpoints", True)):
+                        save_checkpoint(
+                            checkpoints_dir / f"step_{step:07d}.pt",
+                            unwrap_model(model),
+                            optimizer,
+                            step,
+                            config,
+                        )
+                    if bool(train_cfg.get("save_latest", True)):
+                        save_checkpoint(checkpoints_dir / "latest.pt", unwrap_model(model), optimizer, step, config)
                 barrier(distributed)
 
             if step >= max_steps:
