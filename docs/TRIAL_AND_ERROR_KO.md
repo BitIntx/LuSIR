@@ -2950,3 +2950,7 @@ L40S에서는 batch 8이 첫 decoder backward에서 OOM, batch 7이 full eval �
 않는다. 4000-step 동안 clean과 네 real-degradation preset을 500 step마다
 동시에 기록한다. 이 probe가 clean `+0.05 dB`와 robustness 유지에 실패하면
 다음 우선순위는 추가 parameter가 아니라 mixed-degradation curriculum이다.
+
+실제 run은 <https://wandb.ai/jwheo/LuSIR/runs/4y21n40o>에서 시작했다.
+초기 eval 이후 step25-50 구간은 약 `1.11 step/s`, VRAM
+`40.4/46.1GB`, GPU utilization `100%`, 약 `318W`로 병목 없이 진행됐다.

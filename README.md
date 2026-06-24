@@ -252,7 +252,8 @@ parameters (`1.238x`). Blocks 16-39 use zero-initialized residual outputs, so
 partial initialization from V3 step11500 preserves the original prediction
 exactly. The 4000-step probe evaluates clean bicubic and four real-degradation
 presets together. It is promoted only if the extra capacity improves clean
-fidelity without repeating V3's robustness regression.
+fidelity without repeating V3's robustness regression. The active run is
+tracked at <https://wandb.ai/jwheo/LuSIR/runs/4y21n40o>.
 
 The later Stage 2 detail-perceptual continuation from dual-context best98000
 also completed formal 219-image evaluation. Its latest step12000 checkpoint is

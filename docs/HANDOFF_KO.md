@@ -1275,7 +1275,11 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
   OOM 또는 eval 이후 OOM이므로 grad accumulation 없는 batch 6을 사용한다.
   smoke는 VRAM 약 `39.2/46.1GB`, train utilization `98~100%`로 통과했다.
   최대 4000 step이며 clean val100과 `mild`, `photo_detail_mix`, `photo_v2`,
-  `photo_v3_noise_mix` val100을 500 step마다 함께 평가한다.
+  `photo_v3_noise_mix` val100을 500 step마다 함께 평가한다. 실제 run은
+  2026-06-24 시작했고 W&B는
+  <https://wandb.ai/jwheo/LuSIR/runs/4y21n40o>다. 초기 eval 이후 안정 구간은
+  약 `1.11 step/s`, VRAM `40.4/46.1GB`, GPU utilization `100%`, 약
+  `318W`다.
 5. 현재 Stage2 continuation은 원래 LR로 보존하되, 같은 objective의 장기
    continuation이 SwinIR gap이나 visible detail을 해결할 것으로 기대하지 않는다.
 6. latent residual v1, Stage2 latent residual adapter v1, signed-wavelet

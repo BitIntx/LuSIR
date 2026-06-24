@@ -188,6 +188,7 @@ init:   V3 best11500
 blocks: 16 -> 40
 params: 119.238M -> 147.587M (1.238x)
 steps:  4000
+wandb:  https://wandb.ai/jwheo/LuSIR/runs/4y21n40o
 ```
 
 추가 blocks 16-39는 두 번째 convolution을 zero-init한다. 기존 16개 block과
@@ -203,6 +204,10 @@ L40S smoke 결과:
 - batch 6 VRAM: 약 `39.2 / 46.1GB`
 - 학습 구간 GPU utilization: `98~100%`
 - 전체 test suite: `94 passed`
+
+장기 run은 2026-06-24 시작했다. 초기 5개 val100 eval 이후 학습 안정 구간은
+약 `1.11 step/s`, VRAM `40.4/46.1GB`, GPU utilization `100%`, 약
+`318W`다.
 
 판정 기준:
 
