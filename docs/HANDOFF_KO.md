@@ -1246,7 +1246,14 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
   낮추며 GT highpass 부호를 따르는 target-aligned missing hinge weight `2.0`을
   추가한다. V2 smoke는 정상 통과했고 missing loss가 실제 non-zero gradient를
   만드는 것을 단위 테스트와 CUDA에서 확인했다. 장기 run W&B는
-  <https://wandb.ai/jwheo/LuSIR/runs/9b0lgtbf>다.
+  <https://wandb.ai/jwheo/LuSIR/runs/9b0lgtbf>다. V2는 step1000에서
+  SSIM `0.82145 -> 0.82921`, missing `0.01798 -> 0.01533`으로 개선됐지만
+  highpass ratio `0.82468 -> 0.90093`, excess `0.00679 -> 0.00915`,
+  mean PSNR `26.91977 -> 26.86881`로 과한 고주파 방향이 확인돼 중단했다.
+- V3는
+  `configs/latent_pretrain_photo130k_lsdir_dual_bicubic_generalization_v3.yaml`
+  이다. V1/V2 사이를 보간한 excess weight `1.5`, target-aligned missing
+  weight `0.8`을 사용하며 나머지 조건은 동일하다.
 5. 현재 Stage2 continuation은 원래 LR로 보존하되, 같은 objective의 장기
    continuation이 SwinIR gap이나 visible detail을 해결할 것으로 기대하지 않는다.
 6. latent residual v1, Stage2 latent residual adapter v1, signed-wavelet

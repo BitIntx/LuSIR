@@ -366,6 +366,17 @@ phase-correct gradient even when the current prediction is smooth. The excess
 term still uses absolute local energy, preserving a separate guard against
 unsupported texture.
 
+V2 was stopped after step1000. SSIM increased from `0.82145` to `0.82921` and
+missing energy decreased from `0.01798` to `0.01533`, confirming that the
+target-aligned gradient restores structural high-frequency response. The
+weight was too strong: highpass ratio increased from `0.82468` to `0.90093`,
+excess energy from `0.00679` to `0.00915`, and mean PSNR fell by `0.0510 dB`.
+
+V3 isolates the balance rather than changing architecture or data again. It
+uses excess weight `1.5` and missing weight `0.8`, interpolated between the V1
+under-detail and V2 over-detail boundaries. All other training and evaluation
+settings remain fixed.
+
 ## Stage 2 Detail-Perceptual Continuation Review
 
 A separate Stage 2 continuation started from dual-context best98000 and trained

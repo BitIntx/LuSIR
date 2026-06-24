@@ -82,3 +82,24 @@ LR, dual eval은 V1과 같고 손실만 최소 변경한다.
 2-step CUDA smoke에서 missing loss는 `0.02434`, active fraction은 `0.8841`로
 실제 활성화됐고 전체 손실 기여도는 약 15%였다. V2도 step500에서 val PSNR,
 SSIM, highpass ratio, missing, excess가 함께 움직이지 않으면 즉시 조정한다.
+
+## V2 결과와 V3
+
+V2는 step1000 이후 중단했다.
+
+| step | val mean PSNR | val SSIM | highpass ratio | highpass L1 | missing | excess |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 26.91977 | 0.82145 | 0.82468 | 0.03113 | 0.01798 | 0.00679 |
+| 500 | 26.91545 | 0.82836 | 0.88370 | 0.03128 | 0.01585 | 0.00860 |
+| 1000 | 26.86881 | 0.82921 | 0.90093 | 0.03141 | 0.01533 | 0.00915 |
+
+target-aligned missing hinge는 SSIM과 missing energy를 개선했지만 weight `2.0`은
+과했다. highpass ratio와 excess가 계속 증가하고 PSNR도 step1000에서
+`-0.0510 dB` 내려갔다.
+
+V3 config는
+`configs/latent_pretrain_photo130k_lsdir_dual_bicubic_generalization_v3.yaml`
+이다. V1/V2의 step500 highpass ratio를 경계로 선형 보간해 excess weight
+`1.5`, missing weight `0.8`을 사용한다. 데이터, 모델, LR, scheduler,
+dual eval은 모두 동일하다. 목표는 highpass ratio를 초기 `0.825` 근처에
+유지하면서 PSNR/SSIM 또는 highpass L1을 개선하는 것이다.

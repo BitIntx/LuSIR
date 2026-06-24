@@ -2896,3 +2896,14 @@ gradient도 0이므로 사용하지 않는다. 대신
 방향으로 gradient가 생기게 했다. 관련 단위 테스트와 2-step CUDA smoke를
 통과했다. V2 장기 run은
 <https://wandb.ai/jwheo/LuSIR/runs/9b0lgtbf>에서 시작했다.
+
+V2는 step1000에서 중단했다. step500/1000의 SSIM은 `0.82836/0.82921`로
+초기 `0.82145`보다 높고 missing은 `0.01585/0.01533`으로 줄었다. 그러나
+highpass ratio는 `0.88370/0.90093`, excess는 `0.00860/0.00915`까지
+계속 증가했고 mean PSNR은 step1000에서 `-0.0510 dB`였다. V1이 과소
+고주파, V2가 과대 고주파 경계를 제공했으므로 다음은 구조 변경이 아니라
+가중치 보간을 먼저 한다.
+
+V3는 excess `1.5`, missing `0.8`이며 그 외 조건은 V2와 같다. 목표는 초기
+highpass ratio `0.825` 부근을 유지하면서 PSNR/SSIM/highpass L1을 개선하는
+것이다.
