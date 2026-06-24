@@ -2988,3 +2988,8 @@ eval에 `eval.data` override도 추가해 mixed train preset이 clean 평가에
 `25.7430`, selection valid `1.0`이며 eval 전후 backward를 통과했다.
 전체 test suite는 `97 passed`다. 최대 6000 step에서 strong preset 회복량과
 clean 손실을 함께 본다.
+
+실제 run은 <https://wandb.ai/jwheo/LuSIR/runs/7fidh724>에서 시작했다.
+초기 composite `25.74295`, selection valid `1.0`을 재현했고, step50
+안정 구간은 `1.13 step/s`, VRAM `37.3/46.1GB`, GPU `99~100%`,
+약 `318W`다.

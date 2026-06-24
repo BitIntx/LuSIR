@@ -1296,7 +1296,10 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
   mean PSNR `27.02`, SSIM `0.8260`, excess `0.0075` guardrail을 통과해야
   한다. primary eval에 별도 `eval.data` override를 추가해 train mix와
   clean-bicubic 평가가 섞이지 않게 했다. CUDA 3-step smoke와 전체
-  `97 tests`를 통과했다.
+  `97 tests`를 통과했다. 실제 run은 2026-06-24 시작했고 W&B는
+  <https://wandb.ai/jwheo/LuSIR/runs/7fidh724>다. 초기 composite
+  `25.74295`, selection valid `1.0`, 안정 구간 `1.13 step/s`, VRAM
+  `37.3/46.1GB`, GPU `99~100%`, 약 `318W`다.
 5. 현재 Stage2 continuation은 원래 LR로 보존하되, 같은 objective의 장기
    continuation이 SwinIR gap이나 visible detail을 해결할 것으로 기대하지 않는다.
 6. latent residual v1, Stage2 latent residual adapter v1, signed-wavelet

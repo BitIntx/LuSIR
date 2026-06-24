@@ -271,6 +271,7 @@ init:   V3 best11500
 steps:  6000
 batch:  8, grad accumulation 1
 LR:     2e-6 warmup cosine
+wandb:  https://wandb.ai/jwheo/LuSIR/runs/7fidh724
 ```
 
 train degradation mix:
@@ -296,3 +297,7 @@ preset이 mixed여도 primary val100은 항상 `benchmark_bicubic`이고, 네 �
 열화 평가는 별도 namespace에 기록된다. CUDA 3-step smoke에서 초기 clean
 mean PSNR `27.0550`, composite score `25.7430`, guardrail valid를 확인했고
 전체 test suite는 `97 passed`다.
+
+장기 run은 2026-06-24 시작했다. 초기 composite score는 `25.74295`,
+selection valid는 `1.0`이며 안정 학습 구간은 약 `1.13 step/s`, VRAM
+`37.3/46.1GB`, GPU utilization `99~100%`, 약 `318W`다.

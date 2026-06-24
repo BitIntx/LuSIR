@@ -264,7 +264,8 @@ mixed-degradation bridge rather than adding capacity. Training samples are
 photo-v2, and `2%` photo-v3 noise. Checkpoint selection uses a weighted score
 across clean and four degradation val100 sets, with explicit clean PSNR, SSIM,
 and excess-energy guardrails. This tests whether robustness can be recovered
-without giving back V3's clean-fidelity gain.
+without giving back V3's clean-fidelity gain. The active run is tracked at
+<https://wandb.ai/jwheo/LuSIR/runs/7fidh724>.
 
 The later Stage 2 detail-perceptual continuation from dual-context best98000
 also completed formal 219-image evaluation. Its latest step12000 checkpoint is
