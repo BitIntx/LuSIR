@@ -1,0 +1,33 @@
+{
+  "status": "complete",
+  "config": "configs/latent_pretrain_photo130k_lsdir_dual_robustness_bridge_v1.yaml",
+  "wandb": "https://wandb.ai/jwheo/LuSIR/runs/7fidh724",
+  "finished_step": 6000,
+  "initial": {
+    "step": 1,
+    "composite_score": 25.74295412635803,
+    "clean_mean_psnr": 27.055009765625,
+    "mild_mean_psnr": 25.788228225708007,
+    "photo_detail_mix_mean_psnr": 26.195460586547853,
+    "photo_v2_mean_psnr": 23.040025482177736,
+    "photo_v3_noise_mix_mean_psnr": 23.12514579772949
+  },
+  "early_balance_candidate": {
+    "step": 500,
+    "checkpoint_saved": false,
+    "composite_score": 25.99242059135437,
+    "clean_mean_psnr": 27.016277465820313,
+    "clean_delta": -0.03873229980468662,
+    "mild_delta": 0.2705519866943369,
+    "photo_detail_mix_delta": 0.26292694091796753,
+    "photo_v2_delta": 0.7722430419921868,
+    "photo_v3_noise_mix_delta": 0.722750244140629
+  },
+  "highest_raw_score": {
+    "step": 4500,
+    "composite_score": 26.003511211395264,
+    "clean_mean_psnr": 26.990163803100586,
+    "selection_valid": false
+  },
+  "decision": "The mixed-degradation direction is effective, but the 45% degraded training share and 2e-6 learning rate reduce clean PSNR too quickly. Continue with a 70% clean, 30% degraded bridge at 1e-6 for 1500 steps."
+}

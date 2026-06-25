@@ -451,6 +451,22 @@ clean benchmark remains independent of the mixed training preset. The initial
 CUDA smoke reproduces clean mean PSNR `27.0550`, obtains composite score
 `25.7430`, passes all guardrails, and the full 97-test suite passes.
 
+Bridge v1 completed 6000 steps. At step500, clean mean PSNR regressed by
+`0.03873 dB`, while mild and photo-detail-mix improved by `0.27055` and
+`0.26293 dB`; photo-v2 and photo-v3-noise-mix improved by `0.77224` and
+`0.72275 dB`. This missed the clean threshold by only `0.00372 dB`, but later
+steps did not improve the trade-off. Step4500 had the highest raw composite
+score while losing `0.06485 dB` clean fidelity. No trained checkpoint passed
+all guardrails.
+
+Bridge v2 therefore raises the clean share from `55%` to `70%`, reduces the
+combined strong-degradation share from `10%` to `5%`, halves the learning rate
+to `1e-6`, and limits training to 1500 steps with 250-step evaluation. Its
+mix is `70%` benchmark bicubic, `15%` photo detail, `10%` mild, `4%`
+photo-v2, and `1%` photo-v3 noise. Selection and guardrails remain unchanged
+for direct comparison. The initial smoke reproduces composite score
+`25.74284`, clean mean PSNR `27.05493`, and passes the full 98-test suite.
+
 ## Stage 2 Detail-Perceptual Continuation Review
 
 A separate Stage 2 continuation started from dual-context best98000 and trained

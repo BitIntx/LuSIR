@@ -721,6 +721,27 @@ reproduces clean mean PSNR \texttt{27.0550}, obtains composite score
 \texttt{25.7430}, passes all guardrails, and the full 97-test suite
 passes.
 
+Bridge v1 completed 6000 steps. At step500, clean mean PSNR regressed by
+\texttt{0.03873\ dB}, while mild and photo-detail-mix improved by
+\texttt{0.27055} and \texttt{0.26293\ dB}; photo-v2 and
+photo-v3-noise-mix improved by \texttt{0.77224} and
+\texttt{0.72275\ dB}. This missed the clean threshold by only
+\texttt{0.00372\ dB}, but later steps did not improve the trade-off.
+Step4500 had the highest raw composite score while losing
+\texttt{0.06485\ dB} clean fidelity. No trained checkpoint passed all
+guardrails.
+
+Bridge v2 therefore raises the clean share from \texttt{55\%} to
+\texttt{70\%}, reduces the combined strong-degradation share from
+\texttt{10\%} to \texttt{5\%}, halves the learning rate to
+\texttt{1e-6}, and limits training to 1500 steps with 250-step
+evaluation. Its mix is \texttt{70\%} benchmark bicubic, \texttt{15\%}
+photo detail, \texttt{10\%} mild, \texttt{4\%} photo-v2, and
+\texttt{1\%} photo-v3 noise. Selection and guardrails remain unchanged
+for direct comparison. The initial smoke reproduces composite score
+\texttt{25.74284}, clean mean PSNR \texttt{27.05493}, and passes the
+full 98-test suite.
+
 \hypertarget{stage-2-detail-perceptual-continuation-review}{%
 \section{Stage 2 Detail-Perceptual Continuation
 Review}\label{stage-2-detail-perceptual-continuation-review}}

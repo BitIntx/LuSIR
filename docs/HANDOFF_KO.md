@@ -1300,6 +1300,20 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
   <https://wandb.ai/jwheo/LuSIR/runs/7fidh724>다. 초기 composite
   `25.74295`, selection valid `1.0`, 안정 구간 `1.13 step/s`, VRAM
   `37.3/46.1GB`, GPU `99~100%`, 약 `318W`다.
+- bridge v1은 6000 step을 완료했다. 실제 열화 회복은 성공했지만 clean
+  guardrail은 모든 trained checkpoint에서 실패했다. 가장 이른 step500은
+  clean `-0.03873 dB`, mild `+0.27055`, detail-mix `+0.26293`,
+  photo_v2 `+0.77224`, photo_v3 noise mix `+0.72275 dB`였다. clean
+  threshold `27.02`에 `0.00372 dB` 모자랐다. 자동 best step1은 V3
+  복제본이고 latest는 clean 손실이 더 커 둘 다 삭제했으며 결과는
+  `metrics/stage2_robustness_bridge_v1_summary.json`에 보존했다.
+- 후속 v2는
+  `configs/latent_pretrain_photo130k_lsdir_dual_robustness_bridge_v2.yaml`
+  이다. benchmark bicubic `70%`, photo detail `15%`, mild `10%`,
+  photo_v2 `4%`, photo_v3 noise `1%`로 열화 비중을 `45% -> 30%`로
+  줄였다. LR은 `2e-6 -> 1e-6`, 최대 1500 step, eval은 250 step마다다.
+  best 이외 latest는 저장하지 않는다. smoke 초기 composite `25.74284`,
+  clean `27.05493`, selection valid `1.0`이며 전체 `98 tests`를 통과했다.
 5. 현재 Stage2 continuation은 원래 LR로 보존하되, 같은 objective의 장기
    continuation이 SwinIR gap이나 visible detail을 해결할 것으로 기대하지 않는다.
 6. latent residual v1, Stage2 latent residual adapter v1, signed-wavelet

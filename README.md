@@ -267,6 +267,14 @@ and excess-energy guardrails. This tests whether robustness can be recovered
 without giving back V3's clean-fidelity gain. The active run is tracked at
 <https://wandb.ai/jwheo/LuSIR/runs/7fidh724>.
 
+Bridge v1 completed 6000 steps. Its most useful observed point was step500:
+clean mean PSNR fell by `0.0387 dB`, while mild and detail-mix improved by
+`0.271/0.263 dB` and the two strong presets by `0.772/0.723 dB`. No trained
+checkpoint passed the clean guardrail, so v1 is not promoted. Bridge v2
+reduces the degraded training share from `45%` to `30%`, raises benchmark
+bicubic to `70%`, halves LR to `1e-6`, and limits training to 1500 steps with
+evaluation every 250 steps.
+
 The later Stage 2 detail-perceptual continuation from dual-context best98000
 also completed formal 219-image evaluation. Its latest step12000 checkpoint is
 nearly tied with dual best98000 (`27.8356` vs `27.8431` Y PSNR) and slightly

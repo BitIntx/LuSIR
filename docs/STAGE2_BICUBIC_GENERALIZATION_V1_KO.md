@@ -301,3 +301,32 @@ mean PSNR `27.0550`, composite score `25.7430`, guardrail valid를 확인했고
 장기 run은 2026-06-24 시작했다. 초기 composite score는 `25.74295`,
 selection valid는 `1.0`이며 안정 학습 구간은 약 `1.13 step/s`, VRAM
 `37.3/46.1GB`, GPU utilization `99~100%`, 약 `318W`다.
+
+### Bridge v1 결과와 v2
+
+v1은 6000 step을 완료했다. clean guardrail을 통과한 trained checkpoint는
+없었지만 실제 열화 학습 방향 자체는 유효했다.
+
+| step | clean delta | mild delta | detail-mix delta | photo_v2 delta | v3-noise delta |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 500 | -0.03873 | +0.27055 | +0.26293 | +0.77224 | +0.72275 |
+| 4500 | -0.06485 | +0.29902 | +0.30680 | +0.81660 | +0.77431 |
+
+step500은 clean threshold `27.02`보다 `0.00372 dB` 낮았다. 이후 strong
+성능은 비슷한 수준에서 정체되고 clean만 더 내려갔다. 자동 best step1은 V3
+초기값 복제본이고 latest6000은 더 나쁜 균형이므로 두 checkpoint를 삭제했다.
+
+v2는 다음처럼 보수적으로 조정한다.
+
+```text
+config: configs/latent_pretrain_photo130k_lsdir_dual_robustness_bridge_v2.yaml
+clean/degraded: 70% / 30%
+mix: benchmark 70, photo-detail 15, mild 10, photo-v2 4, photo-v3 1
+LR: 1e-6
+steps: 1500
+eval: every 250 steps
+```
+
+selection score와 guardrail은 v1과 같아 직접 비교할 수 있다. smoke 초기값은
+composite `25.74284`, clean `27.05493`, SSIM `0.82665`, excess
+`0.006994`, selection valid `1.0`이다. 전체 test suite는 `98 passed`다.

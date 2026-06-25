@@ -48,6 +48,14 @@ def test_photo_robustness_bridge_v1_outputs_expected_size() -> None:
     assert lr.mode == "RGB"
 
 
+def test_photo_robustness_bridge_v2_outputs_expected_size() -> None:
+    image = Image.new("RGB", (128, 128), (200, 120, 80))
+    pipeline = DegradationPipeline.from_preset("photo_robustness_bridge_v2", scale=4)
+    lr = pipeline.apply(image, rng=random.Random(0), out_size=32)
+    assert lr.size == (32, 32)
+    assert lr.mode == "RGB"
+
+
 def test_benchmark_bicubic_matches_pil_bicubic_downsample() -> None:
     gradient = np.tile(np.arange(128, dtype=np.uint8), (128, 1))
     image = Image.fromarray(np.stack([gradient, gradient.T, np.flipud(gradient)], axis=-1), mode="RGB")

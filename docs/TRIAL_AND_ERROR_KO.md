@@ -2993,3 +2993,15 @@ clean 손실을 함께 본다.
 초기 composite `25.74295`, selection valid `1.0`을 재현했고, step50
 안정 구간은 `1.13 step/s`, VRAM `37.3/46.1GB`, GPU `99~100%`,
 약 `318W`다.
+
+v1은 6000 step을 완료했다. step500부터 strong preset은 photo_v2
+`+0.77224 dB`, photo_v3 noise mix `+0.72275 dB` 개선됐지만 clean은
+`-0.03873 dB`로 guardrail을 `0.00372 dB` 넘겨 잃었다. step4500의 raw
+composite가 가장 높았지만 clean `-0.06485 dB`라 더 나쁜 trade-off다.
+즉 45% degraded mix와 LR `2e-6`은 방향은 맞지만 압력이 강했다.
+
+v2는 clean을 `70%`, degraded를 `30%`로 바꾸고 강한 v2/v3 합계를
+`10% -> 5%`로 낮춘다. LR도 `1e-6`으로 반감하고 1500 step만 실행하며
+250 step마다 같은 다섯 val100을 평가한다. 목표는 clean 손실을
+`0.035 dB` 안에 묶으면서 mild/detail `+0.10 dB`, strong
+`+0.25 dB` 이상을 얻는 것이다. CUDA smoke와 전체 `98 tests`를 통과했다.
