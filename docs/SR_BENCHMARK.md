@@ -334,6 +334,7 @@ continuation한 bridge v2의 selected step1000을 같은 219-image protocol로
 | Dual-context best98000 | 27.84314 | 0.79742 | 26.31306 | 0.77340 |
 | Generalization V3 best11500 | **27.99167** | **0.80295** | **26.47050** | **0.77969** |
 | Robustness bridge v2 best1000 | 27.97010 | 0.80259 | 26.44386 | 0.77915 |
+| Bridge/guarded soup alpha 0.25 | 27.96126 | 0.80233 | 26.43500 | 0.77885 |
 | Guarded Stage2 v2 | 27.85393 | 0.79945 | 26.32633 | 0.77555 |
 
 Bridge v2는 V3 대비 Y PSNR `-0.02156 dB`, Y SSIM `-0.000366`이며
@@ -342,11 +343,25 @@ Y-PSNR wins는 `59/219`다. dual best98000 대비로는 Y PSNR
 `+0.11617 dB`다. 다만 동일 degraded val100에서 guarded v2가 네 preset
 모두 `0.0409~0.0985 dB` 높으므로 public 기본값은 바꾸지 않는다.
 
+추가로 `tools/analysis/sweep_stage2_interpolation.py`로 bridge v2와 guarded
+v2 checkpoint를 선형 weight interpolation했다. Alpha는 guarded v2 비율이며
+`0.0~1.0`을 `0.125` 간격으로 평가했다. val100 5-preset composite에서는
+alpha `0.25`가 가장 좋은 유효 후보였다. bridge 대비 clean은 `-0.00833 dB`
+낮지만 mild/detail/v2/v3는 `+0.03215/+0.03590/+0.01612/+0.03029 dB`
+높고 raw score는 `25.99427 -> 26.00653`으로 올랐다. 그러나 formal
+219-image clean benchmark에서는 bridge v2 대비 Y PSNR `-0.00884 dB`,
+Y SSIM `-0.000257`로 내려간다. 따라서 soup은 trade-off 확인용 연구 결과로
+보존하고 public 기본값이나 bridge v2 HF checkpoint를 대체하지 않는다.
+
 ```text
 metrics/stage2_robustness_bridge_v2_summary.json
 metrics/formal_x4_benchmark_stage2_robustness_bridge_v2_summary.json
 metrics/formal_x4_benchmark_stage2_robustness_bridge_v2_metrics.csv
+metrics/stage2_bridge_guarded_interpolation_sweep_val100.json
+metrics/formal_x4_benchmark_stage2_bridge_guarded_soup_a025_summary.json
+metrics/formal_x4_benchmark_stage2_bridge_guarded_soup_a025_metrics.csv
 samples/stage2_robustness_bridge_v2_contact_sheet.jpg
+samples/stage2_bridge_guarded_soup_a025_contact_sheet.jpg
 ```
 
 SwinIR output은 외부 official repository에서 생성한 뒤 같은 evaluator에

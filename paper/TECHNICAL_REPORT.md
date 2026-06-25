@@ -261,6 +261,9 @@ metrics/formal_x4_benchmark_stage2_guarded_tta_compare_summary.json
 metrics/formal_x4_benchmark_stage2_guarded_tta_compare_metrics.csv
 metrics/formal_x4_benchmark_stage2_latent_adapter_v1_value_compare_summary.json
 metrics/formal_x4_benchmark_stage2_latent_adapter_v1_value_compare_metrics.csv
+metrics/stage2_bridge_guarded_interpolation_sweep_val100.json
+metrics/formal_x4_benchmark_stage2_bridge_guarded_soup_a025_summary.json
+metrics/formal_x4_benchmark_stage2_bridge_guarded_soup_a025_metrics.csv
 ```
 
 ## Stage 2 Clean-Fidelity Continuation and Learning-Rate Probes
@@ -490,6 +493,18 @@ decoded PSNR but trails guarded v2 by `0.04087`, `0.06238`, `0.04268`, and
 `0.09853 dB` on mild, photo-detail-mix, photo-v2, and photo-v3-noise-mix.
 Bridge v2 is therefore preserved as a balanced clean/robustness research
 checkpoint rather than replacing the public default.
+
+We also tested a no-training model soup between bridge v2 best1000 and guarded
+v2 best10000. The sweep linearly interpolates all compatible Stage 2 weights;
+alpha denotes the guarded-v2 fraction. On the same five val100 presets, alpha
+`0.25` is the best valid point: clean mean PSNR drops only `0.00833 dB` from
+bridge v2, while mild, photo-detail-mix, photo-v2, and photo-v3-noise-mix
+increase by `0.03215`, `0.03590`, `0.01612`, and `0.03029 dB`. The raw
+composite score rises from `25.99427` to `26.00653`. However, the formal
+219-image clean-bicubic benchmark falls to `27.96126` Y PSNR and `0.80233`
+Y SSIM, which is `0.00884 dB` and `0.000257` below bridge v2. The soup is
+therefore useful evidence for the clean/robustness trade-off, but it does not
+replace either the bridge research checkpoint or the public guarded default.
 
 ## Stage 2 Detail-Perceptual Continuation Review
 
@@ -1384,6 +1399,9 @@ metrics/formal_x4_benchmark_stage2_detail_perceptual_v1_metrics.csv
 metrics/formal_x4_benchmark_stage2_detail_perceptual_v1_delta_crop_selection.csv
 metrics/formal_x4_benchmark_stage2_latent_adapter_v1_value_compare_summary.json
 metrics/formal_x4_benchmark_stage2_latent_adapter_v1_value_compare_metrics.csv
+metrics/stage2_bridge_guarded_interpolation_sweep_val100.json
+metrics/formal_x4_benchmark_stage2_bridge_guarded_soup_a025_summary.json
+metrics/formal_x4_benchmark_stage2_bridge_guarded_soup_a025_metrics.csv
 samples/stage4_photo100k_xl_edge_b16_val100_t50_32step_grid_lr_bicubic_sr_gt.png
 samples/diagnose_stage2_xl_residuals_mild_val100_grid.png
 samples/residual_refiner_stage2_xl_mild_probe_step500_grid.png

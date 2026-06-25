@@ -3023,3 +3023,29 @@ formal 219-image에서 V3 대비 Y PSNR `-0.02156 dB`, Y SSIM
 bridge v2는 clean fidelity와 실제 열화 대응 사이의 balanced 연구 checkpoint로
 보존한다. 70/30 mix를 더 오래 돌리는 실험은 step1000 이후 composite가
 정체됐으므로 반복하지 않는다.
+
+### 2026-06-25 Stage2 bridge/guarded checkpoint soup
+
+학습 없이 Pareto 지점을 확인하기 위해 bridge v2 best1000과 public guarded v2
+best10000의 weight interpolation sweep을 추가했다.
+`tools/analysis/sweep_stage2_interpolation.py`가 두 checkpoint의 key/shape를
+검증한 뒤 alpha별로 clean/mild/photo_detail_mix/photo_v2/photo_v3_noise_mix
+val100을 평가한다. Alpha는 guarded v2 비율이다.
+
+`0.0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1.0` 중 clean
+guardrail을 통과한 best는 alpha `0.25`였다. bridge 대비 clean mean PSNR은
+`27.03580 -> 27.02747` (`-0.00833 dB`)로 거의 유지했고,
+mild/detail/photo_v2/photo_v3는
+`+0.03215/+0.03590/+0.01612/+0.03029 dB` 올랐다. raw composite도
+`25.99427 -> 26.00653`으로 개선됐다. alpha `0.375`부터는 clean PSNR
+`27.0194`로 guardrail `27.02`를 살짝 밑돌아 invalid가 된다.
+
+하지만 alpha `0.25` checkpoint를 실제로 저장해 formal 219-image benchmark를
+돌리면 Y PSNR `27.96126`, Y SSIM `0.80233`이다. bridge v2 대비
+`-0.00884 dB/-0.000257`이고, V3 대비 격차도 더 벌어진다. 따라서 soup은
+degraded val100 robustness를 조금 당기는 trade-off 확인으로는 유효하지만,
+public 기본값이나 bridge v2 HF checkpoint를 대체하지 않는다. 결과는
+`metrics/stage2_bridge_guarded_interpolation_sweep_val100.json`,
+`metrics/formal_x4_benchmark_stage2_bridge_guarded_soup_a025_summary.json`,
+`metrics/formal_x4_benchmark_stage2_bridge_guarded_soup_a025_metrics.csv`,
+`samples/stage2_bridge_guarded_soup_a025_contact_sheet.jpg`에 보존한다.

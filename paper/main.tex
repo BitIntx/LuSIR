@@ -467,6 +467,9 @@ The reproducible protocol and commands are in
 \NormalTok{metrics/formal\_x4\_benchmark\_stage2\_guarded\_tta\_compare\_metrics.csv}
 \NormalTok{metrics/formal\_x4\_benchmark\_stage2\_latent\_adapter\_v1\_value\_compare\_summary.json}
 \NormalTok{metrics/formal\_x4\_benchmark\_stage2\_latent\_adapter\_v1\_value\_compare\_metrics.csv}
+\NormalTok{metrics/stage2\_bridge\_guarded\_interpolation\_sweep\_val100.json}
+\NormalTok{metrics/formal\_x4\_benchmark\_stage2\_bridge\_guarded\_soup\_a025\_summary.json}
+\NormalTok{metrics/formal\_x4\_benchmark\_stage2\_bridge\_guarded\_soup\_a025\_metrics.csv}
 \end{Highlighting}
 \end{Shaded}
 
@@ -769,6 +772,21 @@ degraded-input default. On the same five val100 sets, bridge v2 gains
 photo-v3-noise-mix. Bridge v2 is therefore preserved as a balanced
 clean/robustness research checkpoint rather than replacing the public
 default.
+
+We also tested a no-training model soup between bridge v2 best1000 and
+guarded v2 best10000. The sweep linearly interpolates all compatible
+Stage 2 weights; alpha denotes the guarded-v2 fraction. On the same five
+val100 presets, alpha \texttt{0.25} is the best valid point: clean mean
+PSNR drops only \texttt{0.00833\ dB} from bridge v2, while mild,
+photo-detail-mix, photo-v2, and photo-v3-noise-mix increase by
+\texttt{0.03215}, \texttt{0.03590}, \texttt{0.01612}, and
+\texttt{0.03029\ dB}. The raw composite score rises from
+\texttt{25.99427} to \texttt{26.00653}. However, the formal 219-image
+clean-bicubic benchmark falls to \texttt{27.96126} Y PSNR and
+\texttt{0.80233} Y SSIM, which is \texttt{0.00884\ dB} and
+\texttt{0.000257} below bridge v2. The soup is therefore useful evidence
+for the clean/robustness trade-off, but it does not replace either the
+bridge research checkpoint or the public guarded default.
 
 \hypertarget{stage-2-detail-perceptual-continuation-review}{%
 \section{Stage 2 Detail-Perceptual Continuation
@@ -1932,6 +1950,9 @@ Hugging Face:
 \NormalTok{metrics/formal\_x4\_benchmark\_stage2\_detail\_perceptual\_v1\_delta\_crop\_selection.csv}
 \NormalTok{metrics/formal\_x4\_benchmark\_stage2\_latent\_adapter\_v1\_value\_compare\_summary.json}
 \NormalTok{metrics/formal\_x4\_benchmark\_stage2\_latent\_adapter\_v1\_value\_compare\_metrics.csv}
+\NormalTok{metrics/stage2\_bridge\_guarded\_interpolation\_sweep\_val100.json}
+\NormalTok{metrics/formal\_x4\_benchmark\_stage2\_bridge\_guarded\_soup\_a025\_summary.json}
+\NormalTok{metrics/formal\_x4\_benchmark\_stage2\_bridge\_guarded\_soup\_a025\_metrics.csv}
 \NormalTok{samples/stage4\_photo100k\_xl\_edge\_b16\_val100\_t50\_32step\_grid\_lr\_bicubic\_sr\_gt.png}
 \NormalTok{samples/diagnose\_stage2\_xl\_residuals\_mild\_val100\_grid.png}
 \NormalTok{samples/residual\_refiner\_stage2\_xl\_mild\_probe\_step500\_grid.png}

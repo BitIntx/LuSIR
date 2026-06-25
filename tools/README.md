@@ -77,6 +77,17 @@ The completed v1b run selects step 39500 (`best_eval_detail.pt`): val100 PSNR
 delta `+0.0461 dB`, SSIM delta `+0.00268`, and wins `98/100` versus the frozen
 base.
 
+Stage 2 checkpoint interpolation sweep:
+
+```bash
+python tools/analysis/sweep_stage2_interpolation.py \
+  --config configs/latent_pretrain_photo130k_lsdir_dual_robustness_bridge_v2.yaml \
+  --checkpoint-a /path/to/bridge_v2.pt \
+  --checkpoint-b /path/to/guarded_v2.pt \
+  --alpha 0 --alpha 0.25 --alpha 0.5 --alpha 0.75 --alpha 1 \
+  --output metrics/stage2_bridge_guarded_interpolation_sweep_val100.json
+```
+
 Colab WebUI:
 
 ```bash

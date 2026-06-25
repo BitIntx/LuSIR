@@ -1,0 +1,93 @@
+{
+  "candidates": {
+    "bicubic": {
+      "by_dataset": {
+        "DIV2K": {
+          "count": 100,
+          "mean_rgb_psnr": 26.682888905924038,
+          "mean_rgb_ssim": 0.7519832918206025,
+          "mean_y_psnr": 28.104447077829068,
+          "mean_y_ssim": 0.7744344440926121
+        },
+        "Set14": {
+          "count": 14,
+          "mean_rgb_psnr": 24.466428790177485,
+          "mean_rgb_ssim": 0.6639526695647072,
+          "mean_y_psnr": 26.092754727832787,
+          "mean_y_ssim": 0.7049105502099173
+        },
+        "Set5": {
+          "count": 5,
+          "mean_rgb_psnr": 26.695956233017256,
+          "mean_rgb_ssim": 0.7733691878543689,
+          "mean_y_psnr": 28.43175355184288,
+          "mean_y_ssim": 0.8112626696705835
+        },
+        "Urban100": {
+          "count": 100,
+          "mean_rgb_psnr": 21.70767561927902,
+          "mean_rgb_ssim": 0.6319762536793598,
+          "mean_y_psnr": 23.141237611962925,
+          "mean_y_ssim": 0.6581525881373521
+        }
+      },
+      "count": 219,
+      "mean_rgb_psnr": 24.269708843597616,
+      "mean_rgb_ssim": 0.6920462916126666,
+      "mean_y_psnr": 25.71701279875833,
+      "mean_y_ssim": 0.7177340834442383
+    },
+    "stage2_bridge_guarded_soup_a025": {
+      "by_dataset": {
+        "DIV2K": {
+          "count": 100,
+          "mean_rgb_psnr": 28.59672909169863,
+          "mean_rgb_ssim": 0.8120281313800983,
+          "mean_y_psnr": 30.07976081992482,
+          "mean_y_ssim": 0.8328884542448063
+        },
+        "Set14": {
+          "count": 14,
+          "mean_rgb_psnr": 26.549003901100715,
+          "mean_rgb_ssim": 0.7394369693073882,
+          "mean_y_psnr": 28.35961138981427,
+          "mean_y_ssim": 0.7784123641666423
+        },
+        "Set5": {
+          "count": 5,
+          "mean_rgb_psnr": 29.826222933327323,
+          "mean_rgb_ssim": 0.8564292552454132,
+          "mean_y_psnr": 31.784345831800373,
+          "mean_y_ssim": 0.8908111058977097
+        },
+        "Urban100": {
+          "count": 100,
+          "mean_rgb_psnr": 24.087756679639842,
+          "mean_rgb_ssim": 0.7473033740595953,
+          "mean_y_psnr": 25.59584561759664,
+          "mean_y_ssim": 0.7706958795756603
+        }
+      },
+      "count": 219,
+      "mean_rgb_psnr": 26.435003408291752,
+      "mean_rgb_psnr_delta_vs_bicubic": 2.1652945646941406,
+      "mean_rgb_ssim": 0.7788466410525108,
+      "mean_rgb_ssim_delta_vs_bicubic": 0.0868003494398442,
+      "mean_y_psnr": 27.96126453136323,
+      "mean_y_psnr_delta_vs_bicubic": 2.2442517326049067,
+      "mean_y_ssim": 0.8023299635153799,
+      "mean_y_ssim_delta_vs_bicubic": 0.08459588007114155,
+      "wins_rgb_psnr_vs_bicubic": 219,
+      "wins_rgb_ssim_vs_bicubic": 219,
+      "wins_y_psnr_vs_bicubic": 219,
+      "wins_y_ssim_vs_bicubic": 219
+    }
+  },
+  "crop_border": 4,
+  "include_rgb_ssim": true,
+  "include_ssim": true,
+  "manifest": "/home/ubuntu/scratch/sr-diffusion/benchmarks/x4_benchmark_manifest.csv",
+  "num_images": 219,
+  "protocol": "official x4 LR pairs; MATLAB BT.601 Y; scale-pixel shave; MATLAB-style SSIM when enabled",
+  "workers": 8
+}

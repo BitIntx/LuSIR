@@ -1330,6 +1330,17 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
   따라서 public 기본값은 guarded v2를 유지하고 bridge v2는 balanced
   clean/robustness 연구 checkpoint로 HF에 보존한다. 결과는
   `metrics/stage2_robustness_bridge_v2_summary.json`에 있다.
+- bridge v2와 guarded v2의 linear weight soup도 확인했다. 도구는
+  `tools/analysis/sweep_stage2_interpolation.py`이고 alpha는 guarded v2
+  비율이다. val100 5-preset composite에서 alpha `0.25`가 best valid였다.
+  bridge 대비 clean `-0.00833 dB`, mild/detail/photo_v2/photo_v3는
+  `+0.03215/+0.03590/+0.01612/+0.03029 dB`, raw score는
+  `25.99427 -> 26.00653`이다. 그러나 formal 219-image benchmark는
+  Y PSNR `27.96126`, Y SSIM `0.80233`으로 bridge v2보다
+  `-0.00884 dB/-0.000257` 낮다. 따라서 soup은 연구 note로만 보존하고
+  public 기본값/bridge HF checkpoint를 바꾸지 않는다. 결과는
+  `metrics/stage2_bridge_guarded_interpolation_sweep_val100.json`과
+  `metrics/formal_x4_benchmark_stage2_bridge_guarded_soup_a025_summary.json`에 있다.
 5. 현재 Stage2 continuation은 원래 LR로 보존하되, 같은 objective의 장기
    continuation이 SwinIR gap이나 visible detail을 해결할 것으로 기대하지 않는다.
 6. latent residual v1, Stage2 latent residual adapter v1, signed-wavelet
