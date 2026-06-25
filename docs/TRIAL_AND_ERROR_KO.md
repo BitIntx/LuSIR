@@ -3005,3 +3005,21 @@ v2는 clean을 `70%`, degraded를 `30%`로 바꾸고 강한 v2/v3 합계를
 250 step마다 같은 다섯 val100을 평가한다. 목표는 clean 손실을
 `0.035 dB` 안에 묶으면서 mild/detail `+0.10 dB`, strong
 `+0.25 dB` 이상을 얻는 것이다. CUDA smoke와 전체 `98 tests`를 통과했다.
+
+v2는 1500 step을 정상 완료했고 step1000을 선택했다. composite는
+`25.74290 -> 25.99427`, clean mean PSNR은 `-0.01925 dB`만 변했다.
+동시에 mild/detail/photo_v2/photo_v3 mean PSNR은
+`+0.24575/+0.22719/+0.80926/+0.70348 dB` 개선됐다. 모든 평가 지점이
+clean PSNR/SSIM/excess guardrail을 통과했다.
+
+formal 219-image에서 V3 대비 Y PSNR `-0.02156 dB`, Y SSIM
+`-0.000366`이고, dual best98000 대비 `+0.12697 dB/+0.00517`다.
+같은 decoded PSNR로 dual과 비교하면 네 degraded preset 차이가
+`-0.05254~+0.01827 dB`라 V3가 잃었던 robustness를 거의 회복했다.
+
+반면 public guarded v2와 직접 비교하면 bridge가 clean은 `+0.05825 dB`
+높지만 mild/detail/v2/v3는 `-0.04087/-0.06238/-0.04268/-0.09853 dB`다.
+따라서 “모든 면의 새 최고”는 아니다. public 기본값은 guarded v2를 유지하고,
+bridge v2는 clean fidelity와 실제 열화 대응 사이의 balanced 연구 checkpoint로
+보존한다. 70/30 mix를 더 오래 돌리는 실험은 step1000 이후 composite가
+정체됐으므로 반복하지 않는다.

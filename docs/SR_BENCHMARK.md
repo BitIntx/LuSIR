@@ -323,6 +323,32 @@ samples/stage2_latent_adapter_v1_value_compare_selected.jpg
 samples/stage2_latent_adapter_v1_value_compare_contact_sheet.jpg
 ```
 
+## 2026-06-25 Stage2 Robustness Bridge v2
+
+V3 best11500에서 70% clean / 30% mixed-degradation으로 1500 step
+continuation한 bridge v2의 selected step1000을 같은 219-image protocol로
+평가했다.
+
+| Candidate | Mean Y PSNR | Mean Y SSIM | Mean RGB PSNR | Mean RGB SSIM |
+| --- | ---: | ---: | ---: | ---: |
+| Dual-context best98000 | 27.84314 | 0.79742 | 26.31306 | 0.77340 |
+| Generalization V3 best11500 | **27.99167** | **0.80295** | **26.47050** | **0.77969** |
+| Robustness bridge v2 best1000 | 27.97010 | 0.80259 | 26.44386 | 0.77915 |
+| Guarded Stage2 v2 | 27.85393 | 0.79945 | 26.32633 | 0.77555 |
+
+Bridge v2는 V3 대비 Y PSNR `-0.02156 dB`, Y SSIM `-0.000366`이며
+Y-PSNR wins는 `59/219`다. dual best98000 대비로는 Y PSNR
+`+0.12697 dB`, Y SSIM `+0.00517`이고, guarded v2 대비 clean Y PSNR은
+`+0.11617 dB`다. 다만 동일 degraded val100에서 guarded v2가 네 preset
+모두 `0.0409~0.0985 dB` 높으므로 public 기본값은 바꾸지 않는다.
+
+```text
+metrics/stage2_robustness_bridge_v2_summary.json
+metrics/formal_x4_benchmark_stage2_robustness_bridge_v2_summary.json
+metrics/formal_x4_benchmark_stage2_robustness_bridge_v2_metrics.csv
+samples/stage2_robustness_bridge_v2_contact_sheet.jpg
+```
+
 SwinIR output은 외부 official repository에서 생성한 뒤 같은 evaluator에
 입력했다:
 

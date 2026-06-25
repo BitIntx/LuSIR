@@ -1319,8 +1319,17 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
   step250은 clean `27.03346` (`-0.02160 dB`), SSIM `0.82706`, excess
   `0.007321`로 모든 guardrail을 통과했다. 동시에 mild `+0.18215`,
   detail-mix `+0.15581`, photo_v2 `+0.73252`, photo_v3 noise mix
-  `+0.59429 dB`를 얻어 v1보다 clean/robustness 균형이 개선됐다. run은
-  1500 step까지 계속 평가한다.
+  `+0.59429 dB`를 얻어 v1보다 clean/robustness 균형이 개선됐다.
+  1500 step을 정상 완료했고 best는 step1000, composite `25.99427`이다.
+  초기 V3 대비 clean mean PSNR은 `-0.01925 dB`, mild/detail/v2/v3는
+  `+0.24575/+0.22719/+0.80926/+0.70348 dB`다. formal 219-image Y PSNR은
+  `27.97010`, Y SSIM은 `0.80259`로 V3보다 `-0.02156 dB/-0.000366`,
+  dual best98000보다 `+0.12697 dB/+0.00517`다. 동일 5-preset 평가에서
+  public guarded v2는 bridge보다 열화 decoded PSNR이
+  `0.0409~0.0985 dB` 높지만 clean formal Y PSNR은 `0.11617 dB` 낮다.
+  따라서 public 기본값은 guarded v2를 유지하고 bridge v2는 balanced
+  clean/robustness 연구 checkpoint로 HF에 보존한다. 결과는
+  `metrics/stage2_robustness_bridge_v2_summary.json`에 있다.
 5. 현재 Stage2 continuation은 원래 LR로 보존하되, 같은 objective의 장기
    continuation이 SwinIR gap이나 visible detail을 해결할 것으로 기대하지 않는다.
 6. latent residual v1, Stage2 latent residual adapter v1, signed-wavelet

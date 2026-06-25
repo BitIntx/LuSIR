@@ -751,6 +751,25 @@ while photo-v2 and photo-v3-noise-mix improve by \texttt{0.73252} and
 to retain the selected V3 model\textquotesingle s clean guardrail while
 recovering substantial robustness.
 
+The run completed 1500 steps and selected step1000 with composite score
+\texttt{25.99427}. Relative to V3 initialization, clean val100 mean PSNR
+changes by \texttt{-0.01925\ dB}, while mild, photo-detail-mix,
+photo-v2, and photo-v3-noise-mix improve by \texttt{0.24575},
+\texttt{0.22719}, \texttt{0.80926}, and \texttt{0.70348\ dB}. On the
+formal 219-image clean-bicubic benchmark, bridge v2 reaches
+\texttt{27.97010} Y PSNR and \texttt{0.80259} Y SSIM. This is only
+\texttt{0.02156\ dB} and \texttt{0.000366} below V3, while remaining
+\texttt{0.12697\ dB} and \texttt{0.00517} above dual best98000.
+
+The public guarded-detail v2 checkpoint remains the stronger
+degraded-input default. On the same five val100 sets, bridge v2 gains
+\texttt{0.05825\ dB} clean decoded PSNR but trails guarded v2 by
+\texttt{0.04087}, \texttt{0.06238}, \texttt{0.04268}, and
+\texttt{0.09853\ dB} on mild, photo-detail-mix, photo-v2, and
+photo-v3-noise-mix. Bridge v2 is therefore preserved as a balanced
+clean/robustness research checkpoint rather than replacing the public
+default.
+
 \hypertarget{stage-2-detail-perceptual-continuation-review}{%
 \section{Stage 2 Detail-Perceptual Continuation
 Review}\label{stage-2-detail-perceptual-continuation-review}}

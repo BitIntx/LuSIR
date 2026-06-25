@@ -475,6 +475,22 @@ is `27.03346` (`-0.02160 dB`), SSIM is `0.82706`, and excess energy is
 to retain the selected V3 model's clean guardrail while recovering substantial
 robustness.
 
+The run completed 1500 steps and selected step1000 with composite score
+`25.99427`. Relative to V3 initialization, clean val100 mean PSNR changes by
+`-0.01925 dB`, while mild, photo-detail-mix, photo-v2, and
+photo-v3-noise-mix improve by `0.24575`, `0.22719`, `0.80926`, and
+`0.70348 dB`. On the formal 219-image clean-bicubic benchmark, bridge v2
+reaches `27.97010` Y PSNR and `0.80259` Y SSIM. This is only `0.02156 dB`
+and `0.000366` below V3, while remaining `0.12697 dB` and `0.00517` above
+dual best98000.
+
+The public guarded-detail v2 checkpoint remains the stronger degraded-input
+default. On the same five val100 sets, bridge v2 gains `0.05825 dB` clean
+decoded PSNR but trails guarded v2 by `0.04087`, `0.06238`, `0.04268`, and
+`0.09853 dB` on mild, photo-detail-mix, photo-v2, and photo-v3-noise-mix.
+Bridge v2 is therefore preserved as a balanced clean/robustness research
+checkpoint rather than replacing the public default.
+
 ## Stage 2 Detail-Perceptual Continuation Review
 
 A separate Stage 2 continuation started from dual-context best98000 and trained

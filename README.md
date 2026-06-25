@@ -273,11 +273,14 @@ clean mean PSNR fell by `0.0387 dB`, while mild and detail-mix improved by
 checkpoint passed the clean guardrail, so v1 is not promoted. Bridge v2
 reduces the degraded training share from `45%` to `30%`, raises benchmark
 bicubic to `70%`, halves LR to `1e-6`, and limits training to 1500 steps with
-evaluation every 250 steps. Its first trained candidate at step250 passes all
-guardrails: clean changes by only `-0.0216 dB`, while mild, detail-mix,
-photo-v2, and photo-v3-noise improve by `+0.1822`, `+0.1558`, `+0.7325`, and
-`+0.5943 dB`. Training remains active at
-<https://wandb.ai/jwheo/LuSIR/runs/i3txwnqz>.
+evaluation every 250 steps. The run completed and selected step1000. Relative
+to V3 initialization, clean val100 changes by only `-0.0193 dB`, while mild,
+detail-mix, photo-v2, and photo-v3-noise improve by `+0.2458`, `+0.2272`,
+`+0.8093`, and `+0.7035 dB`. On the formal 219-image benchmark it gives back
+only `0.0216 dB` Y PSNR to V3 and remains `+0.1270 dB` above dual best98000.
+It is preserved as a balanced clean/robustness research checkpoint; the public
+guarded-detail v2 default remains stronger on all four degraded val100 presets.
+Run: <https://wandb.ai/jwheo/LuSIR/runs/i3txwnqz>.
 
 The later Stage 2 detail-perceptual continuation from dual-context best98000
 also completed formal 219-image evaluation. Its latest step12000 checkpoint is

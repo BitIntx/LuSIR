@@ -1,0 +1,83 @@
+{
+  "status": "complete",
+  "config": "configs/latent_pretrain_photo130k_lsdir_dual_robustness_bridge_v2.yaml",
+  "hf_config": "configs/hf/latent_pretrain_photo130k_lsdir_dual_robustness_bridge_v2.yaml",
+  "wandb": "https://wandb.ai/jwheo/LuSIR/runs/i3txwnqz",
+  "model_params": 119238352,
+  "final_step": 1500,
+  "selected_checkpoint": {
+    "path": "/home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_robustness_bridge_v2/checkpoints/best_eval_robustness.pt",
+    "step": 1000,
+    "selection_metric": "eval/robustness_score",
+    "selection_score": 25.994269311904908,
+    "selection_valid": 1.0
+  },
+  "training_mix": {
+    "benchmark_bicubic": 0.7,
+    "photo_detail": 0.15,
+    "mild": 0.1,
+    "photo_v2": 0.04,
+    "photo_v3_noise": 0.01
+  },
+  "val100_selected": {
+    "clean": {
+      "decoded_mean_psnr": 27.035799026489258,
+      "decoded_psnr": 25.025871122291164,
+      "decoded_ssim": 0.8267920446395874,
+      "excess_energy": 0.007205101475119591
+    },
+    "mild": {
+      "decoded_mean_psnr": 26.033891372680664,
+      "decoded_psnr": 24.33986074718255
+    },
+    "photo_detail_mix": {
+      "decoded_mean_psnr": 26.42268508911133,
+      "decoded_psnr": 24.56720126656872
+    },
+    "photo_v2": {
+      "decoded_mean_psnr": 23.849055557250978,
+      "decoded_psnr": 22.72370123487444
+    },
+    "photo_v3_noise_mix": {
+      "decoded_mean_psnr": 23.828330688476562,
+      "decoded_psnr": 22.42270767246602
+    }
+  },
+  "decoded_psnr_delta_vs_dual_best98000": {
+    "mild": -0.01841241328946763,
+    "photo_detail_mix": -0.05253949963840356,
+    "photo_v2": -0.04892000515705438,
+    "photo_v3_noise_mix": 0.018265191072186624
+  },
+  "decoded_psnr_delta_vs_guarded_v2_best10000": {
+    "clean": 0.058253463433395325,
+    "mild": -0.04087162187244786,
+    "photo_detail_mix": -0.062375677363220916,
+    "photo_v2": -0.04267785801873458,
+    "photo_v3_noise_mix": -0.09853452939961826
+  },
+  "formal_clean_bicubic_219": {
+    "mean_y_psnr": 27.97010469970792,
+    "mean_y_ssim": 0.8025871003043068,
+    "mean_rgb_psnr": 26.443856403769093,
+    "mean_rgb_ssim": 0.7791524424896948,
+    "delta_vs_generalization_v3": {
+      "mean_y_psnr": -0.021564804347888072,
+      "mean_y_ssim": -0.00036620633705343166,
+      "mean_rgb_psnr": -0.026647853224988156,
+      "mean_rgb_ssim": -0.0005337980991937112,
+      "y_psnr_wins": 59,
+      "y_ssim_wins": 107,
+      "count": 219
+    },
+    "delta_vs_dual_best98000": {
+      "mean_y_psnr": 0.1269693548067105,
+      "mean_y_ssim": 0.005167611896531701
+    },
+    "delta_vs_guarded_v2_best10000": {
+      "mean_y_psnr": 0.11617391326674503,
+      "mean_y_ssim": 0.003133738209963791
+    }
+  },
+  "decision": "Preserve as the balanced clean/robustness Stage2 research checkpoint. It recovers nearly all dual-best98000 degradation fidelity while retaining most of V3 clean fidelity, but it does not replace the public guarded-detail v2 default because guarded v2 remains stronger on all four degraded val100 presets."
+}

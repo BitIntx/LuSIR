@@ -224,6 +224,29 @@ Upload the current T4-friendly guarded-detail Stage 2 default:
   --artifact metrics/stage2_photo130k_lsdir_dual_detail_guarded_v2_best10000_summary.json=metrics/stage2_photo130k_lsdir_dual_detail_guarded_v2_best10000_summary.json
 ```
 
+Upload the balanced clean/robustness Stage 2 research checkpoint:
+
+```bash
+/home/ubuntu/venvs/cuda/bin/python scripts/upload_hf_artifact.py \
+  --repo-id jwheo/LuSIR \
+  --repo-type model \
+  --message "Upload Stage2 robustness bridge v2" \
+  --artifact /home/ubuntu/scratch/sr-diffusion/runs/latent_pretrain_photo130k_lsdir_dual_robustness_bridge_v2/checkpoints/best_eval_robustness.pt=checkpoints/stage2_photo130k_lsdir_dual_robustness_bridge_v2_best1000.pt \
+  --artifact configs/degradation_presets.yaml=configs/degradation_presets.yaml \
+  --artifact configs/latent_pretrain_photo130k_lsdir_dual_robustness_bridge_v2.yaml=configs/latent_pretrain_photo130k_lsdir_dual_robustness_bridge_v2.yaml \
+  --artifact configs/hf/latent_pretrain_photo130k_lsdir_dual_robustness_bridge_v2.yaml=configs/hf/latent_pretrain_photo130k_lsdir_dual_robustness_bridge_v2.yaml \
+  --artifact metrics/stage2_robustness_bridge_v2_summary.json=metrics/stage2_robustness_bridge_v2_summary.json \
+  --artifact metrics/formal_x4_benchmark_stage2_robustness_bridge_v2_summary.json=metrics/formal_x4_benchmark_stage2_robustness_bridge_v2_summary.json \
+  --artifact metrics/formal_x4_benchmark_stage2_robustness_bridge_v2_metrics.csv=metrics/formal_x4_benchmark_stage2_robustness_bridge_v2_metrics.csv \
+  --artifact samples/stage2_robustness_bridge_v2_contact_sheet.jpg=samples/stage2_robustness_bridge_v2_contact_sheet.jpg
+```
+
+Download it with:
+
+```bash
+python scripts/download_hf_checkpoints.py --preset stage2_robustness_bridge_v2
+```
+
 Upload the current best sampled Stage 4 condition-start checkpoint and metrics:
 
 ```bash

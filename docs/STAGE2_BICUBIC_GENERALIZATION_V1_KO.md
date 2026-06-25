@@ -334,12 +334,34 @@ composite `25.74284`, clean `27.05493`, SSIM `0.82665`, excess
 실제 run은 <https://wandb.ai/jwheo/LuSIR/runs/i3txwnqz>에서 추적한다.
 첫 trained candidate인 step250은 모든 guardrail을 통과했다.
 
-| step | clean delta | mild delta | detail-mix delta | photo_v2 delta | v3-noise delta | valid |
-| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 250 | -0.02160 | +0.18215 | +0.15581 | +0.73252 | +0.59429 | 1 |
+| step | composite | clean delta | mild delta | detail delta | v2 delta | v3 delta | valid |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 250 | 25.94973 | -0.02160 | +0.18215 | +0.15581 | +0.73252 | +0.59429 | 1 |
+| 500 | 25.97338 | -0.02038 | +0.20675 | +0.18863 | +0.79182 | +0.65097 | 1 |
+| 750 | 25.98768 | -0.02642 | +0.23276 | +0.21455 | +0.81399 | +0.70262 | 1 |
+| **1000** | **25.99427** | **-0.01925** | **+0.24575** | **+0.22719** | **+0.80926** | **+0.70348** | **1** |
+| 1250 | 25.99323 | -0.02386 | +0.24590 | +0.23287 | +0.80734 | +0.70668 | 1 |
+| 1500 | 25.99120 | -0.02860 | +0.24890 | +0.23502 | +0.80032 | +0.70835 | 1 |
 
-clean은 `27.03346`, SSIM은 `0.82706`, excess는 `0.007321`이다. v1
-step500보다 clean 손실을 `0.0171 dB` 줄이면서 strong degradation 회복의
-대부분을 유지했으므로 방향은 유효하다. 1500 step까지 같은 250-step
-간격으로 평가하되, 이후 clean 손실이 다시 커지면 step250을 우선 후보로
-유지한다.
+1500 step을 정상 완료했고 checkpoint metadata도 step1000을 가리킨다.
+step1000 clean은 `27.03580`, SSIM `0.82679`, excess `0.007205`다.
+
+같은 decoded PSNR 기준으로 step1000을 dual best98000과 비교하면 mild
+`-0.01841`, detail `-0.05254`, photo_v2 `-0.04892`, photo_v3
+`+0.01827 dB`다. 즉 V3가 잃었던 실제 열화 성능을 거의 모두 회복했다.
+
+formal 219-image clean-bicubic 결과:
+
+| candidate | mean Y PSNR | mean Y SSIM | mean RGB PSNR | mean RGB SSIM |
+| --- | ---: | ---: | ---: | ---: |
+| dual best98000 | 27.84314 | 0.79742 | 26.31306 | 0.77340 |
+| V3 best11500 | **27.99167** | **0.80295** | **26.47050** | **0.77969** |
+| bridge v2 best1000 | 27.97010 | 0.80259 | 26.44386 | 0.77915 |
+
+bridge는 V3보다 Y PSNR `-0.02156 dB`, dual보다 `+0.12697 dB`다. clean
+contact sheet에서 V3와 육안 차이는 거의 없다.
+
+public guarded v2와 같은 다섯 val100으로 직접 비교하면 bridge가 clean
+decoded PSNR은 `+0.05825 dB` 높지만 mild/detail/v2/v3는
+`-0.04087/-0.06238/-0.04268/-0.09853 dB`다. 따라서 bridge는 public
+기본값을 교체하지 않고 balanced clean/robustness 연구 checkpoint로 보존한다.
