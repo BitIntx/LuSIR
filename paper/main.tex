@@ -740,7 +740,16 @@ photo detail, \texttt{10\%} mild, \texttt{4\%} photo-v2, and
 \texttt{1\%} photo-v3 noise. Selection and guardrails remain unchanged
 for direct comparison. The initial smoke reproduces composite score
 \texttt{25.74284}, clean mean PSNR \texttt{27.05493}, and passes the
-full 98-test suite.
+full 98-test suite. The live run is tracked at
+\url{https://wandb.ai/jwheo/LuSIR/runs/i3txwnqz}. Its first trained
+candidate at step250 passes all guardrails: clean mean PSNR is
+\texttt{27.03346} (\texttt{-0.02160\ dB}), SSIM is \texttt{0.82706}, and
+excess energy is \texttt{0.007321}. Relative to initialization, mild and
+photo-detail-mix improve by \texttt{0.18215} and \texttt{0.15581\ dB},
+while photo-v2 and photo-v3-noise-mix improve by \texttt{0.73252} and
+\texttt{0.59429\ dB}. This is the first mixed-degradation continuation
+to retain the selected V3 model\textquotesingle s clean guardrail while
+recovering substantial robustness.
 
 \hypertarget{stage-2-detail-perceptual-continuation-review}{%
 \section{Stage 2 Detail-Perceptual Continuation

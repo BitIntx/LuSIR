@@ -1314,6 +1314,13 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
   줄였다. LR은 `2e-6 -> 1e-6`, 최대 1500 step, eval은 250 step마다다.
   best 이외 latest는 저장하지 않는다. smoke 초기 composite `25.74284`,
   clean `27.05493`, selection valid `1.0`이며 전체 `98 tests`를 통과했다.
+  실제 run은 2026-06-25 시작했고 W&B는
+  <https://wandb.ai/jwheo/LuSIR/runs/i3txwnqz>다. 첫 trained candidate
+  step250은 clean `27.03346` (`-0.02160 dB`), SSIM `0.82706`, excess
+  `0.007321`로 모든 guardrail을 통과했다. 동시에 mild `+0.18215`,
+  detail-mix `+0.15581`, photo_v2 `+0.73252`, photo_v3 noise mix
+  `+0.59429 dB`를 얻어 v1보다 clean/robustness 균형이 개선됐다. run은
+  1500 step까지 계속 평가한다.
 5. 현재 Stage2 continuation은 원래 LR로 보존하되, 같은 objective의 장기
    continuation이 SwinIR gap이나 visible detail을 해결할 것으로 기대하지 않는다.
 6. latent residual v1, Stage2 latent residual adapter v1, signed-wavelet

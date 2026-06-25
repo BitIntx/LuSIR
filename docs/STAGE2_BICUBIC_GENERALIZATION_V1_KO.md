@@ -330,3 +330,16 @@ eval: every 250 steps
 selection score와 guardrail은 v1과 같아 직접 비교할 수 있다. smoke 초기값은
 composite `25.74284`, clean `27.05493`, SSIM `0.82665`, excess
 `0.006994`, selection valid `1.0`이다. 전체 test suite는 `98 passed`다.
+
+실제 run은 <https://wandb.ai/jwheo/LuSIR/runs/i3txwnqz>에서 추적한다.
+첫 trained candidate인 step250은 모든 guardrail을 통과했다.
+
+| step | clean delta | mild delta | detail-mix delta | photo_v2 delta | v3-noise delta | valid |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 250 | -0.02160 | +0.18215 | +0.15581 | +0.73252 | +0.59429 | 1 |
+
+clean은 `27.03346`, SSIM은 `0.82706`, excess는 `0.007321`이다. v1
+step500보다 clean 손실을 `0.0171 dB` 줄이면서 strong degradation 회복의
+대부분을 유지했으므로 방향은 유효하다. 1500 step까지 같은 250-step
+간격으로 평가하되, 이후 clean 손실이 다시 커지면 step250을 우선 후보로
+유지한다.
