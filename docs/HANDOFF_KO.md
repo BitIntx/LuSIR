@@ -10,6 +10,26 @@ Restoration**)입니다. GitHub repo id는 `BitIntx/LuSIR`, Hugging Face repo id
 `jwheo/LuSIR`입니다. W&B 기존 run URL, 로컬 scratch 경로, Python import
 namespace에는 아직 `sr-diffusion`/`sr_diffusion` 호환 이름이 남아 있습니다.
 
+## 2026-08-15 vNext 재개 지점
+
+최신 연구 제안과 다음 세션의 실행 순서는
+[`VNEXT_RESIDUAL_FLOW_KO.md`](VNEXT_RESIDUAL_FLOW_KO.md)를 기준으로 합니다.
+핵심 방향은 기존 Stage 1 decoder와 Stage 2 anchor를 보존한 채,
+**Stage2-anchored conditional residual flow**를 별도 생성 경로로 검증하는
+것입니다.
+
+- 상태는 **연구 제안 / 미구현**입니다. 새 코드, 학습 run, checkpoint가 아직
+  있다는 뜻이 아닙니다.
+- 현재 public deterministic 기본값인 guarded-detail Stage2 v2 step `10000`과
+  기존 residual-refiner 옵션은 그대로 유지합니다.
+- 다음 구현은 새 계획서의 Phase 0(고정 baseline/evaluator 확인)과 Phase 1
+  (기존 `ConditionalUNet` 기반 residual-flow 최소 probe)까지만 먼저 진행합니다.
+- 첫 probe에서는 DINOv3/DiT 교체, degradation token, GAN loss, MeanFlow/MeanSR를
+  동시에 넣지 않습니다. 이들은 최소 경로가 통과한 뒤 분리 ablation합니다.
+- 아래 `2026-06-23 현재 상태`와 과거 실험 기록은 검증 결과와 실패 이력의
+  근거로 계속 유효하지만, **앞으로 할 일의 우선순위는 vNext 계획서가
+  우선**합니다.
+
 ## 2026-06-23 현재 상태
 
 ### 학습 단계와 실제 추론 경로
@@ -1142,7 +1162,10 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
 - `decoded_psnr + 5 * detail_ratio`는 shortlist score다. detail energy만
   높이는 인공 고주파/노이즈를 보상할 수 있으므로 이것만으로 승격하지 않는다.
 
-## 다음 작업
+## 과거 실험 진행 기록 (vNext 이전)
+
+아래 항목은 기존 실험의 진행·완료·중단 판단을 보존한 기록입니다. 새 작업을
+재개할 때의 현재 우선순위는 문서 상단의 vNext 계획을 따릅니다.
 
 우선순위:
 
@@ -1399,7 +1422,10 @@ configs/diffusion_photo100k_xl_stage4_condition_v3.yaml
 
 ```text
 이 repo는 LuSIR, 즉 /home/.../sr-diffusion 의 x4 latent diffusion SR 프로젝트다.
-docs/HANDOFF_KO.md 와 docs/VM_RECOVERY_KO.md 를 먼저 읽고 이어서 작업해줘.
+docs/VNEXT_RESIDUAL_FLOW_KO.md, docs/HANDOFF_KO.md,
+docs/VM_RECOVERY_KO.md 를 먼저 읽고 이어서 작업해줘. 최신 다음 작업은
+VNEXT_RESIDUAL_FLOW_KO.md의 Phase 0/1을 기준으로 하고, 그 문서는 아직
+구현되지 않은 연구 제안이라는 상태를 유지해줘.
 Stage 번호는 학습 순서이며 추론 직렬 경로가 아니다. Colab 기본은
 LR -> guarded-detail Stage2 v2 step10000 -> Stage1 decoder다. tile batch size
 기본값은 1이고, TTA inference 옵션이 있다. residual refiner v2는 conservative
