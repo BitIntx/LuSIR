@@ -25,6 +25,11 @@ The canonical report source is
 The current residual-refiner visual review procedure and honest qualitative
 positioning are documented in [docs/VISUAL_REVIEW_KO.md](docs/VISUAL_REVIEW_KO.md).
 
+The August 2026 vNext research proposal is documented in
+[docs/VNEXT_RESIDUAL_FLOW_KO.md](docs/VNEXT_RESIDUAL_FLOW_KO.md). It proposes a
+Stage2-anchored conditional residual-flow path, but is explicitly **not yet
+implemented** and does not change the current public defaults or checkpoints.
+
 This is a public source-available, non-commercial research project. The goal is
 to train an SR model directly, without using a pretrained text-to-image
 diffusion model. The intended final model handles photo and anime/illustration
@@ -874,6 +879,8 @@ artifacts.
 
 For VM migration and continuation context, read:
 
+- [docs/VNEXT_RESIDUAL_FLOW_KO.md](docs/VNEXT_RESIDUAL_FLOW_KO.md) — current
+  proposed research continuation; not yet implemented
 - [docs/HANDOFF_KO.md](docs/HANDOFF_KO.md)
 - [docs/VM_RECOVERY_KO.md](docs/VM_RECOVERY_KO.md)
 - [docs/DOCKER_KO.md](docs/DOCKER_KO.md)
@@ -1799,6 +1806,20 @@ Run the Stage 4 condition-start fine-tune:
   --config configs/diffusion_photo10k_b32_stage4_condition.yaml \
   --init-checkpoint /home/jwheojjang/scratch/sr-diffusion/runs/diffusion_photo10k_b32/checkpoints/best_eval_noise.pt
 ```
+
+vNext research proposal: Stage2-anchored residual flow
+
+- Proposed on 2026-08-15; not implemented and not promoted as a public path.
+- Keep the selected Stage 1 decoder and current Stage 2 anchors frozen, then
+  learn a conditional latent residual-flow correction around the Stage 2
+  prediction.
+- Start with the existing `ConditionalUNet`, a small relative-noise sweep, and
+  one-step versus few-step sampling. Degradation tokens, a DINOv3 conditioner,
+  DiT replacement, GAN loss, and MeanFlow-style training remain later ablations.
+- The current deterministic defaults, Stage 3/4 baselines, and checkpoints stay
+  unchanged until the proposal passes the frozen evaluation and visual gates.
+- See [docs/VNEXT_RESIDUAL_FLOW_KO.md](docs/VNEXT_RESIDUAL_FLOW_KO.md) for the
+  formulation, experiment matrix, promotion/stop criteria, and resume prompt.
 
 Stage 5: few-step distillation
 
